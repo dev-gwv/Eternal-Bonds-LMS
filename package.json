@@ -24,12 +24,15 @@
     "db:diff": "bunx supabase db diff --db-url $DATABASE_URL",
     "db:test-rls": "bun scripts/test-rls.ts",
     "db:test-studio": "bun --env-file=.env scripts/test-studio.ts",
-    "deploy:web": "bun run --filter @ipc/web build && bun x wrangler deploy --config apps/web/wrangler.jsonc",
-    "deploy:api": "bun x wrangler deploy --config services/api/wrangler.jsonc",
+    "deploy:web": "bun run --filter @ipc/web build && bun --env-file=.env x wrangler deploy --config apps/web/wrangler.jsonc",
+    "deploy:api": "bun --env-file=.env x wrangler deploy --config services/api/wrangler.jsonc",
     "deploy:worker": "fly deploy -c fly.worker.toml",
     "test": "bun test tests/",
     "db:test-engagement": "bun --env-file=.env scripts/test-engagement.ts",
-    "deploy:api:fly": "fly deploy"
+    "deploy:api:fly": "fly deploy",
+    "cf:secrets": "bun --env-file=.env x wrangler secret bulk cf-secrets.json --config services/api/wrangler.jsonc",
+    "cf:whoami": "bun --env-file=.env x wrangler whoami",
+    "cf:tail": "bun --env-file=.env x wrangler tail --config services/api/wrangler.jsonc"
   },
   "devDependencies": {
     "supabase": "^2.48.3",
