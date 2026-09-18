@@ -43,3 +43,49 @@ export async function signInWithGoogle() {
 export async function signOut() {
   await supabase?.auth.signOut();
 }
+
+/* ── Test sign-in ──────────────────────────────────────────────────────────
+   A shortcut for clicking around a deployed build without waiting for an OTP.
+
+   It is **not** an auth bypass, and that is the whole design. It signs in to a
+   real Supabase account and gets a real session, so RLS decides what that
+   account can see exactly as it would for any member. If the build ever ships
+   with this enabled, the worst case is a stranger seeing what one ordinary
+   test member sees — not a hole in the access model.
+
+   Both variables are build-time. A normal build has neither, so none of this
+   reaches the bundle.
+
+   Written so the constant folds. Vite inlines `import.meta.env.VITE_*` as a
+   literal, so with the variables unset these become `''`, `DEV_LOGIN` becomes
+   a literal `false`, and the minifier deletes the button, its warning banner
+   and this function from the bundle entirely — verified by grepping dist. A
+   guard that also tested `supabase` at runtime would leave the whole branch
+   sitting in the output for anyone to read. */
+
+const devEmail = import.meta.env.VITE_DEV_LOGIN_EMAIL || '';
+const devPassword = import.meta.env.VITE_DEV_LOGIN_PASSWORD || '';
+
+/** Injected by vite.config.ts as a literal `true` or `false`. */
+declare const __DEV_LOGIN__: boolean;
+
+/**
+ * A compile-time literal, so the button is dead code in a normal build and the
+ * bundler deletes it.
+ *
+ * Deliberately does **not** also test `supabase`: one runtime value in here
+ * makes the export non-literal, folding stops across module boundaries, and
+ * the markup survives into the output for anyone to read. The `supabase` check
+ * lives in `signInAsTestUser`, where it is needed anyway.
+ */
+export const devLoginEnabled = __DEV_LOGIN__;
+
+export async function signInAsTestUser() {
+  if (!devLoginEnabled || !supabase) {
+    throw new Error('No test account is configured for this build.');
+  }
+  return supabase.auth.signInWithPassword({ email: devEmail, password: devPassword });
+}
+
+/** Shown on the button so nobody has to guess which account it uses. */
+export const devLoginEmail = devEmail;

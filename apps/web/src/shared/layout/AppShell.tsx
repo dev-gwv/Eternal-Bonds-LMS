@@ -5,6 +5,7 @@ import { fetchViewer } from '../admin-api.ts';
 import { Avatar, Icon } from '../ui/primitives.tsx';
 import { NotificationBell } from '../ui/NotificationBell.tsx';
 import { useSession } from '../session.tsx';
+import { devLoginEnabled } from '../supabase.ts';
 import { SignInPage } from '../../routes/SignIn.tsx';
 
 /** The six sections, in the order members already know from the old app. */
@@ -171,6 +172,20 @@ export function AppShell() {
         {demo && (
           <div className="callout" role="status">
             Demo mode — the API is serving seed content. Connect Supabase to sign in and write.
+          </div>
+        )}
+        {/* Deliberately loud and always on screen. A one-click sign-in button
+            is the kind of thing that survives to launch precisely because it
+            only appears on a page nobody looks at twice. */}
+        {devLoginEnabled && (
+          <div
+            className="callout"
+            role="alert"
+            style={{ background: '#fdeceb', color: '#a3271e', fontWeight: 500 }}
+          >
+            Test build — the sign-in page has a one-click skip button that anyone can use. Rebuild
+            without <code>VITE_DEV_LOGIN_EMAIL</code> and <code>VITE_DEV_LOGIN_PASSWORD</code> before
+            real members use this.
           </div>
         )}
         <Outlet />

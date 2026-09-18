@@ -67,6 +67,13 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
 
+      # The test sign-in button must not reach a production bundle. It is dead
+      # code in a normal build, but a config change or a bundler upgrade could
+      # quietly stop the folding, and the failure mode is a one-click login
+      # sitting in production where nobody looks.
+      - name: No test sign-in in the bundle
+        run: bun run check:no-dev-login
+
   database:
     name: Migrations, RLS, studio and engagement
     needs: gate

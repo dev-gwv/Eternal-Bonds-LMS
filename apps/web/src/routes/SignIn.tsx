@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { authConfigured, signInWithGoogle, supabase } from '../shared/supabase.ts';
+import {
+  authConfigured,
+  devLoginEmail,
+  devLoginEnabled,
+  signInAsTestUser,
+  signInWithGoogle,
+  supabase,
+} from '../shared/supabase.ts';
 import { Icon } from '../shared/ui/primitives.tsx';
 
 type Step = 'phone' | 'code' | 'sent';
@@ -48,6 +55,36 @@ export function SignInPage() {
           <div className="callout">
             Supabase is not configured, so the app is running on seed data. Add
             <code> VITE_SUPABASE_URL</code> and <code> VITE_SUPABASE_ANON_KEY</code> to sign in for real.
+          </div>
+        )}
+
+        {devLoginEnabled && (
+          <div
+            style={{
+              border: '1px dashed var(--red)',
+              borderRadius: 'var(--r-ctl)',
+              padding: 12,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: 'var(--red)' }}>
+              TEST BUILD — REMOVE BEFORE LAUNCH
+            </span>
+            <button
+              type="button"
+              className="btn btn-soft btn-sq"
+              style={{ padding: 11 }}
+              disabled={busy}
+              onClick={() => void run(() => signInAsTestUser())}
+            >
+              {busy ? 'Signing in…' : `Skip login (${devLoginEmail})`}
+            </button>
+            <span style={{ fontSize: 10, lineHeight: 1.5 }} className="dim">
+              Signs in as a real account, so it sees exactly what that member sees. Anyone who opens
+              this page can click it.
+            </span>
           </div>
         )}
 
