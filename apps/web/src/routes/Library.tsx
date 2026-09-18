@@ -71,7 +71,7 @@ export function LibraryPage() {
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
           <span style={{ fontSize: 10, letterSpacing: '0.2em', color: '#b07a94', fontWeight: 500 }}>
-            INDIA PHOTOGRAPHERS CLUB
+            ETERNAL BONDS
           </span>
           <span style={{ fontSize: 26, fontWeight: 600, letterSpacing: '0.02em' }}>Your Library</span>
           <span style={{ fontSize: 12 }} className="muted">Everything you need — always within reach</span>

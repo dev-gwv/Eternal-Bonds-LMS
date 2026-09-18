@@ -18,7 +18,7 @@ export const EnvSchema = z.object({
      behaviour on a laptop and visible in production logs if it is ever wrong. */
   EMAIL_PROVIDER: z.enum(['resend', 'console']).default('console'),
   EMAIL_API_KEY: z.string().default(''),
-  EMAIL_FROM: z.string().default('India Photographers Club <no-reply@example.com>'),
+  EMAIL_FROM: z.string().default('Eternal Bonds <no-reply@example.com>'),
   EMAIL_REPLY_TO: z.string().default(''),
 
   /* Push. FCM HTTP v1; iOS rides on FCM rather than talking to APNs directly,

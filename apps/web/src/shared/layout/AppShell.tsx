@@ -28,8 +28,8 @@ function TopBar() {
       <div className="wordmark">
         <span className="wordmark-dot" />
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span className="wordmark-name">INDIA</span>
-          <span className="wordmark-sub">PHOTOGRAPHERS CLUB</span>
+          <span className="wordmark-name">ETERNAL</span>
+          <span className="wordmark-sub">BONDS</span>
         </div>
       </div>
 
@@ -134,7 +134,7 @@ export function PageHeader({
 function Footer() {
   return (
     <footer className="footer">
-      <span>Copyright © 2026 India Photographers Club</span>
+      <span>Copyright © 2026 Eternal Bonds</span>
       <a href="#privacy">Privacy Policy</a>
       <a href="#terms">Terms and conditions</a>
       <a href="#contact">Contact</a>

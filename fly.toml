@@ -17,7 +17,7 @@ primary_region = "bom"          # Mumbai: the members and the database are here.
   NODE_ENV = "production"
   STORAGE_BUCKET = "ipc-media"
   VIDEO_PROVIDER = "none"
-  ALLOWED_ORIGINS = "https://app.indiaphotographersclub.com"
+  ALLOWED_ORIGINS = "https://eternal-bonds-web.dev-d9b.workers.dev"
 
 [http_service]
   internal_port = 8080

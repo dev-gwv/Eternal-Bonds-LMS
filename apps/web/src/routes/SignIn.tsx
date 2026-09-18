@@ -39,7 +39,7 @@ export function SignInPage() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
           <span className="wordmark-dot" style={{ width: 34, height: 34, borderRadius: 11 }} />
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 18, fontWeight: 600 }}>India Photographers Club</div>
+            <div style={{ fontSize: 18, fontWeight: 600 }}>Eternal Bonds</div>
             <div style={{ fontSize: 11 }} className="dim">Sign in to your membership</div>
           </div>
         </div>

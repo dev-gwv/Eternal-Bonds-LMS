@@ -133,7 +133,7 @@ export function MembershipPage() {
         key: ticket.keyId,
         amount: ticket.amountPaise,
         currency: ticket.currency,
-        name: 'India Photographers Club',
+        name: 'Eternal Bonds',
         description: ticket.planName,
         order_id: ticket.providerOrderId,
         theme: { color: '#f48fb1' },

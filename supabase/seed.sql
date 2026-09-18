@@ -43,7 +43,7 @@ from public.modules m
 where not exists (select 1 from public.lessons l where l.module_id = m.id);
 
 insert into public.workshops (title, host_name, starts_at, ends_at, platform, recurring, occurrence_index, occurrence_total, min_tier) values
-  ('New Diamond Members Planning Call', 'India Photographers Club',
+  ('New Diamond Members Planning Call', 'Eternal Bonds',
    date_trunc('day', now()) + interval '2 day' + interval '9 hour',
    date_trunc('day', now()) + interval '2 day' + interval '14 hour',
    'zoom_webinar', true, 50, 405, 'diamond'),

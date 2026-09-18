@@ -1,6 +1,6 @@
-# India Photographers Club — platform
+# Eternal Bonds — platform
 
-Rebuild of the club's member platform: dashboard, community, workshops, courses and library,
+Eternal Bonds is the club's member platform: dashboard, community, workshops, courses and library,
 behind the top navigation members already know.
 
 - **Build status**: [`docs/status.md`](docs/status.md) — what is real and what is stubbed, per feature

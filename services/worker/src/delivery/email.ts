@@ -90,7 +90,7 @@ const shell = (title: string, body: string, appUrl: string) => `
 <!doctype html>
 <html><body style="margin:0;padding:24px;background:#edeff7;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#2e2e38">
   <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;padding:28px">
-    <div style="font-size:11px;letter-spacing:.14em;color:#8a8a99;text-transform:uppercase">India Photographers Club</div>
+    <div style="font-size:11px;letter-spacing:.14em;color:#8a8a99;text-transform:uppercase">Eternal Bonds</div>
     <h1 style="font-size:19px;font-weight:600;margin:14px 0 16px">${escapeHtml(title)}</h1>
     ${body}
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid #f0f0f4;font-size:11px;color:#a8a8b8">
@@ -119,7 +119,7 @@ export function digestEmail(
     appUrl,
   );
 
-  const text = `Your week at India Photographers Club\n\n${spent} learning, ${stats.xp} XP${
+  const text = `Your week at Eternal Bonds\n\n${spent} learning, ${stats.xp} XP${
     stats.lessons > 0 ? `, ${stats.lessons} lesson(s) finished` : ''
   }.\n\nPick up where you left off: ${appUrl}\n`;
 
