@@ -19,3 +19,7 @@ design inspiration/
 # Wrangler and Fly scratch
 .wrangler/
 .fly/
+
+# Filled-in copy of cf-secrets.example.json. Holds real Cloudflare secrets on
+# their way to `wrangler secret bulk`. Never committed; delete it after upload.
+cf-secrets.json
