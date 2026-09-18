@@ -31,11 +31,17 @@ jobs:
       cloudflare: ${{ steps.check.outputs.cloudflare }}
     steps:
       - id: check
+        # Passed through `env`, never interpolated into the script: a secret
+        # containing a quote would otherwise rewrite the command around it.
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           have() { [ -n "$1" ] && echo true || echo false; }
-          echo "db=$(have '${{ secrets.DATABASE_URL }}')" >> "$GITHUB_OUTPUT"
-          echo "fly=$(have '${{ secrets.FLY_API_TOKEN }}')" >> "$GITHUB_OUTPUT"
-          echo "cloudflare=$(have '${{ secrets.CLOUDFLARE_API_TOKEN }}')" >> "$GITHUB_OUTPUT"
+          echo "db=$(have "$DATABASE_URL")" >> "$GITHUB_OUTPUT"
+          echo "fly=$(have "$FLY_API_TOKEN")" >> "$GITHUB_OUTPUT"
+          echo "cloudflare=$(have "$CLOUDFLARE_API_TOKEN")" >> "$GITHUB_OUTPUT"
       - name: Say what will happen
         run: |
           echo "### Deploy plan" >> "$GITHUB_STEP_SUMMARY"
