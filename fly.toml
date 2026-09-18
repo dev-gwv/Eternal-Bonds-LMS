@@ -1,0 +1,42 @@
+# The API. `fly deploy` from the repo root.
+#
+# Why a container and not only Workers: the API holds a Postgres connection
+# pool, and pooling is the thing the edge is worst at. A long-lived process in
+# one region, next to the database, is both simpler and cheaper here. The
+# Workers entrypoint stays supported (services/api/src/worker.ts) so the choice
+# is reversible — see docs/deploy.md.
+
+app = "ipc-api"
+primary_region = "bom"          # Mumbai: the members and the database are here.
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  NODE_ENV = "production"
+  STORAGE_BUCKET = "ipc-media"
+  VIDEO_PROVIDER = "none"
+  ALLOWED_ORIGINS = "https://app.indiaphotographersclub.com"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  # One machine always up: a cold start in the middle of a lesson is felt.
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# Secrets are set with `fly secrets set`, never written here:
+#   DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY CRON_SECRET

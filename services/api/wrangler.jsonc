@@ -1,0 +1,39 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ipc-api",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-01",
+
+  // postgres.js needs Node built-ins (net, crypto, stream). Without this the
+  // Worker builds and then fails at the first query.
+  "compatibility_flags": ["nodejs_compat"],
+
+  "observability": { "enabled": true },
+
+  // Hyperdrive pools connections and keeps the database off the public edge.
+  // Create it with:
+  //   wrangler hyperdrive create ipc-db --connection-string "$DATABASE_URL"
+  // then paste the id here. Until it exists, deploys will fail fast — which is
+  // better than a Worker that opens a fresh connection per request.
+  "hyperdrive": [
+    { "binding": "HYPERDRIVE", "id": "REPLACE_WITH_HYPERDRIVE_ID" }
+  ],
+
+  // Cron Triggers drive the rollups when there is no always-on worker process.
+  // One minute is the floor; `dueJobs` decides what actually runs.
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
+
+  "vars": {
+    "NODE_ENV": "production",
+    "ALLOWED_ORIGINS": "https://app.indiaphotographersclub.com",
+    "STORAGE_BUCKET": "ipc-media",
+    "VIDEO_PROVIDER": "none"
+  }
+
+  // Secrets are NOT here. They go in with `wrangler secret put`:
+  //   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET
+  // and DATABASE_URL only if you are not using Hyperdrive.
+  // See docs/deploy.md.
+}

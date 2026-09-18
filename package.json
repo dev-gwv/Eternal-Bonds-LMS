@@ -1,0 +1,44 @@
+{
+  "name": "ipc-platform",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --filter '@ipc/web' --filter '@ipc/api' dev",
+    "dev:web": "bun run --filter '@ipc/web' dev",
+    "dev:api": "bun run --filter '@ipc/api' dev",
+    "build": "bun run --filter '*' build",
+    "typecheck": "bun run --filter '*' typecheck",
+    "db:generate": "bun run --filter '@ipc/db' generate",
+    "db:migrate": "bun run --filter '@ipc/db' migrate",
+    "dev:worker": "bun run --filter '@ipc/worker' dev",
+    "jobs": "bun run --filter '@ipc/worker' start list",
+    "db:push": "bunx supabase db push --db-url $DATABASE_URL",
+    "db:seed": "bun scripts/seed.ts",
+    "db:verify": "bun scripts/verify-supabase.ts",
+    "db:setup": "bun run db:push && bun run db:seed && bun run db:verify && bun run db:test-rls && bun run db:test-studio && bun run db:test-engagement",
+    "db:diff": "bunx supabase db diff --db-url $DATABASE_URL",
+    "db:test-rls": "bun scripts/test-rls.ts",
+    "db:test-studio": "bun --env-file=.env scripts/test-studio.ts",
+    "deploy:web": "bun run --filter @ipc/web build && bun x wrangler deploy --config apps/web/wrangler.jsonc",
+    "deploy:api": "fly deploy",
+    "deploy:worker": "fly deploy -c fly.worker.toml",
+    "test": "bun test tests/",
+    "db:test-engagement": "bun --env-file=.env scripts/test-engagement.ts"
+  },
+  "devDependencies": {
+    "supabase": "^2.48.3",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.135.0"
+  },
+  "dependencies": {
+    "@ipc/db": "workspace:*",
+    "@ipc/worker": "workspace:*",
+    "drizzle-orm": "^0.44.6",
+    "@ipc/contracts": "workspace:*"
+  }
+}

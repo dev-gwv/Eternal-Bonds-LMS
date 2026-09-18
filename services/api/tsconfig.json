@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Both, because this package has two entrypoints: server.ts runs on Bun
+    // and worker.ts runs on Workers. Typechecking against only one of them
+    // would mean the other breaks at deploy time rather than here.
+    "types": ["bun", "@cloudflare/workers-types"]
+  },
+  "include": ["src"]
+}

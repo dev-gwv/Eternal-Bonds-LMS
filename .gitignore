@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+
+# bun.lock is deliberately committed — deploys install with --frozen-lockfile
+.DS_Store
+
+# drizzle-kit output is a scratch draft; supabase/migrations is authoritative
+packages/db/migrations/
+
+# Working reference, not source. 11MB of PNGs that nothing imports:
+# `screenshots/` is the old app (and shows member data), `design inspiration/`
+# is a third-party product's UI. Both stay local.
+screenshots/
+design inspiration/
+
+# Wrangler and Fly scratch
+.wrangler/
+.fly/

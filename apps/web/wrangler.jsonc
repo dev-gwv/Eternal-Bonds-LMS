@@ -1,0 +1,18 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "ipc-web",
+  "compatibility_date": "2026-09-01",
+
+  // A static bundle, not a Worker: Vite has already produced dist/, and there
+  // is no server-side rendering to do.
+  "assets": {
+    "directory": "./dist",
+    // The router owns the URL space, so anything that is not a file is the app.
+    "not_found_handling": "single-page-application"
+  }
+
+  // Nothing secret belongs here. VITE_* values are compiled into the bundle at
+  // build time and are readable by anyone who opens devtools — which is fine
+  // for VITE_SUPABASE_URL and the publishable key, and never acceptable for
+  // the service-role key or DATABASE_URL.
+}

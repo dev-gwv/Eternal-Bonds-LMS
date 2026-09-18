@@ -1,0 +1,16 @@
+# Normalise line endings.
+#
+# Without this, a Windows checkout rewrites every file to CRLF and the next
+# person on macOS sees all 140 of them as modified. Text is stored as LF and
+# checked out however the platform prefers.
+* text=auto eol=lf
+
+# Binary, so Git never tries to "fix" the line endings inside them.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.woff2 binary
+
+# Generated. Collapsing it in a diff makes a PR reviewable.
+bun.lock linguist-generated=true -diff

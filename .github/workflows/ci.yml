@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push should cancel the first run rather than queue behind it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Which optional jobs can run at all.
+  #
+  # Secrets are not available in a job-level `if`, so presence is checked in a
+  # step and published as an output. Without this the database job fails on a
+  # fresh repository — red CI on day one, for the entirely correct reason that
+  # nobody has configured a staging database yet.
+  gate:
+    name: What is configured
+    runs-on: ubuntu-latest
+    outputs:
+      staging_db: ${{ steps.check.outputs.staging_db }}
+    steps:
+      - id: check
+        run: |
+          if [ -n "${{ secrets.STAGING_DATABASE_URL }}" ]; then
+            echo "staging_db=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "staging_db=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::STAGING_DATABASE_URL is not set, so the database suites are skipped. See docs/deploy.md."
+          fi
+
+  check:
+    name: Typecheck, test and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      # --frozen-lockfile, so a dependency cannot drift between here and the
+      # image that gets deployed.
+      - run: bun install --frozen-lockfile
+
+      - name: Typecheck every workspace
+        run: bun run typecheck
+
+      # No database needed: quiet hours, signature comparison, every input
+      # schema. Fast enough to run on every push.
+      - name: Unit tests
+        run: bun test tests/
+
+      - name: Build
+        run: bun run build
+        env:
+          # Build-time values only. These are compiled into the public bundle,
+          # which is exactly why no secret may ever be named VITE_*.
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+
+  database:
+    name: Migrations, RLS, studio and engagement
+    needs: gate
+    # Only where a staging database exists, and never for a fork's pull
+    # request — a fork has no business holding a connection string.
+    if: >-
+      needs.gate.outputs.staging_db == 'true' &&
+      (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+      - run: bun install --frozen-lockfile
+
+      # Against a staging project, never production. These create and delete
+      # real rows; pointing them at production would be destructive.
+      - name: Apply migrations
+        run: bun x supabase db push --db-url "$DATABASE_URL" --include-all
+
+      - name: Verify schema, policies, triggers and jobs
+        run: bun scripts/verify-supabase.ts
+
+      - name: Prove RLS isolates members
+        run: bun scripts/test-rls.ts
+
+      - name: Prove only admins can author
+        run: bun scripts/test-studio.ts
+
+      - name: Prove likes, threads, notifications and grants
+        run: bun scripts/test-engagement.ts

@@ -1,0 +1,30 @@
+# The worker: same image, different command, no public address.
+#
+#   fly deploy -c fly.worker.toml
+#
+# It runs the loop rather than waiting to be poked, so rollups happen on time
+# without anything external scheduling them. The API's /internal/cron route and
+# the Workers Cron Trigger remain available for deployments that would rather
+# not keep a process alive.
+
+app = "ipc-worker"
+primary_region = "bom"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+
+[processes]
+  worker = "bun services/worker/src/main.ts"
+
+# No [http_service]: nothing should be able to reach this from the internet.
+# Exactly one machine — two would do the same work twice. The queue claims rows
+# with FOR UPDATE SKIP LOCKED, so a second machine would be safe, just wasteful.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  processes = ["worker"]
+
+# fly secrets set --app ipc-worker DATABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=…
