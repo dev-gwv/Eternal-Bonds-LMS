@@ -1,6 +1,15 @@
 {
+  // ⚠️ `wrangler deploy` is an UPSERT. A Worker that already exists under this
+  // name is silently overwritten — no prompt, no warning, and the output looks
+  // identical to a fresh deploy. The name must therefore be unique across the
+  // whole Cloudflare account, not just this project.
+  //
+  // This one was "ipc-web" and it overwrote an unrelated CRM frontend. Check
+  // before renaming:
+  //   bun x wrangler deployments list --name <the-new-name>
+  // Deployments you do not recognise mean the name is taken.
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "ipc-web",
+  "name": "eternal-bonds-web",
   "compatibility_date": "2026-09-01",
 
   // A static bundle, not a Worker: Vite has already produced dist/, and there

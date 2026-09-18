@@ -130,6 +130,20 @@ file a stray `cat` can print, and rotating it does not need a rebuild.
 
 ## The API → Cloudflare Workers
 
+> **Pick the Worker name before anything else.** `wrangler deploy` is an
+> **upsert**: if a Worker already exists under that name it is silently
+> overwritten, with no prompt and output identical to a fresh deploy. The name
+> has to be unique across the whole Cloudflare account, not just this project.
+> Generic names collide — `ipc-web` here once overwrote an unrelated CRM.
+>
+> ```bash
+> bun x wrangler deployments list --name <the-name-you-want>
+> ```
+>
+> Deployments you do not recognise, or anything other than "Worker not found",
+> means the name is taken. Cloudflare keeps version history, so an overwrite is
+> recoverable — see [Rolling back](#rolling-back) — but do not rely on it.
+
 ```bash
 bun x wrangler login
 
@@ -144,7 +158,7 @@ bun x wrangler secret put ALLOWED_ORIGINS         # your web app's URL
 cd ../..
 
 bun run deploy:api
-curl https://ipc-api.<your-subdomain>.workers.dev/health
+curl https://eternal-bonds-api.<your-subdomain>.workers.dev/health
 ```
 
 `/health` answers `"source": "supabase"` when `DATABASE_URL` arrived and
@@ -183,7 +197,7 @@ Start free; move when a `scheduled()` run shows up as an exceeded-CPU error in
 ## The web app → Cloudflare Workers
 
 ```bash
-VITE_API_URL=https://ipc-api.<your-subdomain>.workers.dev VITE_SUPABASE_URL=https://xxxx.supabase.co VITE_SUPABASE_ANON_KEY=sb_publishable_… bun run deploy:web
+VITE_API_URL=https://eternal-bonds-api.<your-subdomain>.workers.dev VITE_SUPABASE_URL=https://xxxx.supabase.co VITE_SUPABASE_ANON_KEY=sb_publishable_… bun run deploy:web
 ```
 
 `apps/web/wrangler.jsonc` serves `dist/` with
@@ -351,7 +365,9 @@ for the OTP endpoint that is the difference between a cap and a suggestion.
 
 ## Rolling back
 
-Cloudflare keeps a deployment history per Worker:
+Cloudflare keeps every version of a Worker, which is also how you undo an
+accidental overwrite of somebody else's Worker: roll it back to the last
+version that was not yours.
 
 ```bash
 bun x wrangler deployments list --config services/api/wrangler.jsonc

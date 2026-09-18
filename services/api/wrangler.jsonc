@@ -1,6 +1,8 @@
 {
+  // ⚠️ `wrangler deploy` is an UPSERT — see the note in apps/web/wrangler.jsonc.
+  // The name has to be unique across the entire Cloudflare account.
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "ipc-api",
+  "name": "eternal-bonds-api",
   "main": "src/worker.ts",
   "compatibility_date": "2026-09-01",
 
