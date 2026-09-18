@@ -10,30 +10,50 @@
 
   "observability": { "enabled": true },
 
-  // Hyperdrive pools connections and keeps the database off the public edge.
-  // Create it with:
-  //   wrangler hyperdrive create ipc-db --connection-string "$DATABASE_URL"
-  // then paste the id here. Until it exists, deploys will fail fast — which is
-  // better than a Worker that opens a fresh connection per request.
-  "hyperdrive": [
-    { "binding": "HYPERDRIVE", "id": "REPLACE_WITH_HYPERDRIVE_ID" }
-  ],
-
-  // Cron Triggers drive the rollups when there is no always-on worker process.
-  // One minute is the floor; `dueJobs` decides what actually runs.
+  // Cron Triggers replace the always-on worker process. `scheduled()` in
+  // src/worker.ts asks `dueJobs()` what is actually due, so running this every
+  // minute does not mean running thirteen jobs every minute — the fastest one
+  // (outbox.drain) wants 30s, and a notification arriving within a minute is
+  // indistinguishable from instant.
+  //
+  // If you deploy the separate worker service (fly.worker.toml) instead, delete
+  // this block — otherwise both would do the same work.
   "triggers": {
     "crons": ["* * * * *"]
   },
 
   "vars": {
     "NODE_ENV": "production",
-    "ALLOWED_ORIGINS": "https://app.indiaphotographersclub.com",
     "STORAGE_BUCKET": "ipc-media",
     "VIDEO_PROVIDER": "none"
   }
 
-  // Secrets are NOT here. They go in with `wrangler secret put`:
-  //   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET
-  // and DATABASE_URL only if you are not using Hyperdrive.
+  // ── Database ───────────────────────────────────────────────────────────────
+  // By default the Worker connects straight to Supabase's **transaction**
+  // pooler (port 6543), which is the one built for this shape of traffic: many
+  // short-lived connections from places that come and go. Set DATABASE_URL as a
+  // secret and nothing else is needed.
+  //
+  // Hyperdrive is the upgrade, not the requirement. It pools at Cloudflare's
+  // edge and caches the connection handshake, which is worth real latency on
+  // every request. To use it:
+  //
+  //   wrangler hyperdrive create ipc-db --connection-string "$DATABASE_URL"
+  //
+  // then add the id it prints:
+  //
+  //   "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "<id>" }]
+  //
+  // src/worker.ts prefers the binding over DATABASE_URL when it exists, so
+  // adding it later changes this file and nothing else.
+  //
+  // ── Secrets ────────────────────────────────────────────────────────────────
+  // Never here. `wrangler secret put <NAME>`, one at a time:
+  //   DATABASE_URL, SUPABASE_URL, SUPABASE_ANON_KEY,
+  //   SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET, ALLOWED_ORIGINS
+  //
+  // ALLOWED_ORIGINS is a secret rather than a var purely so it can be changed
+  // without a redeploy — it is not sensitive.
+  //
   // See docs/deploy.md.
 }

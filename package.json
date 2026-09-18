@@ -25,10 +25,11 @@
     "db:test-rls": "bun scripts/test-rls.ts",
     "db:test-studio": "bun --env-file=.env scripts/test-studio.ts",
     "deploy:web": "bun run --filter @ipc/web build && bun x wrangler deploy --config apps/web/wrangler.jsonc",
-    "deploy:api": "fly deploy",
+    "deploy:api": "bun x wrangler deploy --config services/api/wrangler.jsonc",
     "deploy:worker": "fly deploy -c fly.worker.toml",
     "test": "bun test tests/",
-    "db:test-engagement": "bun --env-file=.env scripts/test-engagement.ts"
+    "db:test-engagement": "bun --env-file=.env scripts/test-engagement.ts",
+    "deploy:api:fly": "fly deploy"
   },
   "devDependencies": {
     "supabase": "^2.48.3",

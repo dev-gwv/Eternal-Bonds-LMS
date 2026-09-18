@@ -6,7 +6,7 @@ behind the top navigation members already know.
 - **Build status**: [`docs/status.md`](docs/status.md) — what is real and what is stubbed, per feature
 - **Architecture**: [`PLAN.md`](PLAN.md) — stack, schema, milestones, gaps and risks
 - **API conventions**: [`docs/api-conventions.md`](docs/api-conventions.md) — auth, errors, pagination, and why this API is ready for a native client
-- **Deploying**: [`docs/deploy.md`](docs/deploy.md) — web on Cloudflare, API and worker on Fly, secrets, CI
+- **Deploying**: [`docs/deploy.md`](docs/deploy.md) — API and web on Cloudflare Workers, secrets, CI
 - **Video**: [`docs/video.md`](docs/video.md) — Cloudflare Stream, Bunny, and why uploads never touch the API
 - **Portability rules**: [`docs/portability-contract.md`](docs/portability-contract.md)
 - **Design**: [`docs/design-tokens.md`](docs/design-tokens.md) · canvas: https://claude.ai/artifact/R4ggoUTePf62pdFeukPLqK
@@ -15,7 +15,7 @@ behind the top navigation members already know.
 
 ```
 apps/web          Vite + React 19 + TanStack Router — the member app and the admin studio
-services/api      Hono — one app object; server.ts runs it on Bun, worker.ts on Cloudflare
+services/api      Hono — one app object; server.ts runs it on Bun, worker.ts on Cloudflare Workers
 services/worker   The job loop: rollups, outbox drain, account purge, sweeps
 packages/contracts Zod schemas; types are inferred from them, never hand-written
 packages/db       Drizzle schema, the createDb() factory, the RLS helper

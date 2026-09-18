@@ -1,22 +1,52 @@
 # Deploying
 
-Three things get deployed, and they do not all belong in the same place.
+Everything runs on **Cloudflare Workers**.
 
-| Piece | Where | Why there |
-|---|---|---|
-| `apps/web` | Cloudflare (static assets) | It is a built bundle. Cloudflare serves it from everywhere, free, with no origin. |
-| `services/api` | Fly.io, Mumbai (container) | It holds a Postgres connection pool. Pooling is what the edge is worst at. |
-| `services/worker` | Fly.io, Mumbai (container, no public address) | A loop that has to keep running. |
+| Piece | What it is |
+|---|---|
+| `apps/web` | The member app and studio — a static bundle served from the edge |
+| `services/api` | The Hono app, as a real Worker (`services/api/src/worker.ts`) |
+| Background jobs | The same Worker's `scheduled()` handler, on a Cron Trigger |
 
-You can run the API on Cloudflare Workers instead — the entrypoint exists and
-is supported (`services/api/src/worker.ts`). Read [Running the API on
-Workers](#running-the-api-on-workers) before you do; it needs Hyperdrive, and
-the reasons it is not the default are real.
+Two deploys, one vendor, no containers. The API is Hono on Workers, which is
+what Hono is for — the same `app` object also runs under `Bun.serve` locally,
+with no `if (platform)` anywhere in between. That is the
+[portability contract](portability-contract.md) doing its job.
 
-Nothing below is Cloudflare-specific by accident. The
-[portability contract](portability-contract.md) is what makes the API movable,
-and this document is the proof that it holds: the same code runs under
-`Bun.serve`, under Workers, and in a container, with no `if (platform)` in it.
+### The database connection
+
+Workers have no long-lived process to hold a connection pool, so the
+`DATABASE_URL` secret must point at Supabase's **transaction pooler** — port
+**6543**, not 5432. That pooler exists precisely for callers that come and go,
+which is every Worker invocation.
+
+`packages/db/src/client.ts` already sets `prepare: false`, which transaction-mode
+pooling requires. Using the session pooler (5432) here would work for a while
+and then start refusing connections under load.
+
+**Hyperdrive is the upgrade, not the requirement.** It pools at Cloudflare's
+edge and caches the handshake, which is worth real latency on every request:
+
+```bash
+bun x wrangler hyperdrive create ipc-db --connection-string "$DATABASE_URL"
+# then add the id it prints to services/api/wrangler.jsonc:
+#   "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "<id>" }]
+```
+
+`worker.ts` prefers the binding over `DATABASE_URL` when it exists, so adding it
+later changes one file and nothing else.
+
+### If you would rather run the API in a container
+
+`Dockerfile`, `fly.toml` and `fly.worker.toml` are still here and still work —
+`bun run deploy:api:fly` and `bun run deploy:worker`. A container holds a real
+connection pool next to the database, which is the one thing the edge is worst
+at, and it is the right answer if the API ever gets CPU-heavy.
+
+Nothing in the application code changes either way. If you switch, delete the
+`triggers.crons` block from `services/api/wrangler.jsonc` — otherwise the Cron
+Trigger and the worker process would do the same work twice.
+[Jump to the Fly instructions](#the-container-alternative-fly).
 
 ---
 
@@ -98,15 +128,62 @@ file a stray `cat` can print, and rotating it does not need a rebuild.
 
 ---
 
-## The web app → Cloudflare
+## The API → Cloudflare Workers
 
 ```bash
 bun x wrangler login
 
-VITE_API_URL=https://api.yourdomain.com \
-VITE_SUPABASE_URL=https://xxxx.supabase.co \
-VITE_SUPABASE_ANON_KEY=sb_publishable_… \
-bun run deploy:web
+# One at a time; each prompts for the value and never echoes it.
+cd services/api
+bun x wrangler secret put DATABASE_URL            # the 6543 transaction pooler
+bun x wrangler secret put SUPABASE_URL
+bun x wrangler secret put SUPABASE_ANON_KEY
+bun x wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+bun x wrangler secret put CRON_SECRET
+bun x wrangler secret put ALLOWED_ORIGINS         # your web app's URL
+cd ../..
+
+bun run deploy:api
+curl https://ipc-api.<your-subdomain>.workers.dev/health
+```
+
+`/health` answers `"source": "supabase"` when `DATABASE_URL` arrived and
+`"source": "seed"` when it did not. If you see `seed` in production the secret
+is missing — the API serves fixtures rather than crashing, which is right on a
+laptop and wrong on a server, so check it every time.
+
+`ALLOWED_ORIGINS` is a secret rather than a var purely so it can be changed
+without a redeploy. It is not sensitive.
+
+### Background jobs
+
+The Cron Trigger in `wrangler.jsonc` fires every minute; `scheduled()` calls
+`dueJobs()`, which decides what is actually due. Thirteen jobs with cadences
+from 30 seconds to a day do **not** all run every minute.
+
+Check it is working:
+
+```bash
+bun x wrangler tail --config services/api/wrangler.jsonc
+```
+
+You should see a JSON line per job as each comes due.
+
+### Plan limits, honestly
+
+The Free plan gives 100,000 requests a day and **10ms of CPU per invocation**.
+The Worker is 416 KiB gzipped, well under the 1 MB free-plan limit, and most of
+a request is waiting on Postgres — which is I/O, not CPU. It fits.
+
+What pushes you to the $5/month Paid plan is the CPU ceiling: JWT verification
+plus a rollup job in the same isolate can exceed 10ms, and Hyperdrive needs it.
+Start free; move when a `scheduled()` run shows up as an exceeded-CPU error in
+`wrangler tail`.
+
+## The web app → Cloudflare Workers
+
+```bash
+VITE_API_URL=https://ipc-api.<your-subdomain>.workers.dev VITE_SUPABASE_URL=https://xxxx.supabase.co VITE_SUPABASE_ANON_KEY=sb_publishable_… bun run deploy:web
 ```
 
 `apps/web/wrangler.jsonc` serves `dist/` with
@@ -114,35 +191,36 @@ bun run deploy:web
 the URL space — a deep link like `/admin/courses/<id>` has to reach the bundle
 rather than 404 at the edge.
 
-Then point a custom domain at the Worker in the Cloudflare dashboard, and add
-that domain to `ALLOWED_ORIGINS` on the API.
+Then set `ALLOWED_ORIGINS` on the API to this URL, or every request the browser
+makes is blocked before it arrives and the app looks broken for no visible
+reason.
 
 ---
 
-## The API → Fly
+## The container alternative (Fly)
+
+Still supported, still tested. Use it if the API outgrows the edge.
 
 ```bash
-fly launch --no-deploy        # once, to create the app
-fly secrets set \
-  DATABASE_URL="postgresql://postgres.<ref>:<password>@aws-0-ap-south-1.pooler.supabase.com:5432/postgres" \
-  SUPABASE_URL="https://xxxx.supabase.co" \
-  SUPABASE_ANON_KEY="sb_publishable_…" \
-  SUPABASE_SERVICE_ROLE_KEY="…" \
-  CRON_SECRET="$(openssl rand -hex 32)"
+fly launch --no-deploy --name ipc-api --region bom
+fly secrets set   DATABASE_URL="…pooler.supabase.com:5432/postgres"   SUPABASE_URL="https://xxxx.supabase.co"   SUPABASE_ANON_KEY="sb_publishable_…"   SUPABASE_SERVICE_ROLE_KEY="…"   CRON_SECRET="$(openssl rand -hex 32)"
+bun run deploy:api:fly
 
-fly deploy
-curl https://api.yourdomain.com/health
+# The worker as its own machine, no public address:
+fly launch --no-deploy -c fly.worker.toml --name ipc-worker --region bom
+fly secrets set --app ipc-worker DATABASE_URL="…" SUPABASE_SERVICE_ROLE_KEY="…"
+bun run deploy:worker
 ```
 
-`/health` answers `"source": "supabase"` when `DATABASE_URL` is set and
-`"source": "seed"` when it is not. If you see `seed` in production, the secret
-did not arrive — the API will happily serve fixtures rather than crash, which
-is right for a laptop and wrong for a server, so check it.
-
-Use the **session pooler** URL (port 5432, `aws-0-ap-south-1.pooler…`), not the
-direct one. The direct host resolves to IPv6 only, which most container hosts
-cannot reach. Percent-encode the password: an `@` in a connection string ends
+Here `DATABASE_URL` is the **session** pooler (5432), not the transaction one —
+a long-lived process wants a long-lived connection. Use the pooler host either
+way: the direct host resolves to IPv6 only, which most container hosts cannot
+reach. Percent-encode the password, because an `@` in a connection string ends
 the userinfo section and the URL silently means something else.
+
+Run **one** worker machine. A second would be safe — the queue claims rows
+`FOR UPDATE SKIP LOCKED` — just wasteful. And delete `triggers.crons` from
+`services/api/wrangler.jsonc` so the Cron Trigger is not doing the same work.
 
 ---
 
@@ -180,67 +258,6 @@ not a placeholder:
   notification because no signed app exists yet (M7). Turning it on before then
   produces perfect logs of messages nobody gets.
 
-## The worker → Fly
-
-```bash
-fly launch --no-deploy -c fly.worker.toml
-fly secrets set --app ipc-worker \
-  DATABASE_URL="…" \
-  SUPABASE_SERVICE_ROLE_KEY="…"
-
-fly deploy -c fly.worker.toml
-fly logs --app ipc-worker
-```
-
-It has no public address and no health check port — nothing outside should be
-able to reach it. Run one machine: a second would do the same work twice.
-(It would be *safe* — the queue claims rows `FOR UPDATE SKIP LOCKED` — just
-wasteful.)
-
-To run a single job by hand:
-
-```bash
-fly ssh console --app ipc-worker -C "bun services/worker/src/main.ts run rollup.member_stats"
-```
-
----
-
-## Running the API on Workers
-
-Supported, with conditions.
-
-```bash
-wrangler hyperdrive create ipc-db --connection-string "$DATABASE_URL"
-# paste the returned id into services/api/wrangler.jsonc
-
-cd services/api
-wrangler secret put SUPABASE_URL
-wrangler secret put SUPABASE_ANON_KEY
-wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-wrangler secret put CRON_SECRET
-wrangler deploy
-```
-
-What you need to know before choosing this:
-
-- **Hyperdrive is not optional.** Without it every request opens its own
-  Postgres connection from whichever edge location got it, and Supabase's
-  pooler will run out of connections long before your traffic does.
-- **`nodejs_compat` is required** for `postgres.js` to run at all.
-- **Cron Triggers replace the worker process.** `scheduled()` in
-  `worker.ts` calls `dueJobs()` and runs what is due, in-process. If you deploy
-  this way, do not also run the Fly worker — they would duplicate each other.
-- **`/internal/cron/:job` still works** either way, guarded by `CRON_SECRET`.
-  That endpoint is what makes the schedule portable: a cron container running
-  `curl`, a Cloudflare trigger, or a systemd timer all drive the same jobs.
-
-The honest summary: Workers is a good fit for the web bundle and a workable fit
-for the API. Fly is the better fit for the API today because the API's job is
-to hold a connection pool, and that is a stateful thing to be doing at the
-edge.
-
----
-
 ## CI and the deploy workflow
 
 Two workflows, both in `.github/workflows/`:
@@ -256,9 +273,14 @@ Two workflows, both in `.github/workflows/`:
 (*Run workflow*, with a target picker for re-running just one piece).
 
 ```
-verify ──► migrations ──► api ──► worker
+verify ──► migrations ──► api
     └────────────────────► web
 ```
+
+Both go to Cloudflare. Background jobs ride along with the API on a Cron
+Trigger, so there is no third thing to deploy. If you switch to Fly, swap the
+`api` job's `bun run deploy:api` for `flyctl deploy` and add a `worker` job —
+`deploy.yml` has a comment where that goes.
 
 Migrations run **before** the code that depends on them. Every migration so far
 is additive, which is what makes that order safe; a destructive one (dropping a
@@ -285,9 +307,8 @@ nobody has created a Fly app yet.
 |---|---|---|
 | Secret | `DATABASE_URL` | production migrations |
 | Secret | `STAGING_DATABASE_URL` | the database suites in CI |
-| Secret | `FLY_API_TOKEN` | API and worker deploys |
-| Secret | `CLOUDFLARE_API_TOKEN` | web deploy |
-| Secret | `CLOUDFLARE_ACCOUNT_ID` | web deploy |
+| Secret | `CLOUDFLARE_API_TOKEN` | API and web deploys |
+| Secret | `CLOUDFLARE_ACCOUNT_ID` | API and web deploys |
 | Variable | `VITE_API_URL` | the web build |
 | Variable | `VITE_SUPABASE_URL` | the web build |
 | Variable | `VITE_SUPABASE_ANON_KEY` | the web build |
@@ -298,8 +319,8 @@ public bundle, and filing them as secrets would be pretending otherwise. It
 would also break the health check, since GitHub masks secret values in logs.
 
 Everything else — `SUPABASE_SERVICE_ROLE_KEY`, `RAZORPAY_KEY_SECRET`,
-`VIDEO_API_TOKEN`, `EMAIL_API_KEY`, `FCM_PRIVATE_KEY` — lives in `fly secrets`,
-not in GitHub. CI never needs them, and a credential that only exists in one
+`VIDEO_API_TOKEN`, `EMAIL_API_KEY`, `FCM_PRIVATE_KEY` — lives in
+`wrangler secret put`, not in GitHub. CI never needs them, and a credential that only exists in one
 place is a credential with one place to leak from.
 
 ### The `production` environment
@@ -319,8 +340,8 @@ Worth it the first time a push to `main` goes out at 2am.
 | `bun run db:seed` | Yes — upserts. |
 | `db:verify` / `db:test-rls` / `db:test-studio` | Yes — the test scripts clean up after themselves, on failure too. |
 | `fly deploy` | Yes. |
-| Two API instances | Yes — rate limits and idempotency are in Postgres, not in memory. |
-| Two worker instances | Yes, but pointless: `SKIP LOCKED` prevents double work. |
+| Any number of Worker isolates | Yes — rate limits and idempotency are in Postgres, not in memory. This is what makes the edge viable at all. |
+| A Cron Trigger firing while a job is already running | Yes — the queue claims rows `FOR UPDATE SKIP LOCKED`. |
 
 That last row is why `rate_limits` and `idempotency_keys` are database tables.
 An in-memory counter divided across N instances is a limit of N × limit, and
@@ -330,13 +351,16 @@ for the OTP endpoint that is the difference between a cap and a suggestion.
 
 ## Rolling back
 
+Cloudflare keeps a deployment history per Worker:
+
 ```bash
-fly releases --app ipc-api
-fly deploy --image <previous-image-ref>
+bun x wrangler deployments list --config services/api/wrangler.jsonc
+bun x wrangler rollback --config services/api/wrangler.jsonc
 ```
 
-Cloudflare keeps deployment history per Worker; roll back from the dashboard or
-`wrangler rollback`.
+Or from the dashboard: Workers & Pages → the Worker → Deployments → **Rollback**
+on any previous version. On Fly it is `fly releases` and
+`fly deploy --image <ref>`.
 
 **The database does not roll back with them.** Migrations are forward-only.
 This is why they are additive: an old release meeting a new schema should find

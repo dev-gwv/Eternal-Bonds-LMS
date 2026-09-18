@@ -36,7 +36,7 @@ Audited 18 Sep 2026. "Real" means it runs against Supabase Postgres with RLS.
 | Storage | **Real** | `lib/storage.ts` signs Supabase Storage URLs; the studio uses them for direct browser→bucket video upload. Bucket `ipc-media` is created by migration and is private |
 | Video | **Real** | Cloudflare Stream and Bunny Stream both implemented behind one interface, plus `none` (signed progressive MP4 from Supabase Storage). Direct browser→provider upload, signed short-lived playback, verified webhooks, and a poller for the webhook that never came. See `docs/video.md` |
 | Admin / authoring API | **Real** | `/v1/admin/*` behind `requireAdmin` **and** RLS. Course/module/lesson/workshop CRUD, whole-list reorder, publish gating, signed video upload. Proven by `bun run db:test-studio` |
-| Workers entrypoint | **Real** | `src/worker.ts` — same app, Hyperdrive binding, `scheduled()` Cron Triggers. `wrangler deploy --dry-run` builds it at 388 KiB gzip |
+| Workers entrypoint | **Real** | `src/worker.ts` — the deployment target. Same app object as Bun, optional Hyperdrive binding, `scheduled()` on a Cron Trigger. Builds at 416 KiB gzip, under the free plan's 1 MB limit |
 | Worker service | **Real** | `services/worker`: Postgres queue (`for update skip locked`), scheduler, 13 jobs — outbox drain, daily-activity and member-stats rollups, streaks, notification delivery, video polling, published-course guard, webhook replay, membership expiry, counter reconciliation, account purge, weekly digest, expired-record sweep |
 
 ## Database
