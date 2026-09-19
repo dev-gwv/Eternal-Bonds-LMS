@@ -80,24 +80,74 @@ export async function getStats(env: Env, userId: string | null): Promise<Dashboa
 
   return withUser(db, userId, async (tx) => {
     const [row] = await tx.execute<{
-      total_workshops: number;
-      registrations: number;
-      attendees: number;
+      lessons_completed: number;
+      courses_in_progress: number;
+      minutes_learned: number;
+      streak_days: number;
+      longest_streak_days: number;
+      xp: number;
+      rank: number | null;
+      workshops_attended: number;
+      upcoming_workshops: number;
     }>(sql`
       select
-        (select count(*) from workshops)::int as total_workshops,
-        (select count(*) from workshop_registrations)::int as registrations,
-        (select count(*) from workshop_registrations where attended_minutes > 0)::int as attendees
+        coalesce(ms.lessons_completed, 0)::int as lessons_completed,
+
+        -- Started but not finished. A course with no progress is not "in
+        -- progress", and neither is one that is done.
+        (
+          select count(*)::int from courses c
+          where exists (
+            select 1 from modules m join lessons l on l.module_id = m.id
+            join lesson_progress lp on lp.lesson_id = l.id
+            where m.course_id = c.id and lp.user_id = ${userId}::uuid
+          )
+          and exists (
+            select 1 from modules m join lessons l on l.module_id = m.id
+            where m.course_id = c.id and not exists (
+              select 1 from lesson_progress lp
+              where lp.lesson_id = l.id and lp.user_id = ${userId}::uuid and lp.is_completed
+            )
+          )
+        ) as courses_in_progress,
+
+        -- The same 30-day window the activity chart draws, so the headline
+        -- number and the graph under it cannot disagree.
+        (
+          select coalesce(sum(courses_minutes + workshops_minutes + library_minutes), 0)::int
+          from daily_activity
+          where user_id = ${userId}::uuid
+            and day >= (now() at time zone 'Asia/Kolkata')::date - 30
+        ) as minutes_learned,
+
+        coalesce(st.current_days, 0)::int as streak_days,
+        coalesce(st.longest_days, 0)::int as longest_streak_days,
+        coalesce(ms.xp, 0)::int as xp,
+
+        -- Null rather than a rank when they have no XP: an unranked member is
+        -- not "last", and showing them a position they never earned is worse
+        -- than showing none.
+        case when coalesce(ms.xp, 0) = 0 then null else (
+          select count(*)::int + 1 from member_stats other where other.xp > ms.xp
+        ) end as rank,
+
+        coalesce(ms.workshops_attended, 0)::int as workshops_attended,
+        (select count(*)::int from workshops w where w.ends_at >= now()) as upcoming_workshops
+      from (select 1) one
+      left join member_stats ms on ms.user_id = ${userId}::uuid
+      left join streaks st on st.user_id = ${userId}::uuid
     `);
 
-    const registrations = Number(row?.registrations ?? 0);
-    const attendees = Number(row?.attendees ?? 0);
-
     return {
-      totalWorkshops: Number(row?.total_workshops ?? 0),
-      registrations,
-      attendees,
-      attendanceRate: registrations === 0 ? 0 : Math.round((attendees / registrations) * 10000) / 100,
+      lessonsCompleted: Number(row?.lessons_completed ?? 0),
+      coursesInProgress: Number(row?.courses_in_progress ?? 0),
+      minutesLearned: Number(row?.minutes_learned ?? 0),
+      streakDays: Number(row?.streak_days ?? 0),
+      longestStreakDays: Number(row?.longest_streak_days ?? 0),
+      xp: Number(row?.xp ?? 0),
+      rank: row?.rank == null ? null : Number(row.rank),
+      workshopsAttended: Number(row?.workshops_attended ?? 0),
+      upcomingWorkshops: Number(row?.upcoming_workshops ?? 0),
     };
   });
 }

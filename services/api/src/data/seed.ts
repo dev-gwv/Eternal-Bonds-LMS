@@ -285,10 +285,15 @@ export const performance: Performance = {
 };
 
 export const dashboardStats: DashboardStats = {
-  totalWorkshops: 5,
-  registrations: 2290,
-  attendees: 240,
-  attendanceRate: 10.48,
+  lessonsCompleted: 12,
+  coursesInProgress: 2,
+  minutesLearned: 486,
+  streakDays: 4,
+  longestStreakDays: 11,
+  xp: 2450,
+  rank: 18,
+  workshopsAttended: 3,
+  upcomingWorkshops: 3,
 };
 
 /* ── Lessons ───────────────────────────────────────────────────────────────

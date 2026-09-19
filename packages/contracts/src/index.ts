@@ -129,11 +129,27 @@ export const Performance = z.object({
 });
 export type Performance = z.infer<typeof Performance>;
 
+/**
+ * The four numbers on a member's dashboard.
+ *
+ * These used to be total workshops, registrations, attendees and attendance
+ * rate — organiser metrics, on the landing page of somebody who is not the
+ * organiser. A member opening the app wants to know how *they* are doing:
+ * what they have finished, how long they have spent, whether the streak is
+ * alive, and where they stand.
+ */
 export const DashboardStats = z.object({
-  totalWorkshops: z.int().nonnegative(),
-  registrations: z.int().nonnegative(),
-  attendees: z.int().nonnegative(),
-  attendanceRate: z.number().min(0).max(100),
+  lessonsCompleted: z.int().nonnegative(),
+  coursesInProgress: z.int().nonnegative(),
+  /** Across the last 30 days, which is the window the chart also covers. */
+  minutesLearned: z.int().nonnegative(),
+  streakDays: z.int().nonnegative(),
+  longestStreakDays: z.int().nonnegative(),
+  xp: z.int().nonnegative(),
+  /** Null until the member has any XP at all — an unranked member is not 0th. */
+  rank: z.int().positive().nullable(),
+  workshopsAttended: z.int().nonnegative(),
+  upcomingWorkshops: z.int().nonnegative(),
 });
 export type DashboardStats = z.infer<typeof DashboardStats>;
 

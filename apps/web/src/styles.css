@@ -355,17 +355,50 @@ input, select, textarea { font-family: inherit; }
 .axis { display: flex; flex-direction: column; justify-content: space-between; padding-bottom: 18px; }
 .axis span { font-size: 9px; color: var(--ink-4); }
 
-/* --- responsive ----------------------------------------------------------- */
+/* --- responsive ------------------------------------------------------------
+   The app is desktop-first because the studio and the dashboard are, but most
+   members arrive on a phone. These breakpoints are about the layout staying
+   usable, not about a separate mobile design.
+
+   The rule that matters most is the overflow guard: a single element wider
+   than the viewport gives the whole page a horizontal scrollbar, and on a
+   phone that turns every vertical swipe into a fight. */
+
+html, body { overflow-x: hidden; }
+img, svg, video { max-width: 100%; }
+
+/* Long words — a pasted URL in a post, a course slug — otherwise push their
+   container wider than the screen and take the layout with them. */
+.card, .card-row, .builder-lesson, .pagehead-titles { min-width: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 1240px) {
+  .rail { width: 260px; }
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 @media (max-width: 1100px) {
   .content { flex-direction: column; }
   .rail { width: auto; }
   .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* The community channel list is a fixed 226px column beside the feed;
+     stacked, it should be as wide as everything else. */
+  .side-column { width: auto !important; }
+}
+
+@media (max-width: 860px) {
+  .pagehead { flex-wrap: wrap; }
+  .pagehead-titles { width: 100%; }
+  .field-row { flex-direction: column; align-items: stretch; }
+  .grid-2 { grid-template-columns: minmax(0, 1fr); }
+  /* The studio's lesson row is eight controls in a line; below this it has to
+     wrap or each one ends up a few pixels wide. */
+  .builder-lesson { flex-wrap: wrap; row-gap: 8px; }
 }
 
 @media (max-width: 720px) {
   .app { padding: 0; }
   .panel { border-radius: 0; padding: 14px; min-height: 100vh; }
+
   .topbar { flex-wrap: wrap; gap: 10px; }
   .nav {
     order: 3;
@@ -373,12 +406,32 @@ input, select, textarea { font-family: inherit; }
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
+    /* So the last pill is not flush against the edge when scrolled fully. */
+    padding-right: 4px;
   }
   .nav::-webkit-scrollbar { display: none; }
   .nav-pill { flex-shrink: 0; }
-  .search { display: none; }
+
+  /* The search field is 150px of a 360px bar; full width on its own row is
+     the only way it is typeable. */
+  .search { order: 4; width: 100%; }
+  .topbar-actions { flex: 1; justify-content: flex-end; }
+
   .grid-4, .grid-2 { grid-template-columns: minmax(0, 1fr); }
-  .footer { flex-wrap: wrap; gap: 10px; }
+
+  /* A name and tier beside the avatar is most of the header on a phone. The
+     avatar alone still says who is signed in, and tapping it still works. */
+  .userchip > div { display: none; }
+
+  .footer { flex-wrap: wrap; gap: 8px; row-gap: 10px; }
+  .pagehead h1 { font-size: 18px; }
+}
+
+@media (max-width: 460px) {
+  .panel { padding: 10px; }
+  /* Below this the two-up date badge and title in a workshop row collide. */
+  .card-row { flex-wrap: wrap; row-gap: 8px; }
+  .btn { padding: 9px 13px; }
 }
 
 /* --- forms ----------------------------------------------------------------
@@ -472,3 +525,19 @@ input, select, textarea { font-family: inherit; }
   background: var(--softer);
 }
 .builder-lesson:hover { background: var(--soft); }
+
+/* --- loading ---------------------------------------------------------------
+   The shimmer behind Skeleton. Kept here rather than inline because a
+   @keyframes rule cannot live in a style attribute. */
+
+@keyframes skeleton {
+  0%   { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+/* Someone who has asked the system to stop animations should not be given a
+   pulsing rectangle — it just sits still and holds the space, which was always
+   the more important half of the job. */
+@media (prefers-reduced-motion: reduce) {
+  [style*="skeleton"] { animation: none !important; }
+}

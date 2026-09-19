@@ -3,7 +3,8 @@ import { Link } from '@tanstack/react-router';
 import { api, dayNumber, hoursMinutes, monthShort, timeRange, xpLabel } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { ActivityChart } from '../shared/ui/charts.tsx';
-import { Card, DateBadge, Dropdown, EmptyState, Icon, StatTile } from '../shared/ui/primitives.tsx';
+import { Card, DateBadge, EmptyState, Icon, StatTile } from '../shared/ui/primitives.tsx';
+import { LoadingLabel, Skeleton, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 
 const TONES = ['pink', 'yellow', 'blue', 'green'] as const;
 
@@ -15,26 +16,78 @@ export function DashboardPage() {
 
   const watched = (activity.data ?? []).reduce((sum, d) => sum + d.courses + d.workshops + d.library, 0);
   const { hours, minutes } = hoursMinutes(watched);
+  // The tile covers 30 days and the chart covers 7, so they are different
+  // numbers on purpose — the tile says so in its label.
+  const learned = hoursMinutes(stats.data?.minutesLearned ?? 0);
+
+  // How much XP separates them from the member directly above. Null when they
+  // have none yet — there is no gap to close if the race has not started.
+  const gapToNext = (() => {
+    const me = stats.data;
+    const board = leaderboard.data ?? [];
+    if (!me || me.xp === 0 || me.rank === null) return null;
+    if (me.rank === 1) return 0;
+    const above = board.filter((r) => r.xp > me.xp).sort((a, b) => a.xp - b.xp)[0];
+    return above ? Math.max(0, above.xp - me.xp) : 0;
+  })();
 
   return (
     <Page>
       <PageHeader
         title="Dashboard"
         crumbs={[{ label: 'Home', to: '/' }, { label: 'Dashboard' }]}
-        actions={<Dropdown label="This Week" />}
+        actions={
+          <Link to="/courses" className="btn btn-pink" style={{ color: '#fff' }}>
+            Continue learning
+          </Link>
+        }
       />
 
       <div className="content">
         <div className="col col-main">
+          {/* A member's four numbers, not the organiser's. These used to be
+              total workshops, registrations, attendees and attendance rate —
+              facts about the club, on the landing page of one person in it. */}
           <div className="grid grid-4">
-            <StatTile label="Total workshops" tone="pink" icon={<Icon name="workshops" size={18} strokeWidth={1.9} />}
-              value={stats.data ? String(stats.data.totalWorkshops) : '—'} />
-            <StatTile label="Registrations" tone="yellow" icon={<Icon name="people" size={18} strokeWidth={1.9} />}
-              value={stats.data ? stats.data.registrations.toLocaleString('en-IN') : '—'} />
-            <StatTile label="Attendees" tone="blue" icon={<Icon name="check" size={18} strokeWidth={2.3} />}
-              value={stats.data ? String(stats.data.attendees) : '—'} />
-            <StatTile label="Attendance rate" tone="green" icon={<Icon name="chart" size={18} strokeWidth={1.9} />}
-              value={stats.data ? `${stats.data.attendanceRate}%` : '—'} />
+            {stats.isPending ? (
+              <>
+                <LoadingLabel>Loading your stats</LoadingLabel>
+                {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} lines={1} />)}
+              </>
+            ) : (
+              <>
+                <StatTile
+                  label="Lessons finished"
+                  tone="pink"
+                  icon={<Icon name="check" size={18} strokeWidth={2.3} />}
+                  value={String(stats.data?.lessonsCompleted ?? 0)}
+                />
+                <StatTile
+                  label={learned.hours > 0 ? 'Learning time · 30 days' : 'Learning time'}
+                  tone="yellow"
+                  icon={<Icon name="clock" size={18} strokeWidth={1.9} />}
+                  value={learned.hours > 0 ? `${learned.hours}h ${learned.minutes}m` : `${learned.minutes}m`}
+                />
+                <StatTile
+                  label={
+                    (stats.data?.streakDays ?? 0) > 0
+                      ? `Day streak · best ${stats.data?.longestStreakDays}`
+                      : 'Day streak'
+                  }
+                  tone="blue"
+                  icon={<Icon name="chart" size={18} strokeWidth={1.9} />}
+                  value={String(stats.data?.streakDays ?? 0)}
+                />
+                <StatTile
+                  // Rank is null until they have any XP — an unranked member
+                  // is not in last place, and saying so would be a small lie.
+                  label={stats.data?.rank ? `XP · rank ${stats.data.rank}` : 'XP'}
+                  tone="green"
+                  icon={<Icon name="courses" size={18} strokeWidth={1.9} />}
+                  value={(stats.data?.xp ?? 0).toLocaleString('en-IN')}
+                />
+              </>
+            )}
           </div>
 
           <Card
@@ -47,12 +100,19 @@ export function DashboardPage() {
               <span className="metric num">{minutes}</span>
               <span style={{ fontSize: 11 }} className="dim">minutes</span>
             </div>
-            {activity.data && <ActivityChart days={activity.data} />}
+            {activity.isPending ? (
+              <Skeleton height={192} radius={12} />
+            ) : (
+              activity.data && <ActivityChart days={activity.data} />
+            )}
           </Card>
         </div>
 
         <div className="col rail">
           <Card title="Upcoming" action={<Link to="/workshops" style={{ fontSize: 11 }}>See all</Link>}>
+            {(workshops.data ?? []).length === 0 && !workshops.isPending && (
+              <EmptyState icon="workshops" title="Nothing scheduled" hint="Live sessions show up here." />
+            )}
             {(workshops.data ?? []).slice(0, 3).map((w, i) => (
               <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                 <DateBadge month={monthShort(w.startsAt)} day={dayNumber(w.startsAt)} tone={TONES[i % TONES.length]} />
@@ -107,15 +167,38 @@ export function DashboardPage() {
             ))}
           </Card>
 
-          <div className="promo">
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--yellow-deep)' }}>You are 3.1K XP away</span>
-            <span style={{ fontSize: 11, lineHeight: 1.5, color: '#7a5a00' }}>
-              Finish one section or post a win to break into the club top 25.
-            </span>
-            <Link to="/courses" className="btn" style={{ alignSelf: 'flex-start', background: '#fff', color: 'var(--yellow-deep)' }}>
-              Continue learning
-            </Link>
-          </div>
+          {/* Was a hardcoded "You are 3.1K XP away … top 25" shown to everyone,
+              including members with no XP at all. Now it only appears when
+              there is a real gap to close, and states the real number. */}
+          {stats.data && gapToNext !== null && (
+            <div className="promo">
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--yellow-deep)' }}>
+                {gapToNext === 0
+                  ? `You are ${stats.data.rank === 1 ? 'top of the club' : `rank ${stats.data.rank}`}`
+                  : `${xpLabel(gapToNext)} XP to rank ${(stats.data.rank ?? 2) - 1}`}
+              </span>
+              <span style={{ fontSize: 11, lineHeight: 1.5, color: '#7a5a00' }}>
+                {gapToNext === 0
+                  ? 'Hold it by keeping the streak going.'
+                  : 'Finishing a lesson earns XP. So does posting a win.'}
+              </span>
+              <Link to="/courses" className="btn" style={{ alignSelf: 'flex-start', background: '#fff', color: 'var(--yellow-deep)' }}>
+                Continue learning
+              </Link>
+            </div>
+          )}
+
+          {stats.data && stats.data.xp === 0 && (
+            <div className="promo">
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--yellow-deep)' }}>Start earning XP</span>
+              <span style={{ fontSize: 11, lineHeight: 1.5, color: '#7a5a00' }}>
+                Finish your first lesson to get on the leaderboard.
+              </span>
+              <Link to="/courses" className="btn" style={{ alignSelf: 'flex-start', background: '#fff', color: 'var(--yellow-deep)' }}>
+                Browse courses
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </Page>

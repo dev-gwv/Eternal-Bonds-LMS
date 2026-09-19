@@ -6,6 +6,7 @@ import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Avatar, Card, Chip, EmptyState, Icon, Tile } from '../shared/ui/primitives.tsx';
 import { CommentThread } from '../shared/ui/Comments.tsx';
 import { NextUp } from '../shared/ui/NextUp.tsx';
+import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 
 const CHANNEL_ICON: Record<string, { icon: string; tone: 'pink' | 'yellow' | 'blue' | 'green' }> = {
   wins: { icon: 'heart', tone: 'pink' },
@@ -152,6 +153,7 @@ export function CommunityPage() {
   const [channel, setChannel] = useState<string | undefined>(undefined);
   const [draft, setDraft] = useState('');
   const me = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: 5 * 60_000, retry: false });
+  const stats = useQuery({ queryKey: ['stats'], queryFn: api.stats });
   const queryClient = useQueryClient();
 
   const channels = useQuery({ queryKey: ['channels'], queryFn: api.channels });
@@ -181,7 +183,7 @@ export function CommunityPage() {
       />
 
       <div className="content">
-        <div className="col" style={{ width: 226, flexShrink: 0 }}>
+        <div className="col side-column" style={{ width: 226, flexShrink: 0 }}>
           <div className="card" style={{ padding: 12, gap: 3 }}>
             <button
               type="button"
@@ -277,7 +279,13 @@ export function CommunityPage() {
             )}
           </form>
 
-          {posts.isPending && <p className="muted" style={{ fontSize: 12 }}>Loading the feed…</p>}
+          {posts.isPending && (
+            <>
+              <LoadingLabel>Loading the feed</LoadingLabel>
+              <SkeletonCard lines={3} />
+              <SkeletonCard lines={2} />
+            </>
+          )}
 
           {posts.isError && (
             <div className="alert">{(posts.error as Error).message}</div>
@@ -341,10 +349,20 @@ export function CommunityPage() {
                 </span>
               </div>
             ))}
-            <div style={{ marginTop: 'auto', background: 'var(--soft)', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: 10, fontWeight: 600 }}>You · rank 34</span>
-              <span style={{ fontSize: 10 }} className="dim">3.1K XP to the top 25</span>
-            </div>
+            {/* Was "You · rank 34 · 3.1K XP to the top 25", the same two
+                numbers for every member regardless of their actual standing. */}
+            {stats.data && (
+              <div style={{ marginTop: 'auto', background: 'var(--soft)', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 10, fontWeight: 600 }}>
+                  {stats.data.rank ? `You · rank ${stats.data.rank}` : 'You · unranked'}
+                </span>
+                <span style={{ fontSize: 10 }} className="dim">
+                  {stats.data.xp > 0
+                    ? `${xpLabel(stats.data.xp)} XP earned`
+                    : 'Post a win or finish a lesson to get on the board'}
+                </span>
+              </div>
+            )}
           </Card>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { Course } from '@ipc/contracts';
 import { api, durationLabel } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
+import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 import { ProgressRing } from '../shared/ui/charts.tsx';
 import { Chip, Dropdown, Icon } from '../shared/ui/primitives.tsx';
 
@@ -183,7 +184,14 @@ export function CoursesPage() {
         ))}
       </div>
 
-      {courses.isPending && <p className="muted" style={{ fontSize: 12 }}>Loading courses…</p>}
+      {courses.isPending && (
+        <>
+          <LoadingLabel>Loading courses</LoadingLabel>
+          <div className="grid grid-4">
+            {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} height={104} lines={2} />)}
+          </div>
+        </>
+      )}
       {courses.isError && <p style={{ fontSize: 12, color: 'var(--red)' }}>Could not load courses.</p>}
 
       <div className="grid grid-4" style={{ alignContent: 'start' }}>

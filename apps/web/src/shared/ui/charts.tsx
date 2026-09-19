@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ActivityDay, Performance } from '@ipc/contracts';
 
 /* Charts are inline SVG and plain divs — no chart library.
@@ -44,13 +45,75 @@ export function ProgressRing({
 }
 
 /** The grouped pill-bar chart from the design: one group per weekday. */
+/**
+ * Rounds an axis maximum up to a number a person would have chosen.
+ *
+ * Without this the top gridline is whatever the largest bar happened to be —
+ * "1h 47m" — which is a fact about one data point rather than a scale.
+ */
+function niceMax(minutes: number): number {
+  if (minutes <= 0) return 60;
+  const steps = [15, 30, 60, 90, 120, 180, 240, 360, 480, 600, 720];
+  return steps.find((s) => s >= minutes) ?? Math.ceil(minutes / 60) * 60;
+}
+
+const axisLabel = (minutes: number) =>
+  minutes === 0 ? '0' : minutes % 60 === 0 ? `${minutes / 60}h` : `${minutes}m`;
+
+/**
+ * Minutes per day, split by where they were spent.
+ *
+ * Two things this chart used to get wrong, both of which made it say something
+ * untrue:
+ *
+ *   - the y-axis was hardcoded to 8h/6h/4h/2h/0h while the bars were scaled to
+ *     whatever the largest value happened to be, so the gridlines described a
+ *     scale the bars were not drawn on;
+ *   - a floor of `Math.max(6, …)` gave every zero a visible 6px bar, so a day
+ *     with no activity was indistinguishable from a short one.
+ *
+ * Now the axis is derived from the data and zero draws nothing.
+ */
 export function ActivityChart({ days }: { days: ActivityDay[] }) {
-  const max = Math.max(1, ...days.flatMap((d) => [d.courses, d.workshops, d.library]));
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  const total = days.reduce((sum, d) => sum + d.courses + d.workshops + d.library, 0);
+  const busiest = Math.max(0, ...days.flatMap((d) => [d.courses, d.workshops, d.library]));
+  const max = niceMax(busiest);
+
   const PLOT = 168;
-  const px = (minutes: number) => Math.max(6, Math.round((minutes / max) * PLOT));
+  // No floor: zero has to be zero, or the chart claims activity that never
+  // happened. One pixel for a non-zero value so a 30-second visit still shows.
+  const px = (minutes: number) => (minutes <= 0 ? 0 : Math.max(2, Math.round((minutes / max) * PLOT)));
+
   const labels: Record<ActivityDay['day'], string> = {
     mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
   };
+
+  if (total === 0) {
+    return (
+      <div
+        style={{
+          height: PLOT + 40,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          borderRadius: 12,
+          background: 'var(--softer)',
+        }}
+      >
+        <span style={{ fontSize: 12, fontWeight: 500 }}>Nothing tracked this week</span>
+        <span style={{ fontSize: 10.5, maxWidth: 260, textAlign: 'center', lineHeight: 1.55 }} className="dim">
+          Minutes appear here as you watch lessons, attend workshops and open library resources.
+        </span>
+      </div>
+    );
+  }
+
+  // Four gridlines plus the baseline, top-down.
+  const ticks = [max, (max * 3) / 4, max / 2, max / 4, 0];
 
   return (
     <>
@@ -59,21 +122,67 @@ export function ActivityChart({ days }: { days: ActivityDay[] }) {
         <span className="legend-item"><span className="swatch" style={{ background: SERIES.workshops }} />Workshops</span>
         <span className="legend-item"><span className="swatch" style={{ background: SERIES.library }} />Library</span>
       </div>
-      <div style={{ display: 'flex', gap: 10 }}>
+
+      <div style={{ display: 'flex', gap: 10, position: 'relative' }}>
         <div className="axis" style={{ height: PLOT + 24 }}>
-          <span>8h</span><span>6h</span><span>4h</span><span>2h</span><span>0h</span>
-        </div>
-        <div className="bars">
-          {days.map((d) => (
-            <div className="bar-group" key={d.day}>
-              <div className="bar-stack" style={{ height: PLOT }}>
-                <div className="bar" style={{ height: px(d.courses), background: SERIES.courses }} title={`Courses ${d.courses}m`} />
-                <div className="bar" style={{ height: px(d.workshops), background: SERIES.workshops }} title={`Workshops ${d.workshops}m`} />
-                <div className="bar" style={{ height: px(d.library), background: SERIES.library }} title={`Library ${d.library}m`} />
-              </div>
-              <span style={{ fontSize: 10 }} className="dim">{labels[d.day]}</span>
-            </div>
+          {ticks.map((t) => (
+            <span key={t}>{axisLabel(Math.round(t))}</span>
           ))}
+        </div>
+
+        <div className="bars">
+          {days.map((d) => {
+            const dayTotal = d.courses + d.workshops + d.library;
+            const isHovered = hovered === d.day;
+            return (
+              <div
+                className="bar-group"
+                key={d.day}
+                onMouseEnter={() => setHovered(d.day)}
+                onMouseLeave={() => setHovered(null)}
+                style={{ position: 'relative', cursor: dayTotal > 0 ? 'default' : undefined }}
+              >
+                {/* A hover target the full height of the plot: aiming at an
+                    11px bar is a game, and a day with no bars has nothing to
+                    aim at all. */}
+                <div className="bar-stack" style={{ height: PLOT, alignItems: 'flex-end' }}>
+                  <div className="bar" style={{ height: px(d.courses), background: SERIES.courses }} />
+                  <div className="bar" style={{ height: px(d.workshops), background: SERIES.workshops }} />
+                  <div className="bar" style={{ height: px(d.library), background: SERIES.library }} />
+                </div>
+                <span style={{ fontSize: 10, fontWeight: isHovered ? 600 : 400 }} className={isHovered ? '' : 'dim'}>
+                  {labels[d.day]}
+                </span>
+
+                {isHovered && dayTotal > 0 && (
+                  <div
+                    role="tooltip"
+                    style={{
+                      position: 'absolute',
+                      bottom: PLOT + 26,
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      background: 'var(--ink)',
+                      color: '#fff',
+                      borderRadius: 9,
+                      padding: '7px 10px',
+                      fontSize: 10,
+                      lineHeight: 1.6,
+                      whiteSpace: 'nowrap',
+                      zIndex: 5,
+                      pointerEvents: 'none',
+                      boxShadow: '0 6px 18px rgba(46,46,56,.18)',
+                    }}
+                  >
+                    <strong style={{ fontSize: 10.5 }}>{labels[d.day]} · {dayTotal}m</strong>
+                    {d.courses > 0 && <div>Courses {d.courses}m</div>}
+                    {d.workshops > 0 && <div>Workshops {d.workshops}m</div>}
+                    {d.library > 0 && <div>Library {d.library}m</div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </>
