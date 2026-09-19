@@ -9,6 +9,7 @@
         "@ipc/db": "workspace:*",
         "@ipc/worker": "workspace:*",
         "drizzle-orm": "^0.44.6",
+        "zod": "^4.6.5",
       },
       "devDependencies": {
         "supabase": "^2.48.3",

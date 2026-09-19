@@ -147,12 +147,25 @@ input, select, textarea { font-family: inherit; }
   display: flex;
   align-items: center;
   gap: 9px;
-  width: 150px;
-  min-width: 110px;
+  /* Was a flat 150px, which clipped the placeholder mid-word. It now grows
+     with the space the header actually has and only shrinks when crowded. */
+  width: clamp(150px, 18vw, 260px);
+  min-width: 0;
   background: var(--soft);
   border-radius: var(--r-pill);
   padding: 9px 14px;
+  /* The magnifier sits after the input in the markup; without this it is the
+     first thing squeezed out when the bar narrows. */
+  flex-shrink: 1;
 }
+.search input {
+  min-width: 0;
+  flex: 1;
+  /* text-overflow only applies to a real overflow, which needs the ellipsis
+     on the input itself — a clipped placeholder otherwise just stops. */
+  text-overflow: ellipsis;
+}
+.search > svg { flex-shrink: 0; }
 .search input {
   flex: 1;
   width: 40px;

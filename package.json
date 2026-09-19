@@ -34,7 +34,8 @@
     "cf:whoami": "bun --env-file=.env x wrangler whoami",
     "cf:tail": "bun --env-file=.env x wrangler tail --config services/api/wrangler.jsonc",
     "check:no-dev-login": "bun scripts/check-no-dev-login.ts",
-    "db:test-unread": "bun --env-file=.env scripts/test-unread.ts"
+    "db:test-unread": "bun --env-file=.env scripts/test-unread.ts",
+    "test:contracts": "bun --env-file=.env scripts/test-contracts.ts"
   },
   "devDependencies": {
     "supabase": "^2.48.3",
@@ -42,9 +43,10 @@
     "wrangler": "^4.135.0"
   },
   "dependencies": {
+    "@ipc/contracts": "workspace:*",
     "@ipc/db": "workspace:*",
     "@ipc/worker": "workspace:*",
     "drizzle-orm": "^0.44.6",
-    "@ipc/contracts": "workspace:*"
+    "zod": "^4.6.5"
   }
 }

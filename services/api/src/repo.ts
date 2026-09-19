@@ -25,6 +25,8 @@ import type {
   Workshop,
 } from '@ipc/contracts';
 import type { Env } from './env.ts';
+import { createStorage } from './lib/storage.ts';
+import { supabaseConfigured } from './lib/supabase.ts';
 import * as seed from './data/seed.ts';
 
 /**
@@ -36,12 +38,68 @@ import * as seed from './data/seed.ts';
  * checkout with no infrastructure.
  */
 
-let db: Db | null = null;
+/**
+ * One connection pool per `env` object, not one per process.
+ *
+ * This used to be a module-level `let db`, which is right on Bun and illegal on
+ * Workers: a socket belongs to the request handler that opened it, and reusing
+ * it from the next request throws
+ *
+ *   Cannot perform I/O on behalf of a different request.
+ *
+ * It only appears under concurrency, so single requests pass and a burst gives
+ * intermittent 500s — the worst shape of bug to find in production.
+ *
+ * Keying the cache on the `Env` object fixes both runtimes without either one
+ * knowing which it is:
+ *
+ *   - `server.ts` parses the environment once at boot and hands the *same*
+ *     object to every request, so the pool lives as long as the process.
+ *   - `worker.ts` parses the bindings inside `fetch`, so each request gets a
+ *     fresh object, a fresh connection, and no sharing.
+ *
+ * A WeakMap so a finished request's entry can be collected with its env.
+ */
+const pools = new WeakMap<Env, Db>();
+
+/**
+ * True on Cloudflare Workers. The one runtime check in the codebase, and it
+ * decides a pool size rather than a code path: per-request connections want
+ * exactly one socket, a long-lived process wants several.
+ */
+const onWorkers = typeof navigator !== 'undefined' && navigator.userAgent === 'Cloudflare-Workers';
 
 export function getDb(env: Env): Db | null {
   if (!env.DATABASE_URL) return null;
-  db ??= createDb(env.DATABASE_URL, { max: env.NODE_ENV === 'production' ? 10 : 2 });
+
+  const existing = pools.get(env);
+  if (existing) return existing;
+
+  const db = createDb(env.DATABASE_URL, {
+    max: onWorkers ? 1 : env.NODE_ENV === 'production' ? 10 : 2,
+  });
+  pools.set(env, db);
   return db;
+}
+
+/**
+ * Closes the connection opened for this request, if there was one.
+ *
+ * Called from the Workers entrypoint inside `waitUntil`. Without it an isolate
+ * that serves many requests accumulates sockets until the pooler refuses new
+ * ones. On Bun this is never called — the pool is meant to outlive the
+ * request, which is the whole point of having one.
+ */
+export async function releaseDb(env: Env): Promise<void> {
+  const db = pools.get(env);
+  if (!db) return;
+  pools.delete(env);
+  // `$client` is the postgres.js handle Drizzle wraps.
+  await (db as unknown as { $client: { end: (o?: { timeout?: number }) => Promise<void> } }).$client
+    .end({ timeout: 5 })
+    .catch(() => {
+      /* The socket is going away with the request either way. */
+    });
 }
 
 export const usingDatabase = (env: Env) => Boolean(env.DATABASE_URL);
@@ -84,6 +142,7 @@ export async function listCourses(env: Env, userId: string | null, status?: stri
         )`,
         score: enrollments.score,
         certificateKey: enrollments.certificateKey,
+
       })
       .from(coursesTable)
       .leftJoin(
@@ -94,6 +153,23 @@ export async function listCourses(env: Env, userId: string | null, status?: stri
       )
       .where(eq(coursesTable.isPublished, true))
       .orderBy(asc(coursesTable.rank));
+
+    // A certificate is a private object in storage, so the client cannot be
+    // handed the key — it needs a signed URL. Signed only for the rows that
+    // actually have one, which in practice is a handful per member.
+    const certificates = new Map<string, string>();
+    if (supabaseConfigured(env)) {
+      const withCert = rows.filter((r) => r.certificateKey);
+      await Promise.all(
+        withCert.map(async (r) => {
+          try {
+            certificates.set(r.id, await createStorage(env).signedDownloadUrl(r.certificateKey!, 900));
+          } catch {
+            // A missing object must not take the whole course list down.
+          }
+        }),
+      );
+    }
 
     const mapped = rows.map((r): Course => {
       const total = Number(r.lessonCount) || 0;
@@ -112,8 +188,12 @@ export async function listCourses(env: Env, userId: string | null, status?: stri
         progress,
         status: progress === 100 ? 'completed' : progress > 0 ? 'ongoing' : 'not_started',
         score: r.score ?? null,
-        certificateKey: r.certificateKey,
-      } as Course & { certificateKey: string | null } as Course;
+        // Was `certificateKey`, while the contract asked for `certificateUrl`.
+        // Every course therefore failed validation in the browser and the
+        // Courses page retried forever behind its skeletons. The double cast
+        // that used to be here is what hid it from the compiler.
+        certificateUrl: certificates.get(r.id) ?? null,
+      } satisfies Course;
     });
 
     return status && status !== 'all' ? mapped.filter((c) => c.status === status) : mapped;
