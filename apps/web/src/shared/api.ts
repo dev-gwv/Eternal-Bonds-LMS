@@ -101,6 +101,7 @@ export const api = {
   search: (q: string) => get(`/v1/search?q=${encodeURIComponent(q)}`, SearchResults),
 
   createPost: (input: CreatePost) => send('POST', '/v1/community/posts', input, Post),
+  markChannelRead: (slug: string) => send<void>('POST', `/v1/community/channels/${slug}/read`),
   setRegistration: (workshopId: string, registered: boolean) =>
     send<{ registered: boolean }>(
       registered ? 'POST' : 'DELETE',

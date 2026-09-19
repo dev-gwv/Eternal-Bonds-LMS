@@ -10,6 +10,7 @@ import { LibraryPage } from '../routes/Library.tsx';
 import { MemberPage } from '../routes/Member.tsx';
 import { MembershipPage } from '../routes/Membership.tsx';
 import { NotificationsPage } from '../routes/Notifications.tsx';
+import { PhotolancerPage } from '../routes/Photolancer.tsx';
 import { WorkshopsPage } from '../routes/Workshops.tsx';
 import { CourseBuilderPage } from '../routes/admin/CourseBuilder.tsx';
 import { StudioPage } from '../routes/admin/Studio.tsx';
@@ -51,14 +52,7 @@ const notificationsRoute = createRoute({
 const photolancerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/photolancer',
-  component: () => (
-    <div className="card" style={{ margin: 'auto', maxWidth: 420, textAlign: 'center' }}>
-      <span className="card-title">Photolancer</span>
-      <span style={{ fontSize: 12 }} className="muted">
-        The marketplace module is not part of this scaffold yet.
-      </span>
-    </div>
-  ),
+  component: PhotolancerPage,
 });
 
 /* The studio. Reachable only from the Studio link, which the shell shows only

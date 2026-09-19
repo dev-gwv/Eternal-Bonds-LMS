@@ -206,3 +206,20 @@ export const webhookEvents = pgTable(
   },
   (t) => [uniqueIndex('webhook_events_key').on(t.provider, t.eventId)],
 );
+
+/**
+ * When each member last opened each channel.
+ *
+ * Unread is derived from this — a count of posts newer than `last_read_at` —
+ * rather than stored as a counter. A counter would need incrementing for every
+ * member on every post, and would drift the first time anything went wrong.
+ */
+export const channelReads = pgTable(
+  'channel_reads',
+  {
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    channelId: uuid('channel_id').notNull(),
+    lastReadAt: timestamp('last_read_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.channelId] }), index('channel_reads_user_idx').on(t.userId)],
+);

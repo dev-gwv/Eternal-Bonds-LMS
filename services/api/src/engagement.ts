@@ -319,6 +319,31 @@ export async function likedPostIds(env: Env, userId: string | null, ids: string[
   return new Set(rows.map((r) => r.postId));
 }
 
+/**
+ * Marks a channel read, up to this instant.
+ *
+ * Goes through the SQL function so the timestamp is the database's clock. A
+ * client with a skewed clock could otherwise mark a channel read into the
+ * future and never see a badge again — a bug that would look like the feature
+ * simply not working, and would be almost impossible to reproduce.
+ */
+export async function markChannelRead(env: Env, userId: string | null, slug: string): Promise<void> {
+  const db = requireDb(env);
+  if (!userId) throw new HttpError(401, 'Not authenticated');
+
+  await withUser(db, userId, async (tx) => {
+    const [channel] = await tx
+      .select({ id: channels.id })
+      .from(channels)
+      .where(eq(channels.slug, slug))
+      .limit(1);
+    // RLS hides channels above the member's tier, so a missing row is also the
+    // answer for "not allowed".
+    if (!channel) throw new HttpError(404, 'Channel not found');
+    await tx.execute(sql`select public.mark_channel_read(${channel.id}::uuid)`);
+  });
+}
+
 /* ── Notifications ─────────────────────────────────────────────────────────*/
 
 export async function listNotifications(env: Env, userId: string | null, limit = 30) {

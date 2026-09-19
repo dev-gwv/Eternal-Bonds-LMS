@@ -20,7 +20,7 @@
     "db:push": "bunx supabase db push --db-url $DATABASE_URL",
     "db:seed": "bun scripts/seed.ts",
     "db:verify": "bun scripts/verify-supabase.ts",
-    "db:setup": "bun run db:push && bun run db:seed && bun run db:verify && bun run db:test-rls && bun run db:test-studio && bun run db:test-engagement",
+    "db:setup": "bun run db:push && bun run db:seed && bun run db:verify && bun run db:test-rls && bun run db:test-studio && bun run db:test-engagement && bun run db:test-unread",
     "db:diff": "bunx supabase db diff --db-url $DATABASE_URL",
     "db:test-rls": "bun scripts/test-rls.ts",
     "db:test-studio": "bun --env-file=.env scripts/test-studio.ts",
@@ -33,7 +33,8 @@
     "cf:secrets": "bun --env-file=.env x wrangler secret bulk cf-secrets.json --config services/api/wrangler.jsonc",
     "cf:whoami": "bun --env-file=.env x wrangler whoami",
     "cf:tail": "bun --env-file=.env x wrangler tail --config services/api/wrangler.jsonc",
-    "check:no-dev-login": "bun scripts/check-no-dev-login.ts"
+    "check:no-dev-login": "bun scripts/check-no-dev-login.ts",
+    "db:test-unread": "bun --env-file=.env scripts/test-unread.ts"
   },
   "devDependencies": {
     "supabase": "^2.48.3",

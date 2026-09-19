@@ -154,9 +154,27 @@ export function CommunityPage() {
   const [draft, setDraft] = useState('');
   const me = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: 5 * 60_000, retry: false });
   const stats = useQuery({ queryKey: ['stats'], queryFn: api.stats });
+
   const queryClient = useQueryClient();
 
   const channels = useQuery({ queryKey: ['channels'], queryFn: api.channels });
+
+  // Opening a channel is what marks it read — a separate button would be one
+  // more click for something the member has already done. Fired on selection
+  // rather than on render so simply loading the page does not silently clear
+  // every badge.
+  const markRead = useMutation({
+    mutationFn: (slug: string) => api.markChannelRead(slug),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['channels'] }),
+  });
+
+  const totalUnread = (channels.data ?? []).reduce((n, ch) => n + ch.unread, 0);
+
+  const openChannel = (slug: string | undefined) => {
+    setChannel(slug);
+    if (slug) markRead.mutate(slug);
+  };
+
   const posts = useQuery({ queryKey: ['posts', channel ?? 'all'], queryFn: () => api.posts(channel) });
   const leaderboard = useQuery({ queryKey: ['leaderboard'], queryFn: api.leaderboard });
 
@@ -189,10 +207,21 @@ export function CommunityPage() {
               type="button"
               className="nav-pill"
               style={channel === undefined ? { background: 'var(--pink-tint)', color: 'var(--pink-ink)', border: 0 } : { border: 0, background: 'transparent' }}
-              onClick={() => setChannel(undefined)}
+              onClick={() => openChannel(undefined)}
             >
               <Icon name="dashboard" size={15} strokeWidth={1.9} />
-              Feed
+              <span style={{ flex: 1, textAlign: 'left' }}>Feed</span>
+              {totalUnread > 0 && (
+                <span
+                  aria-label={`${totalUnread} unread in total`}
+                  style={{
+                    fontSize: 9, fontWeight: 600, color: '#fff', background: 'var(--pink)',
+                    borderRadius: 999, padding: '2px 6px', minWidth: 16, textAlign: 'center',
+                  }}
+                >
+                  {totalUnread > 99 ? '99+' : totalUnread}
+                </span>
+              )}
             </button>
           </div>
 
@@ -212,11 +241,27 @@ export function CommunityPage() {
                     color: active ? 'var(--pink-ink)' : 'var(--ink-2)',
                     fontSize: 11,
                   }}
-                  onClick={() => setChannel(ch.slug)}
+                  onClick={() => openChannel(ch.slug)}
                 >
                   <Tile size={22} tone={meta.tone}><Icon name={meta.icon} size={11} strokeWidth={2.2} /></Tile>
                   <span style={{ flex: 1, textAlign: 'left' }}>{ch.name}</span>
-                  {ch.unread > 0 && <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--pink)' }} />}
+                  {ch.unread > 0 && (
+                    <span
+                      aria-label={`${ch.unread} unread`}
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 600,
+                        color: '#fff',
+                        background: 'var(--pink)',
+                        borderRadius: 999,
+                        padding: '2px 6px',
+                        minWidth: 16,
+                        textAlign: 'center',
+                      }}
+                    >
+                      {ch.unread > 99 ? '99+' : ch.unread}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -232,7 +277,7 @@ export function CommunityPage() {
               className="btn"
               style={{ alignSelf: 'flex-start', background: '#fff', color: 'var(--yellow-deep)', fontSize: 10 }}
               onClick={() => {
-                setChannel('wins');
+                openChannel('wins');
                 focusComposer();
               }}
             >

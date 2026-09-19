@@ -12,12 +12,15 @@ import { SignInPage } from '../../routes/SignIn.tsx';
 
 /** The six sections, in the order members already know from the old app. */
 const SECTIONS = [
-  { to: '/', label: 'Dashboard', icon: 'dashboard' },
-  { to: '/community', label: 'Community', icon: 'community' },
-  { to: '/workshops', label: 'Workshops', icon: 'workshops' },
-  { to: '/courses', label: 'Courses', icon: 'courses' },
-  { to: '/library', label: 'Library', icon: 'library' },
-  { to: '/photolancer', label: 'Photolancer', icon: 'search' },
+  { to: '/', label: 'Dashboard', icon: 'dashboard', soon: false },
+  { to: '/community', label: 'Community', icon: 'community', soon: false },
+  { to: '/workshops', label: 'Workshops', icon: 'workshops', soon: false },
+  { to: '/courses', label: 'Courses', icon: 'courses', soon: false },
+  { to: '/library', label: 'Library', icon: 'library', soon: false },
+  // Photolancer is a real planned module, not a mistake — it was a section in
+  // the old app. But the page behind it is not built, so the nav says so
+  // rather than letting a member discover it by arriving at nothing.
+  { to: '/photolancer', label: 'Photolancer', icon: 'search', soon: true },
 ] as const;
 
 function TopBar() {
@@ -51,6 +54,7 @@ function TopBar() {
             <Link key={s.to} to={s.to} className={active ? 'nav-pill is-active' : 'nav-pill'}>
               <Icon name={s.icon} strokeWidth={active ? 1.9 : 1.7} />
               <span>{s.label}</span>
+              {s.soon && <span className="nav-soon">Soon</span>}
             </Link>
           );
         })}

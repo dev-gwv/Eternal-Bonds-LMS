@@ -33,7 +33,7 @@ const EXPECTED_TABLES = [
   'streaks', 'member_stats', 'idempotency_keys', 'rate_limits',
   'post_likes', 'post_comments', 'comment_likes',
   'notifications', 'notification_prefs', 'push_tokens',
-  'plans', 'orders', 'payments', 'webhook_events',
+  'plans', 'orders', 'payments', 'webhook_events', 'channel_reads',
 ];
 
 // Service-role-only tables: RLS on with no policy, deliberately. No policy
@@ -103,6 +103,7 @@ console.log('\nFunctions and triggers');
 for (const fn of [
   'current_tier', 'tier_allows', 'is_admin', 'handle_new_user',
   'grant_membership', 'bump_post_likes', 'bump_post_comments', 'ensure_notification_prefs',
+  'unread_count', 'mark_channel_read', 'emit_outbox',
 ]) {
   const [row] = await db.execute<{ exists: boolean }>(sql`
     select exists (

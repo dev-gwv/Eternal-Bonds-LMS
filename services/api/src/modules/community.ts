@@ -11,6 +11,7 @@ import { listChannels, listPosts } from '../repo.ts';
 import { createPost } from '../writes.ts';
 import {
   createComment,
+  markChannelRead,
   deleteComment,
   editComment,
   listComments,
@@ -20,6 +21,12 @@ import {
 
 export const communityRoutes = new Hono<AppEnv>()
   .get('/channels', async (c) => c.json({ items: await listChannels(c.env, c.get('userId')) }))
+  // Opening a channel is what marks it read. A separate "mark as read" button
+  // would be one more thing to click for something the member already did.
+  .post('/channels/:slug/read', requireAuth, async (c) => {
+    await markChannelRead(c.env, c.get('userId'), c.req.param('slug'));
+    return c.body(null, 204);
+  })
   .get('/posts', async (c) => {
     const items = await listPosts(c.env, c.get('userId'), c.req.query('channel'));
     return c.json({ items });

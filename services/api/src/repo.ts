@@ -181,10 +181,20 @@ export async function listChannels(env: Env, userId: string | null): Promise<Cha
 
   return withUser(handle, userId, async (tx) => {
     const rows = await tx
-      .select({ id: channels.id, slug: channels.slug, name: channels.name })
+      .select({
+        id: channels.id,
+        slug: channels.slug,
+        name: channels.name,
+        // Derived per channel rather than stored: a counter column would need
+        // incrementing for every member on every post, and would drift the
+        // first time anything went wrong.
+        unread: userId
+          ? sql<number>`public.unread_count(${userId}::uuid, ${channels.id})`
+          : sql<number>`0`,
+      })
       .from(channels)
       .where(eq(channels.isArchived, false));
-    return rows.map((r) => ({ ...r, unread: 0 }));
+    return rows.map((r) => ({ ...r, unread: Number(r.unread) || 0 }));
   });
 }
 
