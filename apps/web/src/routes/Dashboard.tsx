@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { api, dayNumber, hoursMinutes, monthShort, timeRange, xpLabel } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { ActivityChart } from '../shared/ui/charts.tsx';
-import { Card, DateBadge, Dropdown, Icon, StatTile } from '../shared/ui/primitives.tsx';
+import { Card, DateBadge, Dropdown, EmptyState, Icon, StatTile } from '../shared/ui/primitives.tsx';
 
 const TONES = ['pink', 'yellow', 'blue', 'green'] as const;
 
@@ -39,14 +39,7 @@ export function DashboardPage() {
 
           <Card
             title="Learning Activity"
-            action={
-              <>
-                <Dropdown label="This Week" />
-                <button type="button" className="btn btn-ghost" aria-label="Chart options">
-                  <Icon name="chevron" size={15} />
-                </button>
-              </>
-            }
+            action={<span style={{ fontSize: 10 }} className="dim">Last 7 days</span>}
           >
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
               <span className="metric num">{hours}</span>
@@ -71,7 +64,14 @@ export function DashboardPage() {
             ))}
           </Card>
 
-          <Card title="Leaderboard" action={<a href="#leaderboard" style={{ fontSize: 11 }}>View all</a>} style={{ flex: 1 }}>
+          <Card title="Leaderboard" style={{ flex: 1 }}>
+            {(leaderboard.data ?? []).length === 0 && !leaderboard.isPending && (
+              <EmptyState
+                icon="chart"
+                title="No rankings yet"
+                hint="Finish a lesson or post a win and you will be on it."
+              />
+            )}
             {(leaderboard.data ?? []).map((row) => (
               <div
                 key={row.rank}

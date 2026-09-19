@@ -328,3 +328,60 @@ export function Icon({
     </svg>
   );
 }
+
+/**
+ * What a card shows when it has nothing in it.
+ *
+ * A panel that renders an empty `.map()` leaves a blank rectangle, which reads
+ * as a loading bug rather than as "nothing here yet". Every list in the app
+ * should say which of the two it is, and — where there is one — offer the
+ * action that fills it.
+ */
+export function EmptyState({
+  icon,
+  title,
+  hint,
+  action,
+}: {
+  icon?: string;
+  title: string;
+  hint?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 7,
+        padding: '26px 18px',
+        textAlign: 'center',
+        flex: 1,
+      }}
+    >
+      {icon && (
+        <span
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 11,
+            background: 'var(--soft)',
+            display: 'grid',
+            placeItems: 'center',
+          }}
+        >
+          <Icon name={icon} size={16} color="var(--ink-3)" />
+        </span>
+      )}
+      <span style={{ fontSize: 12, fontWeight: 500 }}>{title}</span>
+      {hint && (
+        <span style={{ fontSize: 10.5, lineHeight: 1.55, maxWidth: 240 }} className="dim">
+          {hint}
+        </span>
+      )}
+      {action}
+    </div>
+  );
+}

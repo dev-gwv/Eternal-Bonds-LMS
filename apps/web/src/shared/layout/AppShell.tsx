@@ -2,7 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import type { PropsWithChildren, ReactNode } from 'react';
 import { fetchViewer } from '../admin-api.ts';
+import { api } from '../api.ts';
 import { Avatar, Icon } from '../ui/primitives.tsx';
+import { GlobalSearch } from '../ui/GlobalSearch.tsx';
 import { NotificationBell } from '../ui/NotificationBell.tsx';
 import { useSession } from '../session.tsx';
 import { devLoginEnabled } from '../supabase.ts';
@@ -23,6 +25,9 @@ function TopBar() {
   // Whether to offer the Studio link at all. The API re-checks on every
   // authoring call, so this only decides whether the link is worth showing.
   const viewer = useQuery({ queryKey: ['viewer'], queryFn: fetchViewer, staleTime: 5 * 60_000 });
+  // The chip used to be a hardcoded name and tier. Showing someone else's
+  // identity in the corner of every page is worse than showing none.
+  const me = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: 5 * 60_000, retry: false });
 
   return (
     <header className="topbar">
@@ -63,17 +68,15 @@ function TopBar() {
           </Link>
         )}
 
-        <div className="search">
-          <label htmlFor="global-search" style={srOnly}>Search anything</label>
-          <input id="global-search" type="text" placeholder="Search anything" />
-          <Icon name="search" size={15} strokeWidth={2} color="var(--ink-2)" />
-        </div>
+        <GlobalSearch />
 
-        <Link to="/account" className="userchip" style={{ color: "inherit" }}>
-          <Avatar initials="AK" />
+        <Link to="/account" className="userchip" style={{ color: 'inherit' }}>
+          <Avatar initials={me.data?.initials ?? '··'} />
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 12, fontWeight: 600 }}>Aditya Kulkarni</span>
-            <span style={{ fontSize: 10 }} className="dim">Diamond</span>
+            <span style={{ fontSize: 12, fontWeight: 600 }}>{me.data?.fullName ?? 'Loading…'}</span>
+            <span style={{ fontSize: 10, textTransform: 'capitalize' }} className="dim">
+              {me.data?.tier ?? '—'}
+            </span>
           </div>
         </Link>
 

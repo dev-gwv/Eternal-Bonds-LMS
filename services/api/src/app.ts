@@ -15,6 +15,7 @@ import { communityRoutes } from './modules/community.ts';
 import { lessonRoutes } from './modules/lessons.ts';
 import { libraryRoutes } from './modules/library.ts';
 import { meRoutes } from './modules/me.ts';
+import { searchRoutes } from './modules/search.ts';
 import { usingDatabase } from './repo.ts';
 
 /**
@@ -79,6 +80,7 @@ const v1 = new Hono<AppEnv>()
   .route('/lessons', lessonRoutes)
   .route('/library', libraryRoutes)
   .route('/me', meRoutes)
+  .route('/search', searchRoutes)
   .route('/admin', adminRoutes)
   .route('/billing', billingRoutes);
 

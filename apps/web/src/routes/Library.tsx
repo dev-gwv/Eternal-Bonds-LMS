@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import type { LibraryCategory } from '@ipc/contracts';
 import { api } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
-import { Icon, Tile } from '../shared/ui/primitives.tsx';
+import { Card, EmptyState, Icon, Tile } from '../shared/ui/primitives.tsx';
 
 const META: Record<string, { icon: string; tone: 'pink' | 'yellow' | 'blue' | 'green' }> = {
   'business-docs': { icon: 'file', tone: 'pink' },
@@ -41,6 +42,14 @@ function CategoryCard({ category }: { category: LibraryCategory }) {
 
 export function LibraryPage() {
   const categories = useQuery({ queryKey: ['library'], queryFn: api.libraryCategories });
+  const [query, setQuery] = useState('');
+
+  // Filtered here rather than on the server: the category list is small, fully
+  // loaded, and a request per keystroke would be slower than the scan.
+  const needle = query.trim().toLowerCase();
+  const shown = (categories.data ?? []).filter(
+    (c) => needle === '' || c.name.toLowerCase().includes(needle) || c.blurb.toLowerCase().includes(needle),
+  );
 
   return (
     <Page>
@@ -49,8 +58,9 @@ export function LibraryPage() {
         crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Library' }]}
         actions={
           <>
-            <span style={{ fontSize: 11 }} className="dim">8,000+ members</span>
-            <button type="button" className="btn btn-blue">Browse All</button>
+            <span style={{ fontSize: 11 }} className="dim">
+              {categories.data ? `${categories.data.reduce((n, c) => n + c.itemCount, 0)} resources` : ''}
+            </span>
           </>
         }
       />
@@ -86,36 +96,66 @@ export function LibraryPage() {
             <label htmlFor="library-search" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
               Search the library
             </label>
-            <input id="library-search" type="search" placeholder="Search — quotation, sadhana link, ad template…" />
+            <input
+              id="library-search"
+              type="search"
+              value={query}
+              placeholder="Search — quotation, sadhana link, ad template…"
+              onChange={(e) => setQuery(e.target.value)}
+              style={{ flex: 1, font: 'inherit', fontSize: 13, border: 0, outline: 'none', background: 'transparent', color: 'var(--ink)' }}
+            />
           </div>
           <button type="submit" className="btn btn-pink" style={{ padding: '12px 28px', fontSize: 12 }}>Find</button>
         </form>
 
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', justifyContent: 'center' }}>
           {SUGGESTIONS.map((s) => (
-            <button key={s} type="button" className="btn" style={{ background: '#fff', color: 'var(--ink-2)', fontSize: 10, padding: '6px 13px' }}>
+            <button
+              key={s}
+              type="button"
+              className="btn"
+              style={{
+                background: query === s ? 'var(--pink)' : '#fff',
+                color: query === s ? '#fff' : 'var(--ink-2)',
+                fontSize: 10,
+                padding: '6px 13px',
+              }}
+              onClick={() => setQuery(query === s ? '' : s)}
+            >
               {s}
             </button>
           ))}
         </div>
       </section>
 
-      <span className="section-label">Browse category</span>
+      <span className="section-label">
+        {needle ? `Matching “${needle}”` : 'Browse category'}
+      </span>
 
-      <div className="grid grid-4" style={{ alignContent: 'start' }}>
-        {(categories.data ?? []).map((c) => <CategoryCard key={c.id} category={c} />)}
-
-        <div className="promo">
-          <span className="section-label" style={{ color: '#7a5a00' }}>Recently added</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--yellow-deep)', lineHeight: 1.35 }}>
-            Wedding quotation format 2026 — editable
-          </span>
-          <span style={{ fontSize: 10, color: '#7a5a00' }}>Business docs · 2 days ago</span>
-          <button type="button" className="btn" style={{ alignSelf: 'flex-start', background: '#fff', color: 'var(--yellow-deep)', fontSize: 10 }}>
-            Open
-          </button>
+      {shown.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon="library"
+            title={needle ? `Nothing matches “${needle}”` : 'The library is empty'}
+            hint={
+              needle
+                ? 'Try a shorter word, or clear the search to see every category.'
+                : 'Resources appear here as the team adds them.'
+            }
+            action={
+              needle ? (
+                <button type="button" className="btn btn-soft" onClick={() => setQuery('')}>
+                  Clear search
+                </button>
+              ) : undefined
+            }
+          />
+        </Card>
+      ) : (
+        <div className="grid grid-4" style={{ alignContent: 'start' }}>
+          {shown.map((c) => <CategoryCard key={c.id} category={c} />)}
         </div>
-      </div>
+      )}
     </Page>
   );
 }

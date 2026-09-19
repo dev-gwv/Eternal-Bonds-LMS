@@ -576,3 +576,28 @@ export const MembershipState = z.object({
   orders: z.array(OrderSummary),
 });
 export type MembershipState = z.infer<typeof MembershipState>;
+
+/* ── Search ────────────────────────────────────────────────────────────────
+   One endpoint across everything a member can reach. Results are grouped
+   rather than ranked into a single list: "which course was that" and "which
+   member was that" are different questions, and a mixed list answers neither
+   well. */
+
+export const SearchHit = z.object({
+  kind: z.enum(['course', 'workshop', 'library', 'member', 'post']),
+  id: z.string(),
+  title: z.string(),
+  /** A line of context — the category, the date, the tier. */
+  subtitle: z.string().nullable(),
+  /** In-app path, so the same result works in a native build. */
+  href: z.string(),
+});
+export type SearchHit = z.infer<typeof SearchHit>;
+
+export const SearchResults = z.object({
+  query: z.string(),
+  hits: z.array(SearchHit),
+  /** True when results were cut off, so the UI can say "keep typing". */
+  truncated: z.boolean(),
+});
+export type SearchResults = z.infer<typeof SearchResults>;

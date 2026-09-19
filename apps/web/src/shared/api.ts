@@ -21,6 +21,7 @@ import {
   PlaybackTicket,
   Post,
   ProgressUpdate,
+  SearchResults,
   Workshop,
 } from '@ipc/contracts';
 import { z } from 'zod';
@@ -97,6 +98,7 @@ export const api = {
   activity: () => get('/v1/me/activity', list(ActivityDay)).then((r) => r.items),
   performance: () => get('/v1/me/performance', Performance),
   stats: () => get('/v1/me/stats', DashboardStats),
+  search: (q: string) => get(`/v1/search?q=${encodeURIComponent(q)}`, SearchResults),
 
   createPost: (input: CreatePost) => send('POST', '/v1/community/posts', input, Post),
   setRegistration: (workshopId: string, registered: boolean) =>

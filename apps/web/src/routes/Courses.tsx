@@ -96,10 +96,31 @@ function CourseCard({ course }: { course: Course }) {
   );
 }
 
+const STATUSES = ['all', 'not_started', 'ongoing', 'completed'] as const;
+const STATUS_LABEL: Record<(typeof STATUSES)[number], string> = {
+  all: 'All status',
+  not_started: 'Not started',
+  ongoing: 'Ongoing',
+  completed: 'Completed',
+};
+
 export function CoursesPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('all');
+  const [status, setStatus] = useState<(typeof STATUSES)[number]>('all');
+  const [query, setQuery] = useState('');
   const courses = useQuery({ queryKey: ['courses'], queryFn: () => api.courses() });
-  const rows = (courses.data ?? []).filter((c) => filter === 'all' || c.category === filter);
+
+  const needle = query.trim().toLowerCase();
+  const rows = (courses.data ?? []).filter(
+    (c) =>
+      (filter === 'all' || c.category === filter) &&
+      (status === 'all' || c.status === status) &&
+      // Filtering here rather than round-tripping: the whole catalogue is
+      // already loaded, and a network hop per keystroke would be slower than
+      // the scan by orders of magnitude.
+      (needle === '' || c.title.toLowerCase().includes(needle) || c.category.toLowerCase().includes(needle)),
+  );
+  const filtered = filter !== 'all' || status !== 'all' || needle !== '';
 
   return (
     <Page>
@@ -112,11 +133,38 @@ export function CoursesPage() {
               <label htmlFor="course-search" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
                 Search course
               </label>
-              <input id="course-search" type="text" placeholder="Search course, category, etc" />
+              <input
+                id="course-search"
+                type="search"
+                value={query}
+                placeholder="Search course, category, etc"
+                onChange={(e) => setQuery(e.target.value)}
+              />
               <Icon name="search" size={14} strokeWidth={2} color="var(--ink-2)" />
             </div>
-            <Dropdown label="All Status" />
-            <button type="button" className="btn btn-blue">View All</button>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as (typeof STATUSES)[number])}
+              aria-label="Filter by status"
+              style={selectStyle}
+            >
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+              ))}
+            </select>
+            {filtered && (
+              <button
+                type="button"
+                className="btn btn-soft"
+                onClick={() => {
+                  setFilter('all');
+                  setStatus('all');
+                  setQuery('');
+                }}
+              >
+                Clear
+              </button>
+            )}
           </>
         }
       />
@@ -144,3 +192,17 @@ export function CoursesPage() {
     </Page>
   );
 }
+
+/* A native select, styled to match the pill buttons beside it. Native because
+   it is keyboard-accessible, works on a phone, and needs no state of its own —
+   the custom dropdown it replaces did none of those and did not open. */
+const selectStyle: React.CSSProperties = {
+  font: 'inherit',
+  fontSize: 11,
+  fontWeight: 500,
+  color: 'var(--ink-2)',
+  background: 'var(--soft)',
+  border: 0,
+  borderRadius: 'var(--r-pill)',
+  padding: '9px 14px',
+};

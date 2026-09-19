@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { api, durationLabel, hoursMinutes } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { ActivityChart, ProgressRing, ScoreGauge, TrendLine } from '../shared/ui/charts.tsx';
@@ -72,12 +73,35 @@ export function MemberPage() {
           </div>
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" className="icon-btn btn-sq" style={{ width: 38, height: 38, background: '#fff', border: '1px solid #ececf1' }} aria-label="Email member">
+{/* mailto: and tel: rather than buttons — the phone already knows what to
+                do with both, and a button that opens nothing is worse than no
+                button. Disabled when the member has not given us the detail. */}
+            <a
+              href={member?.email ? `mailto:${member.email}` : undefined}
+              className="icon-btn btn-sq"
+              aria-label={member?.email ? `Email ${member.fullName}` : 'No email on file'}
+              aria-disabled={!member?.email}
+              style={{
+                width: 38, height: 38, background: '#fff', border: '1px solid #ececf1',
+                color: 'inherit', opacity: member?.email ? 1 : 0.4,
+                pointerEvents: member?.email ? 'auto' : 'none',
+              }}
+            >
               <Icon name="mail" />
-            </button>
-            <button type="button" className="icon-btn btn-sq" style={{ width: 38, height: 38, background: '#fff', border: '1px solid #ececf1' }} aria-label="Call member">
+            </a>
+            <a
+              href={member?.phone ? `tel:${member.phone.replace(/\s+/g, '')}` : undefined}
+              className="icon-btn btn-sq"
+              aria-label={member?.phone ? `Call ${member.fullName}` : 'No phone on file'}
+              aria-disabled={!member?.phone}
+              style={{
+                width: 38, height: 38, background: '#fff', border: '1px solid #ececf1',
+                color: 'inherit', opacity: member?.phone ? 1 : 0.4,
+                pointerEvents: member?.phone ? 'auto' : 'none',
+              }}
+            >
               <Icon name="phone" />
-            </button>
+            </a>
             <button type="button" className="btn btn-blue btn-sq" style={{ flex: 1, fontSize: 12 }}>
               <Icon name="comment" size={15} strokeWidth={1.9} />
               Chat
@@ -108,10 +132,10 @@ export function MemberPage() {
             ))}
           </div>
 
-          <button type="button" className="btn btn-soft btn-sq" style={{ marginTop: 'auto', padding: 11, fontSize: 12 }}>
+          <Link to="/account" className="btn btn-soft btn-sq" style={{ marginTop: 'auto', padding: 11, fontSize: 12, color: 'inherit' }}>
             <Icon name="edit" size={14} strokeWidth={1.9} />
-            Edit
-          </button>
+            Account settings
+          </Link>
         </div>
 
         {/* Right column */}
@@ -159,10 +183,9 @@ export function MemberPage() {
             title="Enrolled Courses"
             style={{ flex: 1 }}
             action={
-              <>
-                <Dropdown label="All Status" />
-                <button type="button" className="btn btn-blue">View All</button>
-              </>
+              <Link to="/courses" className="btn btn-soft" style={{ color: 'inherit' }}>
+                View all
+              </Link>
             }
           >
             {(courses.data ?? []).slice(0, 4).map((course) => (

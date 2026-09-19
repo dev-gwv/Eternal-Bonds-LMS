@@ -24,10 +24,30 @@
     "crons": ["* * * * *"]
   },
 
+  // Not secret, and deliberately visible in git: flipping one of these is a
+  // reviewable change with a deploy attached, which is what you want for
+  // "start sending real email" and "start taking real money".
   "vars": {
     "NODE_ENV": "production",
     "STORAGE_BUCKET": "ipc-media",
-    "VIDEO_PROVIDER": "none"
+    "VIDEO_PROVIDER": "none",
+
+    // Where links in emails and push notifications point.
+    "APP_URL": "https://eternal-bonds-web.dev-d9b.workers.dev",
+
+    // `console` logs what it would have sent. Do not switch to `resend` before
+    // SPF, DKIM and DMARC exist for the sending domain — the first send from
+    // an unverified domain is how an address gets blocklisted permanently.
+    "EMAIL_PROVIDER": "console",
+    "EMAIL_FROM": "Eternal Bonds <no-reply@example.com>",
+
+    // FCM is implemented but nothing has ever received a notification, because
+    // no signed mobile app exists yet (PLAN M7).
+    "PUSH_PROVIDER": "console",
+
+    // web_only ships in the store builds: Apple and Google take a share of
+    // in-app purchases (PLAN §7). Switch to `razorpay` once the keys are set.
+    "BILLING_MODE": "web_only"
   }
 
   // ── Database ───────────────────────────────────────────────────────────────
@@ -53,6 +73,10 @@
   // Never here. `wrangler secret put <NAME>`, one at a time:
   //   DATABASE_URL, SUPABASE_URL, SUPABASE_ANON_KEY,
   //   SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET, ALLOWED_ORIGINS
+  //   EMAIL_API_KEY                      (Resend)
+  //   RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET
+  //   FCM_PROJECT_ID, FCM_CLIENT_EMAIL, FCM_PRIVATE_KEY
+  //   VIDEO_API_TOKEN, VIDEO_SIGNING_KEY_PEM, VIDEO_WEBHOOK_SECRET
   //
   // ALLOWED_ORIGINS is a secret rather than a var purely so it can be changed
   // without a redeploy — it is not sensitive.

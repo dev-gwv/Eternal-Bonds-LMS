@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CreatePost, type Post } from '@ipc/contracts';
 import { api, relativeTime, xpLabel } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
-import { Avatar, Card, Chip, Icon, Tile } from '../shared/ui/primitives.tsx';
+import { Avatar, Card, Chip, EmptyState, Icon, Tile } from '../shared/ui/primitives.tsx';
 import { CommentThread } from '../shared/ui/Comments.tsx';
+import { NextUp } from '../shared/ui/NextUp.tsx';
 
 const CHANNEL_ICON: Record<string, { icon: string; tone: 'pink' | 'yellow' | 'blue' | 'green' }> = {
   wins: { icon: 'heart', tone: 'pink' },
@@ -18,6 +19,7 @@ function PostCard({ post }: { post: Post }) {
   // The thread is collapsed until asked for: a feed of twenty posts must not
   // be twenty comment queries nobody wanted.
   const [showComments, setShowComments] = useState(false);
+  const [shared, setShared] = useState(false);
 
   const like = useMutation({
     mutationFn: (liked: boolean) => api.likePost(post.id, liked),
@@ -56,9 +58,6 @@ function PostCard({ post }: { post: Post }) {
             {relativeTime(post.createdAt)} · {post.channelSlug.replace(/-/g, ' ')}
           </span>
         </div>
-        <button type="button" className="btn btn-ghost" aria-label="Post options">
-          <Icon name="chevron" size={15} />
-        </button>
       </div>
 
       <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: '#4a4a57' }}>{post.bodyMd}</p>
@@ -115,9 +114,27 @@ function PostCard({ post }: { post: Post }) {
           {post.comments}
         </button>
         <span style={{ flex: 1 }} />
-        <button type="button" className="btn btn-ghost">
-          <Icon name="share" size={14} strokeWidth={1.9} />
-          Share
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={async () => {
+            const url = `${window.location.origin}/community?post=${post.id}`;
+            try {
+              // navigator.share is the right thing on a phone and does not
+              // exist on most desktops; the clipboard is the fallback.
+              if (navigator.share) await navigator.share({ text: post.bodyMd.slice(0, 120), url });
+              else {
+                await navigator.clipboard.writeText(url);
+                setShared(true);
+                setTimeout(() => setShared(false), 1800);
+              }
+            } catch {
+              /* The member dismissed the share sheet. Not an error. */
+            }
+          }}
+        >
+          <Icon name={shared ? 'check' : 'share'} size={14} strokeWidth={1.9} />
+          {shared ? 'Link copied' : 'Share'}
         </button>
       </div>
 
@@ -127,8 +144,14 @@ function PostCard({ post }: { post: Post }) {
 }
 
 export function CommunityPage() {
+  const composer = useRef<HTMLInputElement>(null);
+  const focusComposer = () => {
+    composer.current?.focus();
+    composer.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
   const [channel, setChannel] = useState<string | undefined>(undefined);
   const [draft, setDraft] = useState('');
+  const me = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: 5 * 60_000, retry: false });
   const queryClient = useQueryClient();
 
   const channels = useQuery({ queryKey: ['channels'], queryFn: api.channels });
@@ -150,9 +173,9 @@ export function CommunityPage() {
         title="Community"
         crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Feed' }]}
         actions={
-          <button type="button" className="btn btn-pink" style={{ padding: '10px 18px' }}>
+          <button type="button" className="btn btn-pink" style={{ padding: '10px 18px' }} onClick={focusComposer}>
             <Icon name="plus" size={14} strokeWidth={2.4} />
-            Create
+            Write a post
           </button>
         }
       />
@@ -168,11 +191,6 @@ export function CommunityPage() {
             >
               <Icon name="dashboard" size={15} strokeWidth={1.9} />
               Feed
-            </button>
-            <button type="button" className="nav-pill" style={{ border: 0, background: 'transparent' }}>
-              <Icon name="comment" size={15} />
-              <span style={{ flex: 1, textAlign: 'left' }}>Messages</span>
-              <span style={{ fontSize: 9, fontWeight: 600, color: '#fff', background: 'var(--red)', borderRadius: 999, padding: '2px 6px' }}>24</span>
             </button>
           </div>
 
@@ -207,7 +225,15 @@ export function CommunityPage() {
             <span style={{ fontSize: 10, lineHeight: 1.5, color: '#7a5a00' }}>
               Members who post a win in week one stay twice as long.
             </span>
-            <button type="button" className="btn" style={{ alignSelf: 'flex-start', background: '#fff', color: 'var(--yellow-deep)', fontSize: 10 }}>
+            <button
+              type="button"
+              className="btn"
+              style={{ alignSelf: 'flex-start', background: '#fff', color: 'var(--yellow-deep)', fontSize: 10 }}
+              onClick={() => {
+                setChannel('wins');
+                focusComposer();
+              }}
+            >
               Share a win
             </button>
           </div>
@@ -225,21 +251,19 @@ export function CommunityPage() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-              <Avatar initials="AK" size={34} />
+              <Avatar initials={me.data?.initials ?? '··'} size={34} />
               <label htmlFor="composer" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
                 Share a post
               </label>
               <input
                 id="composer"
+                ref={composer}
                 type="text"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder={`Share a win, a question, or what you shot today…`}
                 style={{ flex: 1, fontSize: 12, color: 'var(--ink)', background: 'transparent', border: 0, outline: 'none' }}
               />
-              <button type="button" className="icon-btn btn-sq" aria-label="Add photo">
-                <Icon name="image" size={15} strokeWidth={1.9} />
-              </button>
               <button
                 type="submit"
                 className="btn btn-pink"
@@ -254,24 +278,39 @@ export function CommunityPage() {
           </form>
 
           {posts.isPending && <p className="muted" style={{ fontSize: 12 }}>Loading the feed…</p>}
+
+          {posts.isError && (
+            <div className="alert">{(posts.error as Error).message}</div>
+          )}
+
+          {!posts.isPending && (posts.data ?? []).length === 0 && (
+            <Card>
+              <EmptyState
+                icon={channel ? 'comment' : 'community'}
+                title={channel ? 'Nothing in this channel yet' : 'The feed is quiet'}
+                hint={
+                  channel
+                    ? 'Be the first to post here — it is usually the one that starts the conversation.'
+                    : 'Share what you shot this week, ask for a critique, or post a win. Everyone sees it.'
+                }
+              />
+            </Card>
+          )}
+
           {(posts.data ?? []).map((p) => <PostCard key={p.id} post={p} />)}
         </div>
 
         <div className="col rail">
-          <Card>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="card-title" style={{ flex: 1 }}>Next up</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 500, color: 'var(--green-ink)' }}>
-                <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--green-ink)' }} />
-                Live in 14m
-              </span>
-            </div>
-            <span style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.35 }}>New Diamond Members Planning Call</span>
-            <span style={{ fontSize: 10 }} className="dim">Sat 20 Sep · 9:00 AM – 2:00 PM</span>
-            <button type="button" className="btn btn-blue btn-sq" style={{ padding: 9 }}>Join the call</button>
-          </Card>
+          <NextUp />
 
-          <Card title="Leaderboard" action={<a href="#leaderboard" style={{ fontSize: 10 }}>View all</a>} style={{ flex: 1 }}>
+          <Card title="Leaderboard" style={{ flex: 1 }}>
+            {(leaderboard.data ?? []).length === 0 && !leaderboard.isPending && (
+              <EmptyState
+                icon="chart"
+                title="No rankings yet"
+                hint="XP is earned by finishing lessons, posting, and attending workshops. The board fills in as members get going."
+              />
+            )}
             {(leaderboard.data ?? []).slice(0, 4).map((row) => (
               <div
                 key={row.rank}
