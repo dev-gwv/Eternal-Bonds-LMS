@@ -434,11 +434,23 @@ create index if not exists impersonation_target_idx on public.impersonation_sess
    The app cannot insert into outbox (service-role-only). Triggers emit
    alongside the change so the event cannot exist without it. */
 
-create or replace function public.emit_outbox(topic text, payload jsonb)
-returns void language plpgsql security definer set search_path = public as $$
-begin
-  insert into public.outbox (topic, payload) values (topic, payload);
-end; $$;
+-- `emit_outbox` already exists, from 20260918121200_outbox_triggers.sql, and is
+-- deliberately not redefined here. Two reasons, both of which bit:
+--
+--   1. Postgres refuses `create or replace function` when the parameter names
+--      change (42P13). The existing signature is (p_topic, p_payload).
+--   2. The version that used to sit here was broken regardless:
+--
+--        insert into public.outbox (topic, payload) values (topic, payload)
+--
+--      Inside plpgsql, `topic` is both a parameter and a column of the target
+--      table, so Postgres raises "column reference is ambiguous" — at runtime,
+--      on every trigger that emits an event. Publishing an insight, a win or an
+--      event would all have thrown. The `p_` prefix on the real definition is
+--      what avoids that collision, and is why it is spelled that way.
+--
+-- The three triggers below call it positionally, so the parameter names do not
+-- matter to them.
 
 create or replace function public.on_insight_published()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -517,7 +529,10 @@ create policy vote_cycles_select on public.vote_cycles for select to authenticat
 create policy solutions_select on public.solutions for select to authenticated using (true);
 create policy badge_defs_select on public.badge_defs for select to authenticated using (true);
 create policy events_select on public.events for select to authenticated
-  using (public.tier_allows(public.current_tier(), min_tier));
+  -- `tier_allows(required)` already resolves the caller through auth.uid();
+  -- there is no zero-argument current_tier(), and tier_allows takes one
+  -- argument, not two. Matching the helpers the rest of the schema uses.
+  using (public.tier_allows(min_tier));
 
 -- Insights: published visible, drafts only to author + admin.
 create policy insights_select on public.insights for select to authenticated

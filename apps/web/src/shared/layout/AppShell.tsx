@@ -46,12 +46,18 @@ function TopBar() {
 
       <nav className="nav" aria-label="Sections">
         {SECTIONS.map((s) => {
+          // Dashboard used to claim /members, from when the member profile
+          // lived under it. There is a Members section now, so both pills lit
+          // up at once. Dashboard is the exact path only; the others own their
+          // prefix, plus the routes that are theirs under a different name.
           const active =
             s.to === '/'
-              ? pathname === '/' || pathname.startsWith('/members')
+              ? pathname === '/'
               : s.to === '/courses'
                 ? pathname.startsWith('/courses') || pathname.startsWith('/learn')
-                : pathname.startsWith(s.to);
+                : s.to === '/members'
+                  ? pathname.startsWith('/members')
+                  : pathname.startsWith(s.to);
           return (
             <Link key={s.to} to={s.to} className={active ? 'nav-pill is-active' : 'nav-pill'}>
               <Icon name={s.icon} strokeWidth={active ? 1.9 : 1.7} />
