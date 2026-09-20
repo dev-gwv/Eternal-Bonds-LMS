@@ -98,6 +98,24 @@ export async function search(env: Env, userId: string | null, raw: string): Prom
         where p.status = 'published' and p.body_md ilike ${pattern}
         order by p.created_at desc limit ${PER_GROUP}
       )
+      union all
+      (
+        select 'post', i.id::text, i.title,
+               'Think Tank · ' || i.votes_count || ' votes',
+               '/think-tank/' || i.slug
+        from insights i
+        where i.status = 'published' and (i.title ilike ${pattern} or i.big_idea_md ilike ${pattern})
+        order by i.votes_count desc limit ${PER_GROUP}
+      )
+      union all
+      (
+        select 'post', w.id::text, w.title,
+               'Win · ' || w.category,
+               '/wins/' || w.slug
+        from wins w
+        where w.status = 'published' and (w.title ilike ${pattern} or w.big_idea_md ilike ${pattern})
+        order by w.created_at desc limit ${PER_GROUP}
+      )
     `);
 
     const hits = [...rows];
@@ -105,7 +123,7 @@ export async function search(env: Env, userId: string | null, raw: string): Prom
       query,
       hits,
       // Every group hit its cap, so there is almost certainly more.
-      truncated: hits.length >= PER_GROUP * 5,
+      truncated: hits.length >= PER_GROUP * 7,
     };
   });
 }

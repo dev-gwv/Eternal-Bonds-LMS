@@ -1,0 +1,21 @@
+---
+// Public, SEO-indexed pages. The app stays a pure SPA; these three landing
+// pages plus opt-in public win pages (/w/:slug) are why the marketing site
+// exists separately instead of dragging SSR into the app.
+const title = 'Eternal Bonds — the club for photographers who want more';
+---
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Courses, community, live coaching and paid work — inside one club." />
+    <title>{title}</title>
+  </head>
+  <body>
+    <main>
+      <h1>Eternal Bonds</h1>
+      <p>Courses, community, live coaching and paid work — inside one club.</p>
+      <p><a href="/wins">Member wins</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>
+    </main>
+  </body>
+</html>

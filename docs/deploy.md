@@ -77,7 +77,8 @@ bun run db:verify          # schema, RLS, policies, functions, bucket, jobs
 bun run db:test-rls        # members cannot read each other's data
 bun run db:test-studio     # only admins can author
 bun run db:test-engagement # likes, threads, notifications, membership grants
-bun test                   # 31 unit tests, no database needed
+bun test                   # 55 unit tests, no database needed
+bun run smoke              # 22 endpoint checks against the app in seed mode
 ```
 
 All of them have to pass. `db:verify` also checks that the `ipc-media` bucket
@@ -172,7 +173,7 @@ without a redeploy. It is not sensitive.
 ### Background jobs
 
 The Cron Trigger in `wrangler.jsonc` fires every minute; `scheduled()` calls
-`dueJobs()`, which decides what is actually due. Thirteen jobs with cadences
+`dueJobs()`, which decides what is actually due. Fifteen jobs with cadences
 from 30 seconds to a day do **not** all run every minute.
 
 Check it is working:

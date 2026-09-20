@@ -166,8 +166,8 @@ export function LessonPage() {
             {(
               [
                 ['notes', 'Notes'],
-                ['files', `Files ${current.isPreview ? '1' : '2'}`],
-                ['qa', 'Q&A 14'],
+                ['files', 'Files'],
+                ['qa', 'Q&A'],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -188,32 +188,9 @@ export function LessonPage() {
             ))}
           </div>
 
-          {tab === 'notes' && (
-            <Card>
-              <span style={{ fontSize: 12, lineHeight: 1.7 }} className="muted">
-                Lesson notes are authored as markdown and sanitised on render — never stored HTML.
-                Nothing has been written for this lesson yet.
-              </span>
-            </Card>
-          )}
-          {tab === 'files' && (
-            <Card>
-              <div className="card-row">
-                <Icon name="file" size={16} color="var(--ink-3)" />
-                <span style={{ flex: 1, fontSize: 12 }}>Worksheet — {current.title}.pdf</span>
-                <Chip>PDF</Chip>
-                <button type="button" className="btn btn-blue btn-sq">Download</button>
-              </div>
-            </Card>
-          )}
-          {tab === 'qa' && (
-            <Card>
-              <span style={{ fontSize: 12, lineHeight: 1.7 }} className="muted">
-                Lesson-level Q&A is the strongest completion driver in an LMS — questions asked at the
-                point of confusion. Wired to the same polymorphic comments table as the feed (PLAN §10.3).
-              </span>
-            </Card>
-          )}
+          {tab === 'notes' && <LessonNotesPanel lessonId={current.id} />}
+          {tab === 'files' && <LessonFilesPanel lessonId={current.id} title={current.title} />}
+          {tab === 'qa' && <LessonQaPanel lessonId={current.id} />}
         </div>
 
         <aside className="col rail">
@@ -322,5 +299,79 @@ function LessonRow({
       {lesson.isPreview && !lesson.completed && <Chip tone="blue">Free</Chip>}
       <span style={{ fontSize: 10 }} className="dim">{clock(lesson.durationSeconds)}</span>
     </Link>
+  );
+}
+
+/* ── Lesson panels: notes, files, Q&A — backed by /v1/learning ────────── */
+
+function LessonNotesPanel({ lessonId }: { lessonId: string }) {
+  const qc = useQueryClient();
+  const note = useQuery({ queryKey: ['note', lessonId], queryFn: () => api.lessonNote(lessonId) });
+  const [draft, setDraft] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: (bodyMd: string) => api.saveNote(lessonId, bodyMd),
+    onSuccess: () => { setDraft(null); qc.invalidateQueries({ queryKey: ['note', lessonId] }); },
+  });
+  return (
+    <Card>
+      <textarea className="input" rows={5} aria-label="Lesson notes"
+        placeholder="Take notes — they stay with this lesson."
+        value={draft ?? note.data?.bodyMd ?? ''}
+        onChange={(e) => setDraft(e.target.value)} />
+      <button className="btn btn-pink" disabled={save.isPending || draft === null}
+        onClick={() => draft !== null && save.mutate(draft)}>Save notes</button>
+    </Card>
+  );
+}
+
+function LessonFilesPanel({ lessonId, title }: { lessonId: string; title: string }) {
+  const files = useQuery({ queryKey: ['resources', lessonId], queryFn: () => api.lessonResources(lessonId) });
+  if (files.isPending) return <Card><span className="muted" style={{ fontSize: 12 }}>Loading files…</span></Card>;
+  if (!files.data || files.data.length === 0) return (
+    <Card><span className="muted" style={{ fontSize: 12 }}>No files for {title} yet.</span></Card>
+  );
+  return (
+    <Card>
+      {files.data.map((f) => (
+        <div className="card-row" key={f.id}>
+          <Icon name="file" size={16} color="var(--ink-3)" />
+          <span style={{ flex: 1, fontSize: 12 }}>{f.title}</span>
+          <Chip>{f.mime.split('/')[1]?.toUpperCase() ?? 'FILE'}</Chip>
+          <a className="btn btn-blue btn-sq" href={f.url} download>Download</a>
+        </div>
+      ))}
+    </Card>
+  );
+}
+
+function LessonQaPanel({ lessonId }: { lessonId: string }) {
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState('');
+  const questions = useQuery({ queryKey: ['questions', lessonId], queryFn: () => api.lessonQuestions(lessonId) });
+  const ask = useMutation({
+    mutationFn: () => api.askQuestion(lessonId, draft),
+    onSuccess: () => { setDraft(''); qc.invalidateQueries({ queryKey: ['questions', lessonId] }); },
+  });
+  return (
+    <Card>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input className="input" placeholder="Ask at the point of confusion…" value={draft}
+          onChange={(e) => setDraft(e.target.value)} aria-label="Ask a question" />
+        <button className="btn btn-pink" disabled={draft.trim().length < 4 || ask.isPending}
+          onClick={() => ask.mutate()}>Ask</button>
+      </div>
+      {questions.data?.map((q) => (
+        <div key={q.id} style={{ padding: '8px 0', borderTop: '1px solid var(--line)' }}>
+          <span style={{ fontSize: 12, fontWeight: 600 }}>{q.author.name}</span>
+          {q.resolved && <Chip tone="green">Resolved</Chip>}
+          <p style={{ fontSize: 12, margin: '4px 0' }}>{q.bodyMd}</p>
+          {q.replies.map((r) => (
+            <p key={r.id} style={{ fontSize: 11, marginLeft: 16 }} className="muted">
+              <strong>{r.authorName}:</strong> {r.bodyMd}
+            </p>
+          ))}
+        </div>
+      ))}
+    </Card>
   );
 }

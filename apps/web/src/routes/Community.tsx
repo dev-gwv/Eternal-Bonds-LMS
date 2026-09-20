@@ -47,7 +47,7 @@ function PostCard({ post }: { post: Post }) {
   });
 
   return (
-    <article className="card" style={{ padding: '14px 16px' }}>
+    <article className="card lift" style={{ padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <Avatar initials={post.author.initials} size={36} tone={post.channelSlug === 'wins' ? 'pink' : 'blue'} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>

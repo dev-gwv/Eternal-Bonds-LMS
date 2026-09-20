@@ -3,13 +3,14 @@ import { Link } from '@tanstack/react-router';
 import { api, dayNumber, hoursMinutes, monthShort, timeRange, xpLabel } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { ActivityChart } from '../shared/ui/charts.tsx';
-import { Card, DateBadge, EmptyState, Icon, StatTile } from '../shared/ui/primitives.tsx';
+import { Card, DateBadge, EmptyState, Hero, Icon, StatTile } from '../shared/ui/primitives.tsx';
 import { LoadingLabel, Skeleton, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 
 const TONES = ['pink', 'yellow', 'blue', 'green'] as const;
 
 export function DashboardPage() {
   const stats = useQuery({ queryKey: ['stats'], queryFn: api.stats });
+  const me = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: 5 * 60_000, retry: false });
   const activity = useQuery({ queryKey: ['activity'], queryFn: api.activity });
   const workshops = useQuery({ queryKey: ['workshops', 'upcoming'], queryFn: () => api.workshops('upcoming') });
   const leaderboard = useQuery({ queryKey: ['leaderboard'], queryFn: api.leaderboard });
@@ -31,6 +32,11 @@ export function DashboardPage() {
     return above ? Math.max(0, above.xp - me.xp) : 0;
   })();
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName = me.data?.fullName.split(' ')[0];
+  const streak = stats.data?.streakDays ?? 0;
+
   return (
     <Page>
       <PageHeader
@@ -40,6 +46,23 @@ export function DashboardPage() {
           <Link to="/courses" className="btn btn-pink" style={{ color: '#fff' }}>
             Continue learning
           </Link>
+        }
+      />
+
+      <Hero
+        tone="ink"
+        eyebrow={`Day streak · ${streak} ${streak === 1 ? 'day' : 'days'} and counting`}
+        title={firstName ? `${greeting}, ${firstName}.` : `${greeting}.`}
+        sub={
+          gapToNext !== null && gapToNext > 0
+            ? `You're ${gapToNext.toLocaleString('en-IN')} XP from the member above you. One lesson closes it.`
+            : 'Small efforts, repeated daily. Pick up where you left off.'
+        }
+        actions={
+          <>
+            <Link to="/courses" className="btn btn-pink" style={{ color: '#fff' }}>Continue learning</Link>
+            <Link to="/think-tank" className="btn btn-soft">This week's insights</Link>
+          </>
         }
       />
 

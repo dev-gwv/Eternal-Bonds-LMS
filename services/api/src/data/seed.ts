@@ -1,13 +1,18 @@
 import type {
   ActivityDay,
+  Brief,
   Channel,
+  ClubEvent,
   Course,
   DashboardStats,
+  Insight,
   LeaderboardRow,
   LibraryCategory,
   Member,
   Performance,
   Post,
+  Solution,
+  Win,
   Workshop,
 } from '@ipc/contracts';
 
@@ -361,3 +366,101 @@ export const modulesFor = (courseSlug: string) => {
 
 /** In-memory progress, so Mark complete and resume work without a database. */
 export const progress = new Map<string, { completed: boolean; positionSeconds: number }>();
+
+/* ── Think Tank, Wins, Events, Photolancer ─────────────────────────────────
+   Same rule as everything above: a clean checkout must look alive. These
+   mirror the shape the database path returns, so the UI cannot tell. */
+
+export const insightDomains = [
+  { id: id(70), slug: 'business', name: 'Business' },
+  { id: id(71), slug: 'marketing', name: 'Marketing' },
+  { id: id(72), slug: 'mindset', name: 'Mindset' },
+  { id: id(73), slug: 'sales', name: 'Sales' },
+];
+
+export const insights: Insight[] = [
+  {
+    id: id(80), slug: 'same-evening-quotation', title: 'The same-evening quotation that doubled my close rate',
+    situationMd: 'Enquiries went cold after 3 days of back-and-forth on price.',
+    bigIdeaMd: 'Send the quotation the same evening, with exactly two packages and a 7-day validity line.',
+    howMd: '', status: 'published', domainSlug: 'sales', impactSlug: 'profit',
+    votes: 214, votedByMe: false, savedByMe: false, featuredAt: null,
+    author: { name: 'Rohit Bundela', initials: 'RB', tier: 'diamond' },
+    createdAt: '2026-09-16T05:00:00.000Z',
+  },
+  {
+    id: id(81), slug: 'mini-shoot-weekends', title: 'Mini-shoot weekends filled my off-season',
+    situationMd: 'No enquiries between wedding seasons, fixed studio costs every month.',
+    bigIdeaMd: 'One themed mini-shoot weekend a month for past clients at a flat rate — the cheapest lead is someone who already paid you.',
+    howMd: '', status: 'published', domainSlug: 'marketing', impactSlug: 'growth',
+    votes: 167, votedByMe: false, savedByMe: false, featuredAt: null,
+    author: { name: 'Sneha Kulkarni', initials: 'SK', tier: 'silver' },
+    createdAt: '2026-09-15T06:30:00.000Z',
+  },
+  {
+    id: id(82), slug: 'two-round-revisions', title: 'Two revision rounds, in writing, saved my weekends',
+    situationMd: 'Editing revisions stretched for weeks; clients treated delivery as a draft forever.',
+    bigIdeaMd: 'Cap revisions at two rounds in the quotation itself. The third round is billed.',
+    howMd: '', status: 'published', domainSlug: 'operations', impactSlug: 'time',
+    votes: 142, votedByMe: false, savedByMe: false, featuredAt: null,
+    author: { name: 'Aman Saifi', initials: 'AS', tier: 'diamond' },
+    createdAt: '2026-09-14T08:00:00.000Z',
+  },
+];
+
+export const solutions: Solution[] = [
+  { id: id(90), dilemma: 'Clients ask for discounts on every shoot', bodyMd: 'Hold price, shrink scope: same rate for fewer deliverables, never the same deliverables for less.', rank: 100 },
+  { id: id(91), dilemma: 'No enquiries between wedding seasons', bodyMd: 'Run a same-city mini-shoot weekend for past clients.', rank: 200 },
+];
+
+export const wins: Win[] = [
+  {
+    id: id(100), slug: 'first-1-2l-package', title: 'Closed my first ₹1.2L wedding package',
+    bigIdeaMd: 'Sent the quotation the same evening as the enquiry using the library format, with two packages and a 7-day validity.',
+    howItHappenedMd: 'Enquiry came on Instagram at 4pm. Sent the quotation by 9pm the same day. Followed up once on day 3. They signed on day 5.',
+    category: 'revenue', occurredOn: '2026-09-10', tags: ['wedding', 'pricing'], status: 'published',
+    publicShare: true, reactions: 186, reactedByMe: false, comments: 31, media: [],
+    author: { name: 'Rohit Bundela', initials: 'RB', tier: 'diamond' },
+    createdAt: '2026-09-18T04:30:00.000Z',
+  },
+  {
+    id: id(101), slug: 'team-of-three', title: 'Hired my first editor — weekends are mine again',
+    bigIdeaMd: 'Outsourced culling first (cheapest hour to buy), then full edits after a two-wedding trial.',
+    howItHappenedMd: 'Trialed three editors on the same wedding. Picked the one whose selects matched mine. Wrote a 2-page style guide.',
+    category: 'clients', occurredOn: '2026-09-02', tags: ['team'], status: 'published',
+    publicShare: false, reactions: 94, reactedByMe: false, comments: 18, media: [],
+    author: { name: 'Pranav Sahu', initials: 'PS', tier: 'diamond' },
+    createdAt: '2026-09-12T07:00:00.000Z',
+  },
+];
+
+export const clubEvents: ClubEvent[] = [
+  {
+    id: id(110), slug: 'featured-session-sep-26', title: 'Featured Insights Live — Same-Evening Selling',
+    descriptionMd: 'This week’s voted-up insights, workshopped live with the authors.',
+    startsAt: '2026-09-26T13:30:00.000Z', endsAt: '2026-09-26T15:00:00.000Z',
+    joinUrl: null, rsvpd: false, rsvpCount: 214, isFeaturedSession: true,
+    featuredInsights: [{ id: id(80), slug: 'same-evening-quotation', title: 'The same-evening quotation that doubled my close rate' }],
+  },
+  {
+    id: id(111), slug: 'pricing-clinic', title: 'Pricing Clinic — Packages That Close',
+    descriptionMd: 'Bring one package. Leave with one that sells.',
+    startsAt: '2026-09-30T13:30:00.000Z', endsAt: '2026-09-30T14:30:00.000Z',
+    joinUrl: null, rsvpd: false, rsvpCount: 86, isFeaturedSession: false, featuredInsights: [],
+  },
+];
+
+export const briefs: Brief[] = [
+  {
+    id: id(120), title: 'Pre-wedding shoot in Udaipur — 2 days',
+    bodyMd: 'Looking for a photographer + cinematographer team for a 2-day pre-wedding in Udaipur. Palace + lake locations fixed. Need candid + one teaser reel.',
+    city: 'Udaipur', budgetPaise: 8500000, shootOn: '2026-11-14', status: 'open',
+    applicationCount: 6, appliedByMe: false, createdAt: '2026-09-17T10:00:00.000Z',
+  },
+  {
+    id: id(121), title: 'D2C skincare launch — product + lifestyle',
+    bodyMd: '40 SKUs, white-background + 10 lifestyle frames. Studio in Mumbai preferred. Usage: website + ads, 1 year.',
+    city: 'Mumbai', budgetPaise: 2500000, shootOn: '2026-10-05', status: 'open',
+    applicationCount: 11, appliedByMe: false, createdAt: '2026-09-16T09:00:00.000Z',
+  },
+];

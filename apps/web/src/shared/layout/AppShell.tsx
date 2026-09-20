@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
-import type { PropsWithChildren, ReactNode } from 'react';
+import { Suspense, type PropsWithChildren, type ReactNode } from 'react';
 import { fetchViewer } from '../admin-api.ts';
 import { api } from '../api.ts';
+import { OfflineBanner } from '../offline.tsx';
 import { Avatar, Icon } from '../ui/primitives.tsx';
 import { GlobalSearch } from '../ui/GlobalSearch.tsx';
 import { NotificationBell } from '../ui/NotificationBell.tsx';
@@ -10,17 +11,18 @@ import { useSession } from '../session.tsx';
 import { devLoginEnabled } from '../supabase.ts';
 import { SignInPage } from '../../routes/SignIn.tsx';
 
-/** The six sections, in the order members already know from the old app. */
+/** The sections, in the order members already know from the old app. */
 const SECTIONS = [
   { to: '/', label: 'Dashboard', icon: 'dashboard', soon: false },
-  { to: '/community', label: 'Community', icon: 'community', soon: false },
-  { to: '/workshops', label: 'Workshops', icon: 'workshops', soon: false },
+  { to: '/think-tank', label: 'Think Tank', icon: 'comment', soon: false },
+  { to: '/wins', label: 'Wins', icon: 'community', soon: false },
   { to: '/courses', label: 'Courses', icon: 'courses', soon: false },
+  { to: '/events', label: 'Events', icon: 'workshops', soon: false },
+  { to: '/community', label: 'Community', icon: 'people', soon: false },
+  { to: '/workshops', label: 'Workshops', icon: 'workshops', soon: false },
   { to: '/library', label: 'Library', icon: 'library', soon: false },
-  // Photolancer is a real planned module, not a mistake — it was a section in
-  // the old app. But the page behind it is not built, so the nav says so
-  // rather than letting a member discover it by arriving at nothing.
-  { to: '/photolancer', label: 'Photolancer', icon: 'search', soon: true },
+  { to: '/members', label: 'Members', icon: 'people', soon: false },
+  { to: '/photolancer', label: 'Photolancer', icon: 'search', soon: false },
 ] as const;
 
 function TopBar() {
@@ -143,8 +145,7 @@ function Footer() {
   return (
     <footer className="footer">
       <span>Copyright © 2026 Eternal Bonds</span>
-      <a href="#privacy">Privacy Policy</a>
-      <a href="#terms">Terms and conditions</a>
+      <Link to="/legal">Privacy & Terms</Link>
       <a href="#contact">Contact</a>
       <span style={{ flex: 1 }} />
       <span className="social">f</span>
@@ -174,8 +175,10 @@ export function AppShell() {
 
   return (
     <div className="app">
+      <a href="#main" className="skip-link">Skip to content</a>
       <div className="panel">
         <TopBar />
+        <OfflineBanner />
         {demo && (
           <div className="callout" role="status">
             Demo mode — the API is serving seed content. Connect Supabase to sign in and write.
@@ -195,7 +198,9 @@ export function AppShell() {
             real members use this.
           </div>
         )}
-        <Outlet />
+        <Suspense fallback={<span className="muted" style={{ fontSize: 12 }}>Loading section…</span>}>
+          <Outlet />
+        </Suspense>
         <Footer />
       </div>
     </div>
@@ -204,5 +209,5 @@ export function AppShell() {
 
 /** Wraps a page's body so every route gets the same vertical rhythm. */
 export function Page({ children }: PropsWithChildren) {
-  return <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>{children}</div>;
+  return <main id="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>{children}</main>;
 }

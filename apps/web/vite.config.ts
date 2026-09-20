@@ -35,5 +35,22 @@ export default defineConfig(({ mode }) => {
         '/health': { target: 'http://localhost:8080', changeOrigin: true },
       },
     },
+
+    build: {
+      // Vendors change slower than app code — separate chunks mean a deploy
+      // re-downloads kilobytes, not the whole megabyte. hls.js already lives
+      // in the Lesson chunk via the lazy route; supabase stays in the shell
+      // because the session gate needs it on first paint.
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            react: ['react', 'react-dom'],
+            tanstack: ['@tanstack/react-query', '@tanstack/react-router'],
+            supabase: ['@supabase/supabase-js'],
+            zod: ['zod'],
+          },
+        },
+      },
+    },
   };
 });

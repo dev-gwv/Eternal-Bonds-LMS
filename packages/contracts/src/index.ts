@@ -617,3 +617,250 @@ export const SearchResults = z.object({
   truncated: z.boolean(),
 });
 export type SearchResults = z.infer<typeof SearchResults>;
+
+/* ── Think Tank (M4) ─────────────────────────────────────────────────── */
+
+export const InsightStatus = z.enum(['draft', 'published', 'hidden']);
+export type InsightStatus = z.infer<typeof InsightStatus>;
+
+export const InsightDomain = z.object({ id: z.uuid(), slug: z.string(), name: z.string() });
+export type InsightDomain = z.infer<typeof InsightDomain>;
+
+export const VoteCycle = z.object({
+  id: z.uuid(),
+  startsOn: z.string(),
+  endsOn: z.string(),
+  status: z.string(),
+});
+export type VoteCycle = z.infer<typeof VoteCycle>;
+
+export const Insight = z.object({
+  id: z.uuid(),
+  slug: z.string(),
+  title: z.string(),
+  situationMd: z.string(),
+  bigIdeaMd: z.string(),
+  howMd: z.string(),
+  status: InsightStatus,
+  domainSlug: z.string().nullable(),
+  impactSlug: z.string().nullable(),
+  votes: z.int().nonnegative(),
+  votedByMe: z.boolean().default(false),
+  savedByMe: z.boolean().default(false),
+  featuredAt: z.iso.datetime().nullable(),
+  author: z.object({ name: z.string(), initials: z.string(), tier: Tier }),
+  createdAt: z.iso.datetime(),
+});
+export type Insight = z.infer<typeof Insight>;
+
+export const InsightDetail = Insight.extend({
+  steps: z.array(z.object({ id: z.uuid(), title: z.string(), bodyMd: z.string() })),
+});
+export type InsightDetail = z.infer<typeof InsightDetail>;
+
+export const ShareInsight = z.object({
+  title: z.string().trim().min(8).max(140),
+  situationMd: z.string().trim().min(20).max(8000),
+  bigIdeaMd: z.string().trim().min(20).max(8000),
+  howMd: z.string().trim().min(10).max(8000).default(''),
+  domainSlug: z.string().min(1),
+  impactSlug: z.string().min(1),
+  steps: z.array(z.object({ title: z.string().min(2).max(140), bodyMd: z.string().max(4000) })).max(12).default([]),
+});
+export type ShareInsight = z.infer<typeof ShareInsight>;
+
+export const Solution = z.object({
+  id: z.uuid(),
+  dilemma: z.string(),
+  bodyMd: z.string(),
+  rank: z.number(),
+});
+export type Solution = z.infer<typeof Solution>;
+
+/* ── Wins Board (M5) ─────────────────────────────────────────────────── */
+
+export const WinStatus = z.enum(['pending', 'published', 'hidden']);
+export type WinStatus = z.infer<typeof WinStatus>;
+
+export const Win = z.object({
+  id: z.uuid(),
+  slug: z.string(),
+  title: z.string(),
+  bigIdeaMd: z.string(),
+  howItHappenedMd: z.string(),
+  category: z.string(),
+  occurredOn: z.string().nullable(),
+  tags: z.array(z.string()),
+  status: WinStatus,
+  publicShare: z.boolean(),
+  reactions: z.int().nonnegative(),
+  reactedByMe: z.boolean().default(false),
+  comments: z.int().nonnegative(),
+  media: z.array(z.object({ id: z.uuid(), url: z.string(), mime: z.string() })).default([]),
+  author: z.object({ name: z.string(), initials: z.string(), tier: Tier }),
+  createdAt: z.iso.datetime(),
+});
+export type Win = z.infer<typeof Win>;
+
+export const SubmitWin = z.object({
+  title: z.string().trim().min(8).max(140),
+  bigIdeaMd: z.string().trim().min(40, 'Say enough that someone else could copy it').max(8000),
+  howItHappenedMd: z.string().trim().min(40).max(8000),
+  category: z.string().min(1).default('general'),
+  occurredOn: z.string().nullable().default(null),
+  tags: z.array(z.string().max(30)).max(8).default([]),
+  publicShare: z.boolean().default(false),
+});
+export type SubmitWin = z.infer<typeof SubmitWin>;
+
+/* ── Events (M6) ─────────────────────────────────────────────────────── */
+
+export const ClubEvent = z.object({
+  id: z.uuid(),
+  slug: z.string(),
+  title: z.string(),
+  descriptionMd: z.string().nullable(),
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime(),
+  joinUrl: z.string().nullable(),
+  rsvpd: z.boolean().default(false),
+  rsvpCount: z.int().nonnegative().default(0),
+  isFeaturedSession: z.boolean(),
+  featuredInsights: z.array(z.object({ id: z.uuid(), slug: z.string(), title: z.string() })).default([]),
+});
+export type ClubEvent = z.infer<typeof ClubEvent>;
+
+export const EventInput = z.object({
+  slug,
+  title: z.string().trim().min(3).max(140),
+  descriptionMd: z.string().max(8000).nullable().default(null),
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime(),
+  joinUrl: z.string().url().nullable().default(null),
+  minTier: Tier.default('free'),
+  isFeaturedSession: z.boolean().default(false),
+  insightIds: z.array(z.uuid()).max(10).default([]),
+});
+export type EventInput = z.infer<typeof EventInput>;
+
+/* ── Moderation / audit / flags / directory ──────────────────────────── */
+
+export const Report = z.object({
+  id: z.uuid(),
+  targetType: z.string(),
+  targetId: z.uuid(),
+  reason: z.string(),
+  status: z.enum(['open', 'actioned', 'dismissed']),
+  createdAt: z.iso.datetime(),
+});
+export type Report = z.infer<typeof Report>;
+
+export const CreateReport = z.object({
+  targetType: z.string().min(1),
+  targetId: z.uuid(),
+  reason: z.string().trim().min(4).max(1000),
+});
+export type CreateReport = z.infer<typeof CreateReport>;
+
+export const AuditEntry = z.object({
+  id: z.uuid(),
+  actorName: z.string().nullable(),
+  action: z.string(),
+  targetType: z.string().nullable(),
+  targetId: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+});
+export type AuditEntry = z.infer<typeof AuditEntry>;
+
+export const FeatureFlag = z.object({ key: z.string(), enabled: z.boolean() });
+export type FeatureFlag = z.infer<typeof FeatureFlag>;
+
+export const DirectoryMember = z.object({
+  id: z.uuid(),
+  fullName: z.string(),
+  initials: z.string(),
+  tier: Tier,
+  city: z.string().nullable(),
+  expertise: z.array(z.string()),
+  bioMd: z.string().nullable(),
+});
+export type DirectoryMember = z.infer<typeof DirectoryMember>;
+
+export const Badge = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  icon: z.string(),
+  earned: z.boolean(),
+  awardedAt: z.iso.datetime().nullable(),
+});
+export type Badge = z.infer<typeof Badge>;
+
+/* ── LMS refinements ─────────────────────────────────────────────────── */
+
+export const LessonResource = z.object({
+  id: z.uuid(),
+  title: z.string(),
+  mime: z.string(),
+  sizeBytes: z.int().nonnegative(),
+  url: z.string(),
+  downloadCount: z.int().nonnegative(),
+});
+export type LessonResource = z.infer<typeof LessonResource>;
+
+export const LessonQuestion = z.object({
+  id: z.uuid(),
+  lessonId: z.uuid(),
+  author: z.object({ name: z.string(), initials: z.string() }),
+  bodyMd: z.string(),
+  resolved: z.boolean(),
+  mine: z.boolean(),
+  createdAt: z.iso.datetime(),
+  replies: z.array(z.object({
+    id: z.uuid(), bodyMd: z.string(), authorName: z.string(), createdAt: z.iso.datetime(),
+  })).default([]),
+});
+export type LessonQuestion = z.infer<typeof LessonQuestion>;
+
+export const LessonNote = z.object({ lessonId: z.uuid(), bodyMd: z.string() });
+export type LessonNote = z.infer<typeof LessonNote>;
+
+export const Certificate = z.object({
+  id: z.uuid(),
+  courseTitle: z.string(),
+  code: z.string(),
+  issuedAt: z.iso.datetime(),
+  url: z.string().nullable(),
+});
+export type Certificate = z.infer<typeof Certificate>;
+
+/* ── Photolancer ─────────────────────────────────────────────────────── */
+
+export const Brief = z.object({
+  id: z.uuid(),
+  title: z.string(),
+  bodyMd: z.string(),
+  city: z.string().nullable(),
+  budgetPaise: z.int().nullable(),
+  shootOn: z.string().nullable(),
+  status: z.enum(['open', 'assigned', 'closed']),
+  applicationCount: z.int().nonnegative().default(0),
+  appliedByMe: z.boolean().default(false),
+  createdAt: z.iso.datetime(),
+});
+export type Brief = z.infer<typeof Brief>;
+
+export const CreateBrief = z.object({
+  title: z.string().trim().min(8).max(140),
+  bodyMd: z.string().trim().min(20).max(8000),
+  city: z.string().max(80).nullable().default(null),
+  budgetPaise: z.int().positive().nullable().default(null),
+  shootOn: z.string().nullable().default(null),
+});
+export type CreateBrief = z.infer<typeof CreateBrief>;
+
+export const TermsAccept = z.object({ version: z.string().min(1) });
+export type TermsAccept = z.infer<typeof TermsAccept>;
+
+export const CursorPage = z.object({ cursor: z.string().nullable(), limit: z.int().min(1).max(100).default(20) });
+export type CursorPage = z.infer<typeof CursorPage>;

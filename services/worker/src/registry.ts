@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { Db } from '@ipc/db';
 import { readEnv, type Env } from './env.ts';
 import { expireMemberships, reprocessWebhooks } from './jobs/billing.ts';
+import { awardBadges, eventReminders } from './jobs/platform.ts';
 import { buildWeeklyDigest, purgeDeletedAccounts, sweepExpired } from './jobs/lifecycle.ts';
 import { guardPublishedCourses, pollVideoStatus } from './jobs/media.ts';
 import { deliverNotifications, drainOutbox } from './jobs/notify.ts';
@@ -118,6 +119,18 @@ export const JOBS: JobDefinition[] = [
     description: 'Compose weekly digests and queue them for delivery',
     everySeconds: 86400,
     run: ({ db }) => buildWeeklyDigest(db),
+  },
+  {
+    kind: 'badges.award',
+    description: 'Evaluate badge rules over activity_events and award newly earned ones',
+    everySeconds: 3600,
+    run: ({ db }) => awardBadges(db),
+  },
+  {
+    kind: 'events.remind',
+    description: 'Remind RSVP’d members 24h before an event starts',
+    everySeconds: 900,
+    run: ({ db }) => eventReminders(db),
   },
 ];
 

@@ -92,8 +92,18 @@ Audited 18 Sep 2026. "Real" means it runs against Supabase Postgres with RLS.
 | A verified sending domain | Email is written and tested but goes to a log line until SPF/DKIM/DMARC exist. This is a DNS task, not a code one |
 | A real device for push | FCM is implemented; nothing has ever received a notification because no signed app exists |
 | Razorpay account + webhook | The code path is complete and `BILLING_MODE=web_only` until keys are set |
-| Channel unread counts | The sidebar always shows 0 |
-| Photolancer | A placeholder card, not a module |
-| End-to-end tests | 31 unit tests (`bun test`) and three database suites. No browser-level tests |
-| Mobile app | The API is ready for one (`docs/api-conventions.md`); nothing is built |
-| Post media | `mediaCount` is always 0 — image upload on posts is not built |
+| Play user-choice billing + iOS IAP | v1.1, after the entitlement-only build clears review — `EntitlementGrant` per provider, `BILLING_MODE` toggles the client |
+| Seeded insights + wins (PLAN §10.1) | Schema, wizards and Solution Finder exist; 25–40 insights and 10–15 wins need real authors from the founding cohort |
+| End-to-end tests | 55 unit tests (`bun test`), three database suites, and `bun run smoke` — 22 in-process endpoint checks in seed mode, under a second. No browser-level tests |
+| Rehearsed restore + progress load test | Backup exists; the restore has never been rehearsed and the progress endpoint never load-tested |
+| SMS/DLT registration | Phone OTP rides on Supabase Auth; MSG91/Twilio + DLT is an M0 lead-time item |
+| Direct messages | Deliberately off in v1 (`feature_flags.direct_messages = false`) — moderation policy undecided |
+
+Built since the last audit: Think Tank (library, vote cycles, share wizard, Solution Finder,
+bookmarks), Wins Board (blueprint wizard, reactions, comments, proof media), Events
+(schedule, RSVP, featured-insight linking, recording→lesson), Photolancer (briefs +
+applications), member directory + badges engine, moderation queue + audit log + feature
+flags + impersonation, terms acceptance + legal page, lesson Q&A + notes + resources +
+certificates, image pipeline contract, PostHog proxy analytics, offline banner +
+last-course cache, skip link + focus + reduced-motion, perf budget, Capacitor + Astro
+scaffolds, cursor pagination on new feeds, `packages/domain|permissions|ui`.

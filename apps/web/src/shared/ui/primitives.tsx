@@ -26,23 +26,41 @@ export function Avatar({
   initials,
   size = 30,
   tone = 'pink',
+  ring = false,
 }: {
   initials: string;
   size?: number;
   tone?: 'pink' | 'yellow' | 'blue' | 'grey';
+  /** Gradient halo for profile-level avatars. */
+  ring?: boolean;
 }) {
   const tones = {
-    pink: { background: '#f9c9dc', color: 'var(--pink-strong)' },
-    yellow: { background: 'var(--yellow-tint)', color: 'var(--yellow-ink)' },
-    blue: { background: 'var(--blue-tint)', color: 'var(--blue-ink)' },
-    grey: { background: '#f3f3f7', color: 'var(--ink-2)' },
+    pink: { background: 'linear-gradient(135deg, #fbd3e3, #f5a8c6)', color: 'var(--pink-deep)' },
+    yellow: { background: 'linear-gradient(135deg, #fde9b8, #f9d976)', color: '#7a5c0a' },
+    blue: { background: 'linear-gradient(135deg, #d5e5fb, #aecdf3)', color: '#2c4f86' },
+    grey: { background: 'linear-gradient(135deg, #f3f3f7, #e2e2ea)', color: 'var(--ink-2)' },
   } as const;
-  return (
+  const core = (
     <span
       className="avatar"
       style={{ width: size, height: size, fontSize: Math.round(size * 0.36), ...tones[tone] }}
     >
       {initials}
+    </span>
+  );
+  if (!ring) return core;
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        padding: 2.5,
+        borderRadius: 999,
+        background: 'var(--grad-brand)',
+        boxShadow: 'var(--sh-brand)',
+        flexShrink: 0,
+      }}
+    >
+      {core}
     </span>
   );
 }
@@ -53,15 +71,43 @@ export function Tile({
   tone = 'pink',
 }: PropsWithChildren<{ size?: number; tone?: 'pink' | 'yellow' | 'blue' | 'green' }>) {
   const tones = {
-    pink: { background: 'var(--pink-tint)', color: 'var(--pink-ink)' },
-    yellow: { background: 'var(--yellow-tint)', color: 'var(--yellow-ink)' },
-    blue: { background: 'var(--blue-tint)', color: 'var(--blue-ink)' },
-    green: { background: 'var(--green-tint)', color: 'var(--green-ink)' },
+    pink: { background: 'linear-gradient(135deg, #fbd3e3, #f5a8c6)', color: 'var(--pink-deep)' },
+    yellow: { background: 'linear-gradient(135deg, #fde9b8, #f9d976)', color: '#7a5c0a' },
+    blue: { background: 'linear-gradient(135deg, #d5e5fb, #aecdf3)', color: '#2c4f86' },
+    green: { background: 'linear-gradient(135deg, #cdeeda, #a3d9ba)', color: '#1f6340' },
   } as const;
   return (
     <span className="tile" style={{ width: size, height: size, ...tones[tone] }}>
       {children}
     </span>
+  );
+}
+
+/**
+ * The premium signature banner: pastel mesh, serif title, eyebrow kick.
+ * Deep ink on pastel keeps contrast above 4.5:1 — white-on-pink never does,
+ * except hero-ink which is white on near-black plum.
+ */
+export function Hero({
+  eyebrow,
+  title,
+  sub,
+  actions,
+  tone = 'rose',
+}: {
+  eyebrow: string;
+  title: string;
+  sub?: string;
+  actions?: ReactNode;
+  tone?: 'rose' | 'gold' | 'sky' | 'ink';
+}) {
+  return (
+    <section className={`hero hero-${tone}`}>
+      <span className="hero-eyebrow">{eyebrow}</span>
+      <h2 className="hero-title">{title}</h2>
+      {sub && <p className="hero-sub">{sub}</p>}
+      {actions && <div className="hero-actions">{actions}</div>}
+    </section>
   );
 }
 

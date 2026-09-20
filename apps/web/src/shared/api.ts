@@ -1,8 +1,21 @@
 import {
   ActivityDay,
+  Badge,
+  Brief,
+  Certificate,
+  ClubEvent,
   Comment,
+  CreateBrief,
   CreateComment,
   CreatePost,
+  CreateReport,
+  DirectoryMember,
+  EventInput,
+  Insight,
+  InsightDetail,
+  LessonNote,
+  LessonQuestion,
+  LessonResource,
   LikeState,
   MembershipState,
   Notification,
@@ -14,6 +27,7 @@ import {
   Course,
   CourseDetail,
   DashboardStats,
+  FeatureFlag,
   LeaderboardRow,
   LibraryCategory,
   Member,
@@ -21,7 +35,13 @@ import {
   PlaybackTicket,
   Post,
   ProgressUpdate,
+  Report,
   SearchResults,
+  ShareInsight,
+  Solution,
+  SubmitWin,
+  Win,
+  AuditEntry,
   Workshop,
 } from '@ipc/contracts';
 import { z } from 'zod';
@@ -148,6 +168,65 @@ export const api = {
     send('POST', '/v1/me/deletion', { confirm: 'DELETE', reason }, DeletionState),
   cancelDeletion: () => send('DELETE', '/v1/me/deletion', undefined, DeletionState),
   exportUrl: `${BASE}/v1/me/export`,
+
+  /* Think Tank. Cursor pages: pass nextCursor back as cursor. */
+  insights: (opts?: { cursor?: string; domain?: string }) =>
+    get(`/v1/think-tank/insights?limit=20${opts?.cursor ? `&cursor=${opts.cursor}` : ''}${opts?.domain ? `&domain=${opts.domain}` : ''}`,
+      z.object({ items: z.array(Insight), nextCursor: z.string().nullable() })),
+  insight: (slug: string) => get(`/v1/think-tank/insights/${slug}`, InsightDetail),
+  shareInsight: (input: ShareInsight) => send('POST', '/v1/think-tank/insights', input, z.object({ id: z.string(), slug: z.string() })),
+  voteInsight: (id: string, voted: boolean) =>
+    send(voted ? 'POST' : 'DELETE', `/v1/think-tank/insights/${id}/vote`, undefined, LikeState),
+  solutions: (q: string) =>
+    get(`/v1/think-tank/solutions?q=${encodeURIComponent(q)}`, z.object({ items: z.array(Solution) })).then((r) => r.items),
+  saveBookmark: (targetType: string, targetId: string) => send('POST', '/v1/think-tank/bookmarks', { targetType, targetId }),
+  removeBookmark: (targetType: string, targetId: string) => send<void>('DELETE', `/v1/think-tank/bookmarks/${targetType}/${targetId}`),
+
+  /* Wins. */
+  wins: (opts?: { cursor?: string; category?: string }) =>
+    get(`/v1/wins?limit=20${opts?.cursor ? `&cursor=${opts.cursor}` : ''}${opts?.category ? `&category=${opts.category}` : ''}`,
+      z.object({ items: z.array(Win), nextCursor: z.string().nullable() })),
+  win: (slug: string) => get(`/v1/wins/${slug}`, Win),
+  submitWin: (input: SubmitWin) => send('POST', '/v1/wins', input, z.object({ id: z.string(), slug: z.string() })),
+  reactWin: (id: string, reacted: boolean) =>
+    send(reacted ? 'POST' : 'DELETE', `/v1/wins/${id}/react`, undefined, LikeState),
+
+  /* Events. */
+  events: () => get('/v1/events', z.object({ items: z.array(ClubEvent) })).then((r) => r.items),
+  rsvpEvent: (id: string, rsvpd: boolean) => send(rsvpd ? 'POST' : 'DELETE', `/v1/events/${id}/rsvp`),
+
+  /* Photolancer. */
+  briefs: () => get('/v1/photolancer/briefs', z.object({ items: z.array(Brief) })).then((r) => r.items),
+  createBrief: (input: CreateBrief) => send('POST', '/v1/photolancer/briefs', input, z.object({ id: z.string() })),
+  applyBrief: (id: string, pitchMd: string) =>
+    send('POST', `/v1/photolancer/briefs/${id}/apply`, { bodyMd: pitchMd }),
+
+  /* Directory + badges. */
+  directory: (q?: string) =>
+    get(`/v1/directory${q ? `?q=${encodeURIComponent(q)}` : ''}`, z.object({ items: z.array(DirectoryMember), nextCursor: z.string().nullable() })).then((r) => r.items),
+  badges: () => get('/v1/directory/badges', z.object({ items: z.array(Badge) })).then((r) => r.items),
+  updateDirectoryProfile: (patch: { bioMd?: string | null; expertise?: string[]; showInDirectory?: boolean }) =>
+    send('PUT', '/v1/directory/me', patch),
+
+  /* Learning refinements. */
+  lessonQuestions: (lessonId: string) =>
+    get(`/v1/learning/lessons/${lessonId}/questions`, z.object({ items: z.array(LessonQuestion) })).then((r) => r.items),
+  askQuestion: (lessonId: string, bodyMd: string, parentId?: string) =>
+    send('POST', `/v1/learning/lessons/${lessonId}/questions`, { bodyMd, parentId: parentId ?? null }),
+  lessonNote: (lessonId: string) => get(`/v1/learning/lessons/${lessonId}/notes`, LessonNote),
+  saveNote: (lessonId: string, bodyMd: string) => send('PUT', `/v1/learning/lessons/${lessonId}/notes`, { bodyMd }),
+  lessonResources: (lessonId: string) =>
+    get(`/v1/learning/lessons/${lessonId}/resources`, z.object({ items: z.array(LessonResource) })).then((r) => r.items),
+  certificates: () => get('/v1/learning/certificates', z.object({ items: z.array(Certificate) })).then((r) => r.items),
+  issueCertificate: (courseId: string) => send('POST', `/v1/learning/courses/${courseId}/certificate`),
+
+  /* Moderation + legal + flags. */
+  report: (input: CreateReport) => send('POST', '/v1/moderation/reports', input),
+  reports: () => get('/v1/moderation/reports', z.object({ items: z.array(Report) })).then((r) => r.items),
+  audit: () => get('/v1/moderation/audit', z.object({ items: z.array(AuditEntry) })).then((r) => r.items),
+  flags: () => get('/v1/moderation/flags', z.object({ items: z.array(FeatureFlag) })).then((r) => r.items),
+  acceptTerms: (version: string) => send('POST', '/v1/legal/terms', { version }),
+  createEvent: (input: EventInput) => send('POST', '/v1/events', input),
 };
 
 /* Formatting helpers used across pages. */

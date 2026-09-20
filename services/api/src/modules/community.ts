@@ -91,4 +91,28 @@ export const communityRoutes = new Hono<AppEnv>()
 
   // XP totals come from member_stats, which the worker rebuilds from
   // activity_events. Without a database this falls back to seed content.
-  .get('/leaderboard', async (c) => c.json({ items: await getLeaderboard(c.env, c.get('userId')) }));
+  .get('/leaderboard', async (c) => c.json({ items: await getLeaderboard(c.env, c.get('userId')) }))
+  // Post media: browser uploads straight to storage, API only signs + records.
+  .post('/posts/:id/media-ticket', requireAuth, async (c) => {
+    const { createStorage } = await import('../lib/storage.ts');
+    const key = `posts/${c.req.param('id')}/${crypto.randomUUID()}.jpg`;
+    const { url, token } = await createStorage(c.env).signedUploadUrl(key);
+    return c.json({ key, url, token, method: 'PUT' });
+  })
+  .post('/posts/:id/media', requireAuth, async (c) => {
+    const { postMedia, withUser } = await import('@ipc/db');
+    const { getDb } = await import('../repo.ts');
+    const { HttpError } = await import('../lib/problem.ts');
+    const db = getDb(c.env);
+    if (!db) throw new HttpError(503, 'Needs a database');
+    const body = await c.req.json<{ key: string; mime?: string; width?: number; height?: number }>();
+    const { assertImage } = await import('../lib/images.ts');
+    assertImage(body.mime ?? 'image/jpeg', 0);
+    return withUser(db, c.get('userId'), async (tx) => {
+      const row = (await tx.insert(postMedia).values({
+        postId: c.req.param('id'), storageKey: body.key,
+        mime: body.mime ?? 'image/jpeg', width: body.width, height: body.height,
+      }).returning())[0]!;
+      return c.json({ id: row.id }, 201);
+    });
+  });

@@ -28,6 +28,7 @@
     "deploy:api": "bun --env-file=.env x wrangler deploy --config services/api/wrangler.jsonc",
     "deploy:worker": "fly deploy -c fly.worker.toml",
     "test": "bun test tests/",
+    "smoke": "bun scripts/smoke.ts",
     "db:test-engagement": "bun --env-file=.env scripts/test-engagement.ts",
     "deploy:api:fly": "fly deploy",
     "cf:secrets": "bun --env-file=.env x wrangler secret bulk cf-secrets.json --config services/api/wrangler.jsonc",
@@ -45,6 +46,8 @@
   "dependencies": {
     "@ipc/contracts": "workspace:*",
     "@ipc/db": "workspace:*",
+    "@ipc/domain": "workspace:*",
+    "@ipc/permissions": "workspace:*",
     "@ipc/worker": "workspace:*",
     "drizzle-orm": "^0.44.6",
     "zod": "^4.6.5"

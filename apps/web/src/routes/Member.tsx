@@ -18,6 +18,8 @@ export function MemberPage() {
   const activity = useQuery({ queryKey: ['activity'], queryFn: api.activity });
   const performance = useQuery({ queryKey: ['performance'], queryFn: api.performance });
   const courses = useQuery({ queryKey: ['courses'], queryFn: () => api.courses() });
+  const certificates = useQuery({ queryKey: ['certificates'], queryFn: api.certificates, retry: false });
+  const badges = useQuery({ queryKey: ['badges'], queryFn: api.badges, retry: false });
 
   const watched = (activity.data ?? []).reduce((s, d) => s + d.courses + d.workshops + d.library, 0);
   const { hours, minutes } = hoursMinutes(watched);
@@ -235,6 +237,25 @@ export function MemberPage() {
                 </div>
               </div>
             ))}
+          </Card>
+
+          <Card title="Certificates & badges" style={{ flex: 1 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {(certificates.data ?? []).map((c) => (
+                <span key={c.id} className="btn btn-soft" title={`${c.courseTitle} · ${c.code}`}>
+                  🎓 {c.courseTitle}
+                </span>
+              ))}
+              {(badges.data ?? []).filter((b) => b.earned).map((b) => (
+                <span key={b.id} className="btn btn-soft" title={b.description ?? b.name}>🏅 {b.name}</span>
+              ))}
+              {(certificates.data ?? []).length === 0 && (badges.data ?? []).filter((b) => b.earned).length === 0 && (
+                <span className="muted" style={{ fontSize: 12 }}>
+                  Finish a course for a certificate — members post them, and that's free distribution.
+                </span>
+              )}
+            </div>
+            <Link to="/legal" style={{ fontSize: 11 }}>Privacy & Terms</Link>
           </Card>
         </div>
       </div>

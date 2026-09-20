@@ -42,12 +42,12 @@ export function SignInPage() {
 
   return (
     <div className="app" style={{ display: 'grid', placeItems: 'center' }}>
-      <div className="panel" style={{ maxWidth: 420, minHeight: 0, padding: 28, gap: 18 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-          <span className="wordmark-dot" style={{ width: 34, height: 34, borderRadius: 11 }} />
+      <div className="panel signin-panel" style={{ maxWidth: 430, minHeight: 0, padding: 30, gap: 18 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <span className="wordmark-dot" style={{ width: 44, height: 44, borderRadius: 14 }} />
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 18, fontWeight: 600 }}>Eternal Bonds</div>
-            <div style={{ fontSize: 11 }} className="dim">Sign in to your membership</div>
+            <div className="signin-brand">Eternal Bonds</div>
+            <div style={{ fontSize: 12 }} className="muted">The club for photographers who want more</div>
           </div>
         </div>
 

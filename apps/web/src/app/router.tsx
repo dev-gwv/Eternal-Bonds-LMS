@@ -1,25 +1,46 @@
+import { lazy } from 'react';
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import { AppShell } from '../shared/layout/AppShell.tsx';
-import { AccountPage } from '../routes/Account.tsx';
-import { CommunityPage } from '../routes/Community.tsx';
-import { CourseResumePage } from '../routes/CourseResume.tsx';
-import { CoursesPage } from '../routes/Courses.tsx';
 import { DashboardPage } from '../routes/Dashboard.tsx';
-import { LessonPage } from '../routes/Lesson.tsx';
-import { LibraryPage } from '../routes/Library.tsx';
-import { MemberPage } from '../routes/Member.tsx';
-import { MembershipPage } from '../routes/Membership.tsx';
-import { NotificationsPage } from '../routes/Notifications.tsx';
-import { PhotolancerPage } from '../routes/Photolancer.tsx';
-import { WorkshopsPage } from '../routes/Workshops.tsx';
-import { CourseBuilderPage } from '../routes/admin/CourseBuilder.tsx';
-import { StudioPage } from '../routes/admin/Studio.tsx';
-import { WorkshopStudioPage } from '../routes/admin/WorkshopStudio.tsx';
 
 /**
  * Routes are declared with literal paths so TanStack can infer the route tree —
  * that inference is what makes every <Link to="…"> typo a compile error.
+ *
+ * Every section below the dashboard is React.lazy: Vite emits one chunk per
+ * route file, and the shell suspends on navigation (see AppShell's Suspense
+ * around <Outlet/>). The dashboard stays eager — it is the first paint.
+ * This is the perf budget (docs/perf-budget.md) in practice.
  */
+
+const lazyPage = <T extends object>(loader: () => Promise<T>, name: keyof T) =>
+  lazy(() => loader().then((m) => ({ default: m[name] as unknown as React.ComponentType })));
+
+const CommunityPage = lazyPage(() => import('../routes/Community.tsx'), 'CommunityPage');
+const CourseResumePage = lazyPage(() => import('../routes/CourseResume.tsx'), 'CourseResumePage');
+const CoursesPage = lazyPage(() => import('../routes/Courses.tsx'), 'CoursesPage');
+const LessonPage = lazyPage(() => import('../routes/Lesson.tsx'), 'LessonPage');
+const LibraryPage = lazyPage(() => import('../routes/Library.tsx'), 'LibraryPage');
+const MemberPage = lazyPage(() => import('../routes/Member.tsx'), 'MemberPage');
+const MembershipPage = lazyPage(() => import('../routes/Membership.tsx'), 'MembershipPage');
+const NotificationsPage = lazyPage(() => import('../routes/Notifications.tsx'), 'NotificationsPage');
+const ThinkTankPage = lazyPage(() => import('../routes/ThinkTank.tsx'), 'ThinkTankPage');
+const ShareInsightPage = lazyPage(() => import('../routes/ThinkTank.tsx'), 'ShareInsightPage');
+const WinsPage = lazyPage(() => import('../routes/Wins.tsx'), 'WinsPage');
+const SubmitWinPage = lazyPage(() => import('../routes/Wins.tsx'), 'SubmitWinPage');
+const EventsPage = lazyPage(() => import('../routes/Events.tsx'), 'EventsPage');
+const WinDetailPage = lazyPage(() => import('../routes/Events.tsx'), 'WinDetailPage');
+const InsightDetailPage = lazyPage(() => import('../routes/Events.tsx'), 'InsightDetailPage');
+const DirectoryPage = lazyPage(() => import('../routes/Directory.tsx'), 'DirectoryPage');
+const LegalPage = lazyPage(() => import('../routes/Legal.tsx'), 'LegalPage');
+const ModerationPage = lazyPage(() => import('../routes/admin/Moderation.tsx'), 'ModerationPage');
+const PhotolancerPage = lazyPage(() => import('../routes/Photolancer.tsx'), 'PhotolancerPage');
+const WorkshopsPage = lazyPage(() => import('../routes/Workshops.tsx'), 'WorkshopsPage');
+const AccountPage = lazyPage(() => import('../routes/Account.tsx'), 'AccountPage');
+const CourseBuilderPage = lazyPage(() => import('../routes/admin/CourseBuilder.tsx'), 'CourseBuilderPage');
+const StudioPage = lazyPage(() => import('../routes/admin/Studio.tsx'), 'StudioPage');
+const WorkshopStudioPage = lazyPage(() => import('../routes/admin/WorkshopStudio.tsx'), 'WorkshopStudioPage');
+
 const rootRoute = createRootRoute({ component: AppShell });
 
 const dashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: DashboardPage });
@@ -54,6 +75,44 @@ const photolancerRoute = createRoute({
   path: '/photolancer',
   component: PhotolancerPage,
 });
+const thinkTankRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/think-tank',
+  component: ThinkTankPage,
+});
+const shareInsightRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/think-tank/share',
+  component: ShareInsightPage,
+});
+const insightDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/think-tank/$slug',
+  component: InsightDetailPage,
+});
+const winsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/wins', component: WinsPage });
+const submitWinRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/wins/submit',
+  component: SubmitWinPage,
+});
+const winDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/wins/$slug',
+  component: WinDetailPage,
+});
+const eventsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/events', component: EventsPage });
+const directoryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/members',
+  component: DirectoryPage,
+});
+const legalRoute = createRoute({ getParentRoute: () => rootRoute, path: '/legal', component: LegalPage });
+const moderationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/moderation',
+  component: ModerationPage,
+});
 
 /* The studio. Reachable only from the Studio link, which the shell shows only
    to admins — and every route under it calls an API that checks again. */
@@ -82,6 +141,16 @@ const routeTree = rootRoute.addChildren([
   membershipRoute,
   notificationsRoute,
   photolancerRoute,
+  thinkTankRoute,
+  shareInsightRoute,
+  insightDetailRoute,
+  winsRoute,
+  submitWinRoute,
+  winDetailRoute,
+  eventsRoute,
+  directoryRoute,
+  legalRoute,
+  moderationRoute,
   studioRoute,
   courseBuilderRoute,
   workshopStudioRoute,

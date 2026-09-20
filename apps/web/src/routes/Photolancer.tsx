@@ -1,135 +1,67 @@
-import { Link } from '@tanstack/react-router';
-import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
-import { Card, Icon } from '../shared/ui/primitives.tsx';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { api, relativeTime } from '../shared/api.ts';
+import { Page } from '../shared/layout/AppShell.tsx';
+import { Card, Chip, EmptyState, Hero } from '../shared/ui/primitives.tsx';
+import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 
-/**
- * Photolancer, before it exists.
- *
- * The nav item is staying because this is a real planned module — it was a
- * section in the club's previous app — but the page behind it read "The
- * marketplace module is not part of this scaffold yet", which is a developer's
- * sentence shown to a member.
- *
- * So: say plainly what it will be, say plainly that it is not here, and point
- * at the place where the work *is* already happening. A page that admits it is
- * empty and gives somewhere useful to go is not a dead end; one that apologises
- * in engineering vocabulary is.
- */
-
-const PLANNED = [
-  {
-    icon: 'megaphone',
-    title: 'Briefs from clients',
-    body: 'Shoots posted with the date, the city, the budget and what is actually wanted.',
-  },
-  {
-    icon: 'people',
-    title: 'Apply as a member',
-    body: 'Your profile, your tier and your finished courses travel with the application.',
-  },
-  {
-    icon: 'file',
-    title: 'Agreed terms up front',
-    body: 'Scope, deliverables and payment written down before anyone picks up a camera.',
-  },
-  {
-    icon: 'chart',
-    title: 'A track record that counts',
-    body: 'Completed jobs build a history inside the club rather than on a stranger’s platform.',
-  },
-];
-
+/** Photolancer: paid work inside the club. Briefs → applications → agreed terms. */
 export function PhotolancerPage() {
+  const qc = useQueryClient();
+  const briefs = useQuery({ queryKey: ['briefs'], queryFn: api.briefs });
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: '', bodyMd: '', city: '' });
+  const [pitch, setPitch] = useState<Record<string, string>>({});
+
+  const create = useMutation({
+    mutationFn: () => api.createBrief({ ...form, city: form.city || null, budgetPaise: null, shootOn: null }),
+    onSuccess: () => { setShowForm(false); setForm({ title: '', bodyMd: '', city: '' }); qc.invalidateQueries({ queryKey: ['briefs'] }); },
+  });
+  const apply = useMutation({
+    mutationFn: ({ id, pitchMd }: { id: string; pitchMd: string }) => api.applyBrief(id, pitchMd),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['briefs'] }),
+  });
+
   return (
     <Page>
-      <PageHeader
-        title="Photolancer"
-        crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Photolancer' }]}
+      <Hero
+        tone="ink"
+        eyebrow="Photolancer · Paid work inside the club"
+        title="Real shoots, real budgets."
+        sub="Clients post briefs with dates and budgets. Your profile, tier and finished courses travel with every application."
+        actions={<button className="btn btn-pink" style={{ color: '#fff' }} onClick={() => setShowForm((s) => !s)}>Post a brief</button>}
       />
-
-      <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <div
-          style={{
-            background: 'linear-gradient(135deg, #fdecf5 0%, #fbe3ee 45%, #eaf1fc 100%)',
-            padding: '34px 30px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 10,
-            textAlign: 'center',
-          }}
-        >
-          <span
-            style={{
-              fontSize: 9.5,
-              fontWeight: 600,
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              color: 'var(--pink-strong)',
-              background: '#fff',
-              borderRadius: 999,
-              padding: '5px 12px',
-            }}
-          >
-            In development
-          </span>
-          <span style={{ fontSize: 24, fontWeight: 600, letterSpacing: '0.01em' }}>
-            Paid work, inside the club
-          </span>
-          <span style={{ fontSize: 12.5, lineHeight: 1.65, maxWidth: 440 }} className="muted">
-            Photolancer will connect members to real shoots — clients posting briefs, members
-            applying, terms agreed before anyone commits. It is not open yet, and there is nothing
-            here to sign up for.
-          </span>
-        </div>
-      </Card>
-
-      <span className="section-label">What it will do</span>
-
-      <div className="grid grid-2">
-        {PLANNED.map((item) => (
-          <Card key={item.title} style={{ flexDirection: 'row', gap: 13, alignItems: 'flex-start' }}>
-            <span
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 11,
-                background: 'var(--soft)',
-                display: 'grid',
-                placeItems: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <Icon name={item.icon} size={16} color="var(--ink-2)" />
-            </span>
-            <span style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 600 }}>{item.title}</span>
-              <span style={{ fontSize: 11.5, lineHeight: 1.6 }} className="muted">
-                {item.body}
-              </span>
-            </span>
+      {showForm && (
+        <Card>
+          <label style={{ fontSize: 12 }}>Shoot title<input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
+          <label style={{ fontSize: 12 }}>What is actually wanted<textarea className="input" rows={4} value={form.bodyMd} onChange={(e) => setForm({ ...form, bodyMd: e.target.value })} /></label>
+          <label style={{ fontSize: 12 }}>City<input className="input" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></label>
+          <button className="btn btn-pink" disabled={form.title.trim().length < 8 || form.bodyMd.trim().length < 20 || create.isPending}
+            onClick={() => create.mutate()}>Publish brief</button>
+        </Card>
+      )}
+      <span className="section-label">Open briefs</span>
+      {briefs.isPending ? <SkeletonCard /> : briefs.isError ? <LoadingLabel>Something went wrong</LoadingLabel> :
+        briefs.data.length === 0 ? <EmptyState title="No open briefs" hint="Post one, or check the community — members pass briefs there every week." /> :
+        briefs.data.map((b) => (
+          <Card key={b.id}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <strong style={{ fontSize: 13, flex: 1 }}>{b.title}</strong>
+              {b.city && <Chip>{b.city}</Chip>}
+              <Chip tone="pink">{b.applicationCount} applied</Chip>
+            </div>
+            <p style={{ fontSize: 12 }} className="muted">{b.bodyMd.slice(0, 300)}</p>
+            <span style={{ fontSize: 10 }} className="dim">{relativeTime(b.createdAt)}</span>
+            {b.appliedByMe ? <span className="muted" style={{ fontSize: 12 }}>✓ Applied — your profile, tier and finished courses travelled with it.</span> : (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input className="input" placeholder="Your pitch…" value={pitch[b.id] ?? ''}
+                  onChange={(e) => setPitch((p) => ({ ...p, [b.id]: e.target.value }))} aria-label="Pitch" />
+                <button className="btn btn-soft" disabled={!(pitch[b.id] ?? '').trim() || apply.isPending}
+                  onClick={() => apply.mutate({ id: b.id, pitchMd: pitch[b.id] ?? '' })}>Apply</button>
+              </div>
+            )}
           </Card>
         ))}
-      </div>
-
-      {/* No "notify me" button. It would need somewhere to send the answer, and
-          a button that quietly discards what someone typed is the exact thing
-          this page exists to stop doing. The community is real and already
-          open, so that is where this points. */}
-      <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        <span style={{ flex: 1, minWidth: 220 }}>
-          <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600 }}>
-            Looking for work in the meantime?
-          </span>
-          <span style={{ display: 'block', fontSize: 11.5, lineHeight: 1.6, marginTop: 3 }} className="muted">
-            Members pass briefs to each other in the community every week. Post what you shoot and
-            where you are based.
-          </span>
-        </span>
-        <Link to="/community" className="btn btn-pink" style={{ color: '#fff' }}>
-          Open the community
-        </Link>
-      </Card>
     </Page>
   );
 }

@@ -56,3 +56,28 @@ insert into public.workshops (title, host_name, starts_at, ends_at, platform, re
    date_trunc('day', now()) + interval '4 day' + interval '16 hour',
    'zoom_webinar', true, 70, 97, 'diamond')
 on conflict do nothing;
+
+-- Think Tank lookups + an open vote cycle so the first insight has somewhere
+-- to compete. Insights and wins themselves are seeded by the founding cohort
+-- (PLAN §10.1) — they need real authors, not fixture users.
+insert into public.insight_impact_areas (slug, name, rank) values
+  ('growth','Growth','100'),('profit','Profit','200'),('time','Time','300'),
+  ('team','Team','400'),('brand','Brand','500')
+on conflict (slug) do nothing;
+
+insert into public.vote_cycles (starts_on, ends_on, status) values
+  (current_date - (extract(dow from current_date)::int + 6) % 7,
+   current_date - (extract(dow from current_date)::int + 6) % 7 + 6, 'open')
+on conflict do nothing;
+
+insert into public.solutions (dilemma, body_md, rank) values
+  ('Clients ask for discounts on every shoot',
+   'Hold price, shrink scope: offer the same rate for fewer deliverables, never the same deliverables for less money.',
+   '100'),
+  ('No enquiries between wedding seasons',
+   'Run a same-city mini-shoot weekend for past clients — the cheapest lead is someone who already paid you.',
+   '200'),
+  ('Editing backlog eats the weekends',
+   'Cap revisions at two rounds in writing, batch-edit one day a week, outsource culling first — it is the cheapest hour to buy.',
+   '300')
+on conflict do nothing;

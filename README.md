@@ -78,7 +78,7 @@ Sign in once first, so the profile row exists (the `on_auth_user_created` trigge
 |---|---|
 | Design system | Tokens in `apps/web/src/styles.css`, primitives and charts in `src/shared/ui` |
 | App shell | Top nav, page header, footer — identical on every page |
-| Pages | Dashboard, Community, Workshops, Courses, Library, Member Details |
+| Pages | Dashboard (hero + stats), Think Tank, Wins, Courses, Events, Community, Workshops, Library, Members directory, Member Details, Photolancer, Legal |
 | API | `/health`, `/v1/{courses,workshops,community,library,lessons,me}` and `/v1/admin/*` over Supabase, with a seed fallback |
 | Studio | `/admin` — create courses, build modules and lessons, upload video, schedule workshops. Admins only |
 | Video | Cloudflare Stream, Bunny Stream, or signed MP4 from Supabase Storage — one interface, chosen by env |
