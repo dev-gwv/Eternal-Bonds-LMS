@@ -149,10 +149,19 @@ try {
   );
   check('nor the community feed', Number(posts[0]?.n ?? 0) === 0, `${posts[0]?.n} rows`);
 
-  const otherWins = await withUser(db, null, async (tx) =>
-    tx.execute<{ n: number }>(sql`select count(*)::int as n from wins`),
+  // Scoped to this run's own fixtures. Counting every row in the table made
+  // the check depend on the database being empty, so it broke the moment
+  // demo content existed — an assertion about the world, not about the code.
+  const mineVisible = await withUser(db, null, async (tx) =>
+    tx.execute<{ n: number }>(sql`
+      select count(*)::int as n from wins where id in ${sql.raw(`('${winIds.join("','")}')`)}
+    `),
   );
-  check('and sees only shared wins in the wins table', Number(otherWins[0]?.n ?? 0) === 1, `${otherWins[0]?.n} rows`);
+  check(
+    'of its own four wins, anon sees only the shared one',
+    Number(mineVisible[0]?.n ?? 0) === 1,
+    `${mineVisible[0]?.n} of 4`,
+  );
 } finally {
   console.log('\nCleanup');
   if (winIds.length) {
