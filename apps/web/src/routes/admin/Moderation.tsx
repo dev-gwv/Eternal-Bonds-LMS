@@ -4,6 +4,7 @@ import { api } from '../../shared/api.ts';
 import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
 import { Card, EmptyState } from '../../shared/ui/primitives.tsx';
 import { useToast } from '../../shared/ui/Toast.tsx';
+import { Select } from '../../shared/ui/Select.tsx';
 
 /** Studio → Moderation: reports queue, audit log, feature flags, event scheduler. */
 export function ModerationPage() {
@@ -150,50 +151,32 @@ export function ModerationPage() {
           March can still watch.
         </span>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <select
-            className="input"
+          <Select
             aria-label="Session"
             value={promote.eventId}
-            onChange={(e) => setPromote({ ...promote, eventId: e.target.value })}
-          >
-            <option value="">Finished session…</option>
-            {(events.data ?? [])
+            placeholder="Finished session…"
+            options={(events.data ?? [])
               .filter((e) => new Date(e.endsAt).getTime() < Date.now() && !e.recordingLessonId)
-              .map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.title}
-                </option>
-              ))}
-          </select>
+              .map((e) => ({ value: e.id, label: e.title }))}
+            onChange={(eventId) => setPromote({ ...promote, eventId })}
+          />
 
-          <select
-            className="input"
+          <Select
             aria-label="Course holding the recording"
             value={promote.courseSlug}
-            onChange={(e) => setPromote({ ...promote, courseSlug: e.target.value, lessonId: '' })}
-          >
-            <option value="">Course…</option>
-            {(courses.data ?? []).map((c) => (
-              <option key={c.id} value={c.slug}>
-                {c.title}
-              </option>
-            ))}
-          </select>
+            placeholder="Course…"
+            options={(courses.data ?? []).map((c) => ({ value: c.slug, label: c.title }))}
+            onChange={(courseSlug) => setPromote({ ...promote, courseSlug, lessonId: '' })}
+          />
 
-          <select
-            className="input"
+          <Select
             aria-label="Recording lesson"
             disabled={promote.courseSlug === ''}
             value={promote.lessonId}
-            onChange={(e) => setPromote({ ...promote, lessonId: e.target.value })}
-          >
-            <option value="">Lesson holding the recording…</option>
-            {lessonOptions.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.label}
-              </option>
-            ))}
-          </select>
+            placeholder="Lesson holding the recording…"
+            options={lessonOptions.map((l) => ({ value: l.id, label: l.label }))}
+            onChange={(lessonId) => setPromote({ ...promote, lessonId })}
+          />
 
           <button
             className="btn btn-pink"

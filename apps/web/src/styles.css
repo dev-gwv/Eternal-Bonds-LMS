@@ -1293,3 +1293,97 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }
 }
+
+/* --- select ---------------------------------------------------------------
+   The trigger deliberately carries the same shape, border and shadow as a text
+   input: these sit next to each other in every form, and a dropdown that is a
+   different height or radius from the field above it is the thing that makes a
+   form look assembled rather than designed. */
+
+.select { position: relative; width: 100%; min-width: 0; }
+
+.select-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-align: left;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  box-shadow: var(--sh-sm);
+  border-radius: var(--r-ctl);
+  padding: 10px 12px;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+.select-trigger:hover:not(:disabled) { border-color: var(--ink-4); }
+.select-trigger[aria-expanded='true'],
+.select-trigger:focus-visible {
+  outline: none;
+  border-color: var(--pink);
+  box-shadow: 0 0 0 3px rgba(239, 110, 163, 0.16), var(--sh-sm);
+}
+.select-trigger:disabled {
+  background: var(--soft);
+  color: var(--ink-3);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.select-trigger > svg { flex-shrink: 0; transition: transform 0.16s ease; }
+.select-trigger[aria-expanded='true'] > svg { transform: rotate(180deg); }
+
+.select-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-value.is-placeholder { color: var(--ink-4); }
+
+.select-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 70;
+  margin: 6px 0 0;
+  padding: 5px;
+  list-style: none;
+  max-height: 280px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-ctl);
+  box-shadow: var(--sh-lg);
+  animation: select-in 120ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.select-list.is-up { top: auto; bottom: 100%; margin: 0 0 6px; }
+
+.select-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  color: var(--ink);
+  cursor: pointer;
+  /* The OS highlight is a flat blue that belongs to nothing else on the page.
+     This is the same tint the rest of the app uses for "you are here". */
+}
+.select-option[data-active='true'] { background: var(--soft); }
+.select-option[aria-selected='true'] { font-weight: 600; }
+
+@keyframes select-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .select-list { animation: none; }
+  .select-trigger > svg { transition: none; }
+}

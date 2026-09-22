@@ -116,25 +116,16 @@ export function Toolbar({ children }: { children: ReactNode }) {
 }
 
 /** A tier, a level, a language — every enum the studio offers picks from one. */
-export function Select<T extends string>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T;
-  options: readonly T[];
-  onChange: (next: T) => void;
-}) {
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value as T)}>
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o.replace(/_/g, ' ')}
-        </option>
-      ))}
-    </select>
-  );
-}
+/**
+ * Re-exported from the shared listbox.
+ *
+ * This used to render a native `<select>`. Its closed state was styled, but
+ * the open list was an OS popup — system font, square corners, a blue
+ * highlight belonging to nothing else on the page — and no CSS reaches that.
+ * The signature is unchanged, so every call site gained the new list without
+ * being touched.
+ */
+export { Select } from '../../shared/ui/Select.tsx';
 
 /** Turns a title into the URL it will live at, so nobody types a slug by hand. */
 export const slugify = (title: string) =>

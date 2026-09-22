@@ -7,6 +7,7 @@ import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
 import { Card, Chip, EmptyState, Icon } from '../../shared/ui/primitives.tsx';
 import { LoadingLabel, SkeletonRow } from '../../shared/ui/Skeleton.tsx';
 import { ErrorNote, Field, Toolbar, fieldErrors } from './studio-ui.tsx';
+import { Select } from '../../shared/ui/Select.tsx';
 
 /**
  * Cohorts: the highest-leverage thing one author can run.
@@ -73,14 +74,12 @@ function CohortForm({ onDone }: { onDone: () => void }) {
       {errors.rest && <ErrorNote error={new Error(errors.rest)} />}
       <div className="field-row">
         <Field label="Course" error={errors.of('courseId')}>
-          <select value={form.courseId} onChange={set('courseId')}>
-            <option value="">Pick a course…</option>
-            {courses.data?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={form.courseId}
+            placeholder="Pick a course…"
+            options={(courses.data ?? []).map((c) => ({ value: c.id, label: c.title }))}
+            onChange={(courseId) => setForm((f) => ({ ...f, courseId }))}
+          />
         </Field>
         <Field label="Name" error={errors.of('name')}>
           <input

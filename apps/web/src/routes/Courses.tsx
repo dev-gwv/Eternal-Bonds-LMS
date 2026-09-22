@@ -7,6 +7,7 @@ import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 import { ProgressRing } from '../shared/ui/charts.tsx';
 import { Chip, Dropdown, Icon } from '../shared/ui/primitives.tsx';
+import { Select } from '../shared/ui/Select.tsx';
 
 const CATEGORY_TONE: Record<Course['category'], { text: string; gradient: string; on: string }> = {
   business: { text: 'var(--pink-ink)', gradient: 'linear-gradient(135deg, #f9a8c9 0%, #f27fb0 100%)', on: '#fff' },
@@ -143,16 +144,12 @@ export function CoursesPage() {
               />
               <Icon name="search" size={14} strokeWidth={2} color="var(--ink-2)" />
             </div>
-            <select
+            <Select
               value={status}
-              onChange={(e) => setStatus(e.target.value as (typeof STATUSES)[number])}
               aria-label="Filter by status"
-              style={selectStyle}
-            >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-              ))}
-            </select>
+              options={STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
+              onChange={(next) => setStatus(next as (typeof STATUSES)[number])}
+            />
             {filtered && (
               <button
                 type="button"

@@ -373,16 +373,12 @@ export function AdminJourneyBuilderPage() {
         <div className="col rail">
           <Card title="Add a course">
             <Field label="Course">
-              <select value={pick} onChange={(e) => setPick(e.target.value)}>
-                <option value="">Pick a course…</option>
-                {courses.data
-                  ?.filter((c) => !used.has(c.id))
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.title}
-                    </option>
-                  ))}
-              </select>
+              <Select
+                value={pick}
+                placeholder="Pick a course…"
+                options={(courses.data ?? []).filter((c) => !used.has(c.id)).map((c) => ({ value: c.id, label: c.title }))}
+                onChange={setPick}
+              />
             </Field>
             <Field label="Why this course, here">
               <input

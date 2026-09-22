@@ -11,6 +11,7 @@ import { PickerButton, PickerStrip, usePicker } from '../shared/ui/ImagePicker.t
 import { ReportButton } from '../shared/ui/ReportButton.tsx';
 import { ShareWin } from '../shared/ui/ShareWin.tsx';
 import { uploadAll } from '../shared/media.ts';
+import { Select } from '../shared/ui/Select.tsx';
 
 /** One list, used by the board filter and the submit form, so they cannot drift. */
 const CATEGORY_OPTIONS = ['general', 'revenue', 'clients', 'mindset', 'gear', 'craft'];
@@ -216,13 +217,11 @@ export function SubmitWinPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <label style={{ fontSize: 12 }}>
               Category
-              <select className="input" value={form.category} onChange={set('category')}>
-                {CATEGORY_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+              <Select
+                value={form.category}
+                options={CATEGORY_OPTIONS}
+                onChange={(category) => setForm((f) => ({ ...f, category }))}
+              />
             </label>
             <label style={{ fontSize: 12 }}>
               When did it happen

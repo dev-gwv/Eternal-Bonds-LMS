@@ -91,14 +91,18 @@ function TierForm({ member, onDone }: { member: AdminMemberDetail; onDone: () =>
           <Select value={tier} options={TIERS} onChange={setTier} />
         </Field>
         <Field label="For how long">
-          <select value={months} onChange={(e) => setMonths(e.target.value)}>
-            <option value="1">1 month</option>
-            <option value="3">3 months</option>
-            <option value="6">6 months</option>
-            <option value="12">12 months</option>
-            <option value="24">24 months</option>
-            <option value="forever">No end date</option>
-          </select>
+          <Select
+            value={months}
+            options={[
+              { value: '1', label: '1 month' },
+              { value: '3', label: '3 months' },
+              { value: '6', label: '6 months' },
+              { value: '12', label: '12 months' },
+              { value: '24', label: '24 months' },
+              { value: 'forever', label: 'No end date' },
+            ]}
+            onChange={setMonths}
+          />
         </Field>
       </div>
       <Field label="Why (recorded in the audit log)">
