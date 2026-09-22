@@ -645,27 +645,28 @@ img, svg, video { max-width: 100%; }
 }
 .field-error { font-size: 10px; color: var(--red); display: flex; align-items: center; gap: 4px; }
 
-/* --- controls, one language ----------------------------------------------
-   Everything the member types into or picks from, in one place.
+/* --- the control baseline -------------------------------------------------
+   Styled on the *element*, not on a class.
 
-   The problem this replaces: `.field input` and `.input` each defined their
-   own version of the same thing, `<select>` was left entirely native — a
-   grey OS dropdown with a system arrow, which is the single element that most
-   made the app look like a form from 2009 — and checkboxes were styled only
-   inside `.switch`, so every other one on the site was browser default.
+   This started as `.field input` and `.input`, which meant every control had
+   to opt in — and 70 of them across the app never did. The setup wizard was
+   the visible case: it has its own inline-styled Field wrapper, so its inputs
+   carried no class, matched no selector, and rendered as raw browser defaults
+   next to controls that looked designed.
 
-   Selects get `appearance: none` and a drawn chevron. That is the one place
-   where replacing a native control is worth it: the arrow is the only part
-   being replaced, the popup list stays the OS one, and keyboard behaviour is
-   untouched. Fully rebuilding a select in JavaScript costs the type-ahead,
-   the mobile wheel picker and half the accessibility, and buys nothing a
-   chevron does not. */
+   Opt-in styling for something as common as a text input is the wrong default.
+   A missed class should not produce a control from 2009; it should produce the
+   house style, and the classes should be for the exceptions.
 
-.field input,
-.field select,
-.field textarea,
-.input,
-select.input {
+   `:where()` keeps the specificity at zero, so anything more specific — the
+   borderless search field, a composer, a one-off — still wins without needing
+   `!important`. */
+
+:where(
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+  textarea,
+  select
+) {
   font: inherit;
   font-size: 12.5px;
   line-height: 1.45;
@@ -677,63 +678,49 @@ select.input {
   padding: 10px 12px;
   width: 100%;
   min-width: 0;
-  /* Safari otherwise rounds text inputs into pill shapes of its own choosing
-     and ignores the border radius on date fields entirely. */
+  /* Safari rounds text inputs into shapes of its own choosing and ignores the
+     radius on date fields entirely without this. */
   -webkit-appearance: none;
   appearance: none;
   transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
 }
 
-/* The chevron. An inline SVG so it needs no network request and inherits
-   nothing that could fail to load. */
-.field select,
-select.input,
-select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a79dad' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  /* Room for the chevron, so a long option does not run underneath it. */
-  padding-right: 34px;
-  cursor: pointer;
+:where(textarea) { resize: vertical; min-height: 84px; line-height: 1.6; }
+
+:where(input, textarea)::placeholder { color: var(--ink-4); }
+
+:where(input:not([type='checkbox']):not([type='radio']), textarea, select):hover {
+  border-color: var(--ink-4);
 }
-.field select:hover,
-select.input:hover { border-color: var(--ink-4); }
 
-/* The option list is the OS popup, but these two properties do reach it on
-   most platforms and stop it rendering as black-on-grey in dark mode. */
-.field select option,
-select.input option { color: var(--ink); background: var(--panel); }
-
-.field textarea,
-textarea.input { resize: vertical; min-height: 84px; line-height: 1.6; }
-
-.field input::placeholder,
-.field textarea::placeholder,
-.input::placeholder { color: var(--ink-4); }
-
-.field input:hover,
-.field textarea:hover,
-.input:hover { border-color: var(--ink-4); }
-
-.field input:focus,
-.field select:focus,
-.field textarea:focus,
-.input:focus,
-select.input:focus {
+/* One focus treatment for every control in the app. The browser's own ring —
+   which is what the wizard was showing — is a different shape and colour on
+   every platform, and on the name field it rendered as a doubled maroon
+   outline that reads as an error. */
+:where(input:not([type='checkbox']):not([type='radio']), textarea, select):focus {
   outline: none;
   border-color: var(--pink);
   box-shadow: 0 0 0 3px rgba(239, 110, 163, 0.16), var(--sh-sm);
 }
 
-/* Date and time fields. Chrome puts a small grey calendar glyph inside them
-   that sits at a different baseline from our own chevron; tinting it is the
-   only way to make the two look like the same product. */
-.field input[type='date'],
-.field input[type='datetime-local'],
-.field input[type='time'],
-.input[type='date'],
-.input[type='datetime-local'],
-.input[type='time'] { min-height: 39px; }
+:where(input, textarea, select):disabled {
+  background-color: var(--soft);
+  color: var(--ink-3);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* The drawn chevron, replacing the native OS arrow. */
+:where(select) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a79dad' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 34px;
+  cursor: pointer;
+}
+:where(select) option { color: var(--ink); background: var(--panel); }
+
+:where(input[type='date'], input[type='datetime-local'], input[type='time']) { min-height: 39px; }
 
 input[type='date']::-webkit-calendar-picker-indicator,
 input[type='datetime-local']::-webkit-calendar-picker-indicator,
@@ -746,21 +733,19 @@ input[type='date']::-webkit-calendar-picker-indicator:hover,
 input[type='datetime-local']::-webkit-calendar-picker-indicator:hover,
 input[type='time']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 
-/* Number fields: the spinner arrows are tiny, unlabelled, and in a drip-day
-   box they are the wrong affordance — people type a number. */
+/* Spinner arrows are tiny, unlabelled, and the wrong affordance in a drip-day
+   box — people type a number, they do not spin to it. */
 input[type='number'] { -moz-appearance: textfield; }
 input[type='number']::-webkit-outer-spin-button,
 input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
-/* Search inputs get a clear button in some browsers at a size and colour we
-   do not control. The pattern here is a real search icon beside the field. */
 input[type='search']::-webkit-search-decoration,
 input[type='search']::-webkit-search-cancel-button { -webkit-appearance: none; }
 
-/* Checkboxes and radios. `accent-color` rather than a rebuilt control: it is
-   one line, it keeps every native behaviour including the indeterminate state
-   and the OS high-contrast rendering, and the only thing worth changing about
-   a checkbox is that it is the brand colour and big enough to hit. */
+/* `accent-color` rather than a rebuilt control: one line, every native
+   behaviour kept including the indeterminate state and OS high-contrast, and
+   the only things worth changing about a checkbox are its colour and that it
+   is big enough to hit. */
 input[type='checkbox'],
 input[type='radio'] {
   accent-color: var(--pink-ink);
@@ -772,27 +757,12 @@ input[type='radio'] {
 input[type='checkbox']:disabled,
 input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
 
-/* Disabled controls have to *look* disabled. Without this a greyed-out button
-   and a live one differ only by opacity on the button, and not at all on a
-   field somebody is trying to type into. */
-.field input:disabled,
-.field select:disabled,
-.field textarea:disabled,
-.input:disabled,
-select.input:disabled {
-  background-color: var(--soft);
-  color: var(--ink-3);
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
+/* Invalid, wherever it is marked. */
 .field.is-invalid input,
 .field.is-invalid select,
 .field.is-invalid textarea,
 .input.is-invalid,
-[aria-invalid='true'] {
-  border-color: var(--red);
-}
+[aria-invalid='true'] { border-color: var(--red); }
 .field.is-invalid input:focus,
 .input.is-invalid:focus,
 [aria-invalid='true']:focus {
