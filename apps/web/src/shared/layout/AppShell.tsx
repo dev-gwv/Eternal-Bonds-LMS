@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Suspense, useEffect, useState, type PropsWithChildren, type ReactNode } from 'react';
 import { OfflineBanner } from '../offline.tsx';
 import { Icon } from '../ui/primitives.tsx';
+import { Wordmark } from '../ui/Logo.tsx';
 import { GlobalSearch } from '../ui/GlobalSearch.tsx';
 import { NotificationBell } from '../ui/NotificationBell.tsx';
 import { UserMenu } from '../ui/UserMenu.tsx';
@@ -105,12 +106,8 @@ function TopBar({ onMenu, hasSub }: { onMenu: () => void; hasSub: boolean }) {
         </button>
       )}
 
-      <Link to="/" className="wordmark" style={{ color: 'inherit' }}>
-        <span className="wordmark-dot" />
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span className="wordmark-name">ETERNAL</span>
-          <span className="wordmark-sub">BONDS</span>
-        </div>
+      <Link to="/" className="wordmark" style={{ color: 'inherit' }} aria-label="Eternal Bonds, home">
+        <Wordmark />
       </Link>
 
       <nav className="nav" aria-label="Sections">

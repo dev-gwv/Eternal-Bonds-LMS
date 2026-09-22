@@ -143,34 +143,28 @@ input, select, textarea { font-family: inherit; }
   border-bottom: 1px solid var(--rule);
 }
 
-.wordmark { display: flex; align-items: center; gap: 10px; }
-.wordmark-dot {
-  width: 26px;
-  height: 26px;
-  border-radius: 9px;
-  background: var(--grad-brand);
-  box-shadow: var(--sh-brand);
-  position: relative;
-}
-.wordmark-dot::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.55), transparent 55%);
-}
+.wordmark { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+.wordmark-text { display: flex; align-items: baseline; gap: 5px; line-height: 1; }
 .wordmark-name {
   font-family: var(--font-display);
   font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1.05;
+  font-weight: 600;
+  letter-spacing: 0.005em;
   background: var(--grad-ink);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
-.wordmark-sub { font-size: 6.5px; letter-spacing: 0.34em; color: var(--gold-deep); font-weight: 600; }
+/* Was 6.5px with 0.34em tracking, stacked under the name — small enough to be
+   texture rather than a word. On one line at a readable size the two words
+   read as one name, which is what they are. */
+.wordmark-sub {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  color: var(--ink-3);
+}
 
 .nav { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; flex-wrap: nowrap; }
 

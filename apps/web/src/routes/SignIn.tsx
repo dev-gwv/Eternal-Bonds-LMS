@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LogoMark } from '../shared/ui/Logo.tsx';
 import {
   authConfigured,
   devLoginEmail,
@@ -44,7 +45,7 @@ export function SignInPage() {
     <div className="app" style={{ display: 'grid', placeItems: 'center' }}>
       <div className="panel signin-panel" style={{ maxWidth: 430, minHeight: 0, padding: 30, gap: 18 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <span className="wordmark-dot" style={{ width: 44, height: 44, borderRadius: 14 }} />
+          <LogoMark size={52} title="Eternal Bonds" />
           <div style={{ textAlign: 'center' }}>
             <div className="signin-brand">Eternal Bonds</div>
             <div style={{ fontSize: 12 }} className="muted">The club for photographers who want more</div>
