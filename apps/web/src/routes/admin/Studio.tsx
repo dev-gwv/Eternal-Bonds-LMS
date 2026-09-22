@@ -232,6 +232,10 @@ export function StudioPage() {
       <Toolbar>
         <span className="section-label">Courses</span>
         <span style={{ flex: 1 }} />
+        <Link to="/admin/members" className="btn btn-soft">
+          <Icon name="people" size={13} />
+          Members
+        </Link>
         <Link to="/admin/workshops" className="btn btn-soft">
           <Icon name="workshops" size={13} />
           Workshops

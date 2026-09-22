@@ -553,17 +553,6 @@ img, svg, video { max-width: 100%; }
   .panel { border-radius: 0; padding: 14px; min-height: 100vh; }
 
   .topbar { flex-wrap: wrap; gap: 10px; }
-  .nav {
-    order: 3;
-    width: 100%;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    /* So the last pill is not flush against the edge when scrolled fully. */
-    padding-right: 4px;
-  }
-  .nav::-webkit-scrollbar { display: none; }
-  .nav-pill { flex-shrink: 0; }
 
   /* The search field is 150px of a 360px bar; full width on its own row is
      the only way it is typeable. */
@@ -572,9 +561,6 @@ img, svg, video { max-width: 100%; }
 
   .grid-4, .grid-2 { grid-template-columns: minmax(0, 1fr); }
 
-  /* A name and tier beside the avatar is most of the header on a phone. The
-     avatar alone still says who is signed in, and tapping it still works. */
-  .userchip > div { display: none; }
 
   .footer { flex-wrap: wrap; gap: 8px; row-gap: 10px; }
   .pagehead h1 { font-size: 18px; }
@@ -886,3 +872,169 @@ textarea.input { resize: vertical; line-height: 1.6; }
    Initial JS ≤200KB gzip, LCP <2.5s on mid-range Android over 4G.
    Route-level code splitting keeps each section under ~40KB. Images below
    the fold are lazy (loading="lazy"); video never preloads. */
+
+/* --- shell: header + sidebar ------------------------------------------------
+   Ten sections stopped fitting across a header, and were only going to grow.
+   Primary navigation moved into a sidebar: vertical space is cheap, labels
+   stay readable at full length, and the groups give a new member a map of the
+   club rather than a row of equally-weighted words. */
+
+.shell {
+  flex: 1;
+  display: flex;
+  gap: 20px;
+  min-height: 0;
+  align-items: flex-start;
+}
+
+.sidebar {
+  width: 186px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 0 8px;
+  /* Follows the page down on a long feed — losing navigation after one scroll
+     is the thing a sidebar is supposed to fix. */
+  position: sticky;
+  top: 12px;
+}
+
+.sidebar-group { display: flex; flex-direction: column; gap: 2px; }
+
+.sidebar-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  padding: 0 10px 5px;
+}
+
+.side-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r-ctl);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.side-link:hover { background: var(--soft); color: var(--ink); }
+.side-link.is-active {
+  background: var(--pink-tint);
+  color: var(--pink-ink);
+  font-weight: 600;
+}
+
+.shell-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* The hamburger only exists below the breakpoint. */
+.nav-toggle { display: none; }
+
+.sidebar-scrim { display: none; }
+
+/* --- the account menu ------------------------------------------------------
+   One control replacing four: a Studio pill, a settings gear, a name chip and
+   the links they each led to. */
+
+.avatar-btn {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  line-height: 0;
+}
+.avatar-btn:hover { background: var(--soft); }
+
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 264px;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-card);
+  box-shadow: 0 12px 32px rgba(46, 46, 56, .14);
+  z-index: 50;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px 10px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 4px;
+}
+
+.menu-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  padding: 8px 10px 3px;
+}
+
+.menu-group { display: flex; flex-direction: column; gap: 1px; }
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  color: inherit;
+  text-align: left;
+}
+.menu-row:hover { background: var(--soft); }
+
+@media (max-width: 960px) {
+  /* Off-canvas. `position: fixed` rather than hidden so the panel does not
+     reserve space it is not using, and so the drawer can overlay content. */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 232px;
+    background: var(--panel);
+    border-right: 1px solid var(--hair);
+    padding: 18px 12px;
+    overflow-y: auto;
+    z-index: 60;
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+  }
+  .sidebar.is-open { transform: translateX(0); }
+
+  .sidebar-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    border: 0;
+    background: rgba(46, 46, 56, .35);
+  }
+
+  .nav-toggle { display: inline-flex; }
+  .shell { gap: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+}

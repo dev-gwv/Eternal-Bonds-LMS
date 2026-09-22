@@ -4,6 +4,8 @@ import {
   AdminLesson,
   AdminModule,
   AdminOverview,
+  AdminMemberDetail,
+  AdminMemberPage,
   AdminWorkshop,
   UploadTicket,
   Viewer,
@@ -11,7 +13,9 @@ import {
   type CoursePatch,
   type LessonInput,
   type LessonPatch,
+  type GrantTier,
   type ModuleInput,
+  type SetSuspended,
   type WorkshopInput,
 } from '@ipc/contracts';
 import { z } from 'zod';
@@ -93,6 +97,22 @@ export const adminApi = {
   deleteWorkshop: (id: string) => call<void>('DELETE', `/v1/admin/workshops/${id}`),
 
   detachVideo: (lessonId: string) => call<void>('DELETE', `/v1/admin/lessons/${lessonId}/video`),
+
+  /* The members console. Filters are server-side because the roster is the one
+     list that will not fit in the browser — 849 today and growing. */
+  members: (opts: { q?: string; risk?: string; tier?: string; cursor?: string } = {}) => {
+    const p = new URLSearchParams();
+    if (opts.q) p.set('q', opts.q);
+    if (opts.risk && opts.risk !== 'all') p.set('risk', opts.risk);
+    if (opts.tier && opts.tier !== 'all') p.set('tier', opts.tier);
+    if (opts.cursor) p.set('cursor', opts.cursor);
+    return call('GET', `/v1/admin/members?${p}`, { schema: AdminMemberPage });
+  },
+  member: (id: string) => call('GET', `/v1/admin/members/${id}`, { schema: AdminMemberDetail }),
+  grantTier: (id: string, body: GrantTier) =>
+    call('POST', `/v1/admin/members/${id}/tier`, { body, schema: AdminMemberDetail }),
+  setSuspended: (id: string, body: SetSuspended) =>
+    call('POST', `/v1/admin/members/${id}/suspension`, { body, schema: AdminMemberDetail }),
 };
 
 /** Anonymous is a normal answer here, not an error — the shell asks on load. */

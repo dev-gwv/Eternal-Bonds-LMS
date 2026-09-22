@@ -39,6 +39,8 @@ const WorkshopsPage = lazyPage(() => import('../routes/Workshops.tsx'), 'Worksho
 const AccountPage = lazyPage(() => import('../routes/Account.tsx'), 'AccountPage');
 const CourseBuilderPage = lazyPage(() => import('../routes/admin/CourseBuilder.tsx'), 'CourseBuilderPage');
 const StudioPage = lazyPage(() => import('../routes/admin/Studio.tsx'), 'StudioPage');
+const MembersPage = lazyPage(() => import('../routes/admin/Members.tsx'), 'MembersPage');
+const MemberDetailPage = lazyPage(() => import('../routes/admin/MemberDetail.tsx'), 'MemberDetailPage');
 const WorkshopStudioPage = lazyPage(() => import('../routes/admin/WorkshopStudio.tsx'), 'WorkshopStudioPage');
 
 const rootRoute = createRootRoute({ component: AppShell });
@@ -117,6 +119,16 @@ const moderationRoute = createRoute({
 /* The studio. Reachable only from the Studio link, which the shell shows only
    to admins — and every route under it calls an API that checks again. */
 const studioRoute = createRoute({ getParentRoute: () => rootRoute, path: '/admin', component: StudioPage });
+const membersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/members',
+  component: MembersPage,
+});
+const memberDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/members/$id',
+  component: MemberDetailPage,
+});
 const courseBuilderRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/courses/$id',
@@ -152,6 +164,8 @@ const routeTree = rootRoute.addChildren([
   legalRoute,
   moderationRoute,
   studioRoute,
+  membersRoute,
+  memberDetailRoute,
   courseBuilderRoute,
   workshopStudioRoute,
 ]);

@@ -15,6 +15,7 @@ import type { AppEnv } from '../context.ts';
 import * as studio from '../admin.ts';
 import { problem } from '../lib/problem.ts';
 import { requireAdmin } from '../middleware/auth.ts';
+import { membersRoutes } from './members.ts';
 import { attachVideo, createUploadTicket, detachVideo } from '../video.ts';
 
 /**
@@ -46,6 +47,10 @@ const who = (c: { get: (k: 'userId') => string | null }) => c.get('userId') ?? '
 
 export const adminRoutes = new Hono<AppEnv>()
   .use('*', requireAdmin)
+
+  // The members console. Its own module because it is a different job from
+  // authoring: this is about people, not content.
+  .route('/members', membersRoutes)
 
   .get('/overview', async (c) => c.json(await studio.overview(c.env, who(c))))
 

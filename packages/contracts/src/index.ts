@@ -885,3 +885,109 @@ export type TermsAccept = z.infer<typeof TermsAccept>;
 
 export const CursorPage = z.object({ cursor: z.string().nullable(), limit: z.int().min(1).max(100).default(20) });
 export type CursorPage = z.infer<typeof CursorPage>;
+
+/* ── Members console (admin) ───────────────────────────────────────────────
+   The club has hundreds of members and, until now, no way to look at one of
+   them. Everything here is admin-only and read-mostly: the two writes are a
+   manual tier grant and a suspension, both of which land in the audit log. */
+
+export const MemberRisk = z.enum(['active', 'idle', 'stalled', 'dormant', 'never_started']);
+export type MemberRisk = z.infer<typeof MemberRisk>;
+
+export const AdminMember = z.object({
+  id: z.uuid(),
+  memberCode: z.string(),
+  fullName: z.string(),
+  initials: z.string(),
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+  city: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  tier: Tier,
+  role: Role,
+  suspended: z.boolean(),
+  joinedAt: z.iso.datetime(),
+  lastSeenAt: z.iso.datetime().nullable(),
+  xp: z.int().nonnegative(),
+  lessonsCompleted: z.int().nonnegative(),
+  coursesEnrolled: z.int().nonnegative(),
+  coursesCompleted: z.int().nonnegative(),
+  streakDays: z.int().nonnegative(),
+  /**
+   * Where this member is, in one word, so a roster of 849 can be triaged
+   * without opening any of them.
+   */
+  risk: MemberRisk,
+  /** Days since they last did anything. Null when they never have. */
+  idleDays: z.int().nonnegative().nullable(),
+});
+export type AdminMember = z.infer<typeof AdminMember>;
+
+export const AdminMemberPage = z.object({
+  items: z.array(AdminMember),
+  nextCursor: z.string().nullable(),
+  /** Counts for the whole roster, not this page — the filter chips need them. */
+  totals: z.object({
+    all: z.int().nonnegative(),
+    active: z.int().nonnegative(),
+    idle: z.int().nonnegative(),
+    stalled: z.int().nonnegative(),
+    dormant: z.int().nonnegative(),
+    neverStarted: z.int().nonnegative(),
+    suspended: z.int().nonnegative(),
+  }),
+});
+export type AdminMemberPage = z.infer<typeof AdminMemberPage>;
+
+export const AdminMemberCourse = z.object({
+  courseId: z.uuid(),
+  title: z.string(),
+  slug: z.string(),
+  enrolledAt: z.iso.datetime(),
+  completedAt: z.iso.datetime().nullable(),
+  lessonsTotal: z.int().nonnegative(),
+  lessonsDone: z.int().nonnegative(),
+  progress: z.int().min(0).max(100),
+  lastLessonTitle: z.string().nullable(),
+  lastActivityAt: z.iso.datetime().nullable(),
+});
+export type AdminMemberCourse = z.infer<typeof AdminMemberCourse>;
+
+export const AdminMemberEvent = z.object({
+  kind: z.string(),
+  at: z.iso.datetime(),
+  summary: z.string(),
+});
+export type AdminMemberEvent = z.infer<typeof AdminMemberEvent>;
+
+export const AdminMemberDetail = AdminMember.extend({
+  bio: z.string().nullable(),
+  courses: z.array(AdminMemberCourse),
+  /** Most recent first, capped — this is a timeline, not an export. */
+  timeline: z.array(AdminMemberEvent),
+  memberships: z.array(
+    z.object({
+      tier: Tier,
+      status: z.string(),
+      source: z.string(),
+      startedAt: z.iso.datetime(),
+      expiresAt: z.iso.datetime().nullable(),
+    }),
+  ),
+});
+export type AdminMemberDetail = z.infer<typeof AdminMemberDetail>;
+
+export const GrantTier = z.object({
+  tier: Tier,
+  /** Months to grant. Null for a tier with no end, which admins rarely want. */
+  months: z.int().positive().max(120).nullable().default(12),
+  /** Free text, stored on the audit row. "Why" is the useful half of an audit. */
+  reason: z.string().trim().min(3).max(300),
+});
+export type GrantTier = z.infer<typeof GrantTier>;
+
+export const SetSuspended = z.object({
+  suspended: z.boolean(),
+  reason: z.string().trim().min(3).max(300),
+});
+export type SetSuspended = z.infer<typeof SetSuspended>;
