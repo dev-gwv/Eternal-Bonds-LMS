@@ -117,8 +117,11 @@ input, select, textarea { font-family: inherit; }
   margin: 0 auto;
   width: 100%;
   min-height: calc(100vh - 44px);
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  /* Token-driven translucency. `color-mix` keeps the frosted effect while
+     letting the base colour follow the theme — a literal rgba(255,255,255)
+     here made the panel a white sheet in dark mode, with #f2edf5 text on it. */
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--panel) 70%, transparent);
   border-radius: var(--r-panel);
   box-shadow: var(--sh-lg);
   padding: 18px 26px;
@@ -137,7 +140,7 @@ input, select, textarea { font-family: inherit; }
   gap: 14px;
   padding: 10px 4px 14px;
   margin: 0 -4px;
-  background: rgba(255, 255, 255, 0.82);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--rule);
@@ -907,7 +910,7 @@ select.input:disabled {
   position: relative;
   overflow: hidden;
   border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  border: 1px solid color-mix(in srgb, var(--panel) 70%, transparent);
   padding: 28px 30px;
   display: flex;
   flex-direction: column;
@@ -1484,4 +1487,38 @@ select.input:disabled {
   background: var(--panel);
   color: var(--ink);
   box-shadow: var(--sh-sm);
+}
+
+/* The ambient washes behind the panel are tuned for a light page. At the same
+   opacity on a dark one they read as smears rather than light, so they halve.
+   Kept rather than removed: with them gone the dark page is a flat slab, and
+   the whole layout depends on the panel sitting *on* something. */
+:root[data-theme='dark'] body {
+  background:
+    radial-gradient(1100px 480px at 8% -8%, rgba(246, 112, 159, 0.08), transparent 60%),
+    radial-gradient(900px 420px at 96% 4%, rgba(94, 146, 216, 0.07), transparent 60%),
+    radial-gradient(1000px 600px at 50% 110%, rgba(201, 162, 75, 0.05), transparent 60%),
+    var(--page);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) body {
+    background:
+      radial-gradient(1100px 480px at 8% -8%, rgba(246, 112, 159, 0.08), transparent 60%),
+      radial-gradient(900px 420px at 96% 4%, rgba(94, 146, 216, 0.07), transparent 60%),
+      radial-gradient(1000px 600px at 50% 110%, rgba(201, 162, 75, 0.05), transparent 60%),
+      var(--page);
+  }
+}
+
+/* Tile and card sheens are highlights on a light surface and haze on a dark
+   one. Inset white at 65% turns a dark tile into a grey one. */
+:root[data-theme='dark'] .tile,
+:root[data-theme='dark'] .stat-tile {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), var(--sh-sm);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .tile,
+  :root:not([data-theme='light']) .stat-tile {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), var(--sh-sm);
+  }
 }
