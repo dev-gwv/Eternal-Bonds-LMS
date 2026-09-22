@@ -6,6 +6,7 @@ import { HttpError, problem } from './lib/problem.ts';
 import { idempotency } from './middleware/idempotency.ts';
 import { session } from './middleware/auth.ts';
 import { journeyRoutes } from './modules/journeys.ts';
+import { publicRoutes } from './modules/public.ts';
 import { adminRoutes } from './modules/admin.ts';
 import { billingRoutes } from './modules/billing.ts';
 import { webhookRoutes } from './modules/webhooks.ts';
@@ -99,6 +100,8 @@ const v1 = new Hono<AppEnv>()
   .route('/directory', directoryRoutes)
   .route('/learning', learningRoutes)
   .route('/journeys', journeyRoutes)
+  // Outside every auth middleware, deliberately. See modules/public.ts.
+  .route('/public', publicRoutes)
   .route('/admin', adminRoutes)
   .route('/billing', billingRoutes);
 

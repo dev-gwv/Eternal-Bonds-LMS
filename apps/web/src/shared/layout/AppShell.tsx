@@ -7,6 +7,7 @@ import { NotificationBell } from '../ui/NotificationBell.tsx';
 import { UserMenu } from '../ui/UserMenu.tsx';
 import { useSession } from '../session.tsx';
 import { devLoginEnabled } from '../supabase.ts';
+import { PublicWinPage } from '../../routes/PublicWin.tsx';
 import { SignInPage } from '../../routes/SignIn.tsx';
 
 /**
@@ -255,6 +256,14 @@ export function AppShell() {
   useEffect(() => setNavOpen(false), [pathname]);
 
   const sub = sectionFor(pathname).sub;
+
+  // The one route that renders outside the gate. A public win has to look the
+  // same to a stranger and to a signed-in member — if it differed when logged
+  // in, the one person who never sees the real page is the author checking
+  // their own link. Matched before the loading branch too, so a shared link
+  // does not flash "Loading your membership" at somebody who has none.
+  const publicWin = pathname.match(/^\/w\/([^/]+)$/);
+  if (publicWin) return <PublicWinPage slug={decodeURIComponent(publicWin[1]!)} />;
 
   if (status === 'loading') {
     return (

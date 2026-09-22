@@ -9,6 +9,7 @@ import { SkeletonCard, LoadingLabel } from '../shared/ui/Skeleton.tsx';
 import { Gallery } from '../shared/ui/Gallery.tsx';
 import { PickerButton, PickerStrip, usePicker } from '../shared/ui/ImagePicker.tsx';
 import { ReportButton } from '../shared/ui/ReportButton.tsx';
+import { ShareWin } from '../shared/ui/ShareWin.tsx';
 import { uploadAll } from '../shared/media.ts';
 
 /** One list, used by the board filter and the submit form, so they cannot drift. */
@@ -55,6 +56,7 @@ function WinCard({ win }: { win: Win }) {
           💬 {win.comments}
         </Link>
         <span style={{ flex: 1 }} />
+        {win.isMine && <ShareWin slug={win.slug} enabled={win.publicShare} />}
         <ReportButton targetType="win" targetId={win.id} />
       </div>
     </article>

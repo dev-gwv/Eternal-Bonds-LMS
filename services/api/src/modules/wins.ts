@@ -48,7 +48,7 @@ export const winsRoutes = new Hono<AppEnv>()
         .select({
           id: wins.id, slug: wins.slug, title: wins.title, bigIdeaMd: wins.bigIdeaMd,
           howItHappenedMd: wins.howItHappenedMd, category: wins.category, occurredOn: wins.occurredOn,
-          tags: wins.tags, status: wins.status, publicShare: wins.publicShare,
+          tags: wins.tags, status: wins.status, publicShare: wins.publicShare, authorId: wins.authorId,
           reactions: wins.reactionsCount, comments: wins.commentsCount, createdAt: wins.createdAt,
           authorName: users.fullName, authorTier: sql<string>`public.current_tier(${users.id})`,
           reacted: userId ? sql<boolean>`exists (select 1 from reactions r where r.target_id = ${wins.id} and r.target_type = 'win' and r.user_id = ${userId}::uuid)` : sql<boolean>`false`,
@@ -71,6 +71,7 @@ export const winsRoutes = new Hono<AppEnv>()
         howItHappenedMd: r.howItHappenedMd, category: r.category,
         occurredOn: r.occurredOn, tags: r.tags, status: r.status, publicShare: r.publicShare,
         reactions: r.reactions, reactedByMe: Boolean(r.reacted), comments: r.comments,
+        isMine: r.authorId === c.get('userId'),
         media: await Promise.all(media.filter((m) => m.winId === r.id).map(async (m) => ({
           id: m.id, url: await storage.signedDownloadUrl(m.storageKey), mime: m.mime,
         }))),
@@ -102,6 +103,7 @@ export const winsRoutes = new Hono<AppEnv>()
         howItHappenedMd: r.win.howItHappenedMd, category: r.win.category, occurredOn: r.win.occurredOn,
         tags: r.win.tags, status: r.win.status, publicShare: r.win.publicShare,
         reactions: r.win.reactionsCount, reactedByMe: false, comments: r.win.commentsCount,
+        isMine: r.win.authorId === c.get('userId'),
         media: await Promise.all(media.map(async (m) => ({
           id: m.id, url: await storage.signedDownloadUrl(m.storageKey), mime: m.mime,
         }))),

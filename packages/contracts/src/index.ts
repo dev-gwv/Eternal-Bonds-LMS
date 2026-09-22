@@ -809,6 +809,12 @@ export const Win = z.object({
   tags: z.array(z.string()),
   status: WinStatus,
   publicShare: z.boolean(),
+  /**
+   * Whether the viewer wrote it. Decided server-side from the session, because
+   * the client's only other option is comparing display names — and two
+   * members called Rahul Sharma would each get the other's share control.
+   */
+  isMine: z.boolean().default(false),
   reactions: z.int().nonnegative(),
   reactedByMe: z.boolean().default(false),
   comments: z.int().nonnegative(),
@@ -1270,3 +1276,22 @@ export const Onboarding = z.object({
   dismissed: z.boolean().default(false),
 });
 export type Onboarding = z.infer<typeof Onboarding>;
+
+/* ── Public wins ─────────────────────────────────────────────────────────
+   The one thing in this app a stranger may read. A deliberately thinner
+   shape than `Win`: no reaction state, no comment count, no viewer context,
+   because there is no viewer. Everything here is safe on an open page. */
+
+export const PublicWin = z.object({
+  slug: z.string(),
+  title: z.string(),
+  bigIdeaMd: z.string(),
+  howItHappenedMd: z.string(),
+  category: z.string(),
+  occurredOn: z.string().nullable(),
+  tags: z.array(z.string()),
+  authorName: z.string(),
+  media: z.array(MediaItem),
+  createdAt: z.iso.datetime(),
+});
+export type PublicWin = z.infer<typeof PublicWin>;
