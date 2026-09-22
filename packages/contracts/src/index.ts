@@ -60,12 +60,30 @@ export const Channel = z.object({
 });
 export type Channel = z.infer<typeof Channel>;
 
+/**
+ * An image attached to a post or a win.
+ *
+ * `url` is a short-lived signed link minted per request, never a stable path:
+ * the storage bucket is private, so a URL that leaked would expire rather than
+ * hand out a permanent reader. The client must not cache these past the query.
+ */
+export const MediaItem = z.object({
+  id: z.uuid(),
+  url: z.string(),
+  mime: z.string(),
+  width: z.int().positive().nullable().default(null),
+  height: z.int().positive().nullable().default(null),
+});
+export type MediaItem = z.infer<typeof MediaItem>;
+
 export const Post = z.object({
   id: z.uuid(),
   channelSlug: z.string(),
   author: z.object({ name: z.string(), initials: z.string(), tier: Tier }),
   bodyMd: z.string(),
   mediaCount: z.int().nonnegative(),
+  /** Signed URLs for the attached images, newest post media first. */
+  media: z.array(MediaItem).default([]),
   likes: z.int().nonnegative(),
   /** Whether *this* member has liked it — drives the filled heart. */
   likedByMe: z.boolean().default(false),
@@ -717,7 +735,7 @@ export const Win = z.object({
   reactions: z.int().nonnegative(),
   reactedByMe: z.boolean().default(false),
   comments: z.int().nonnegative(),
-  media: z.array(z.object({ id: z.uuid(), url: z.string(), mime: z.string() })).default([]),
+  media: z.array(MediaItem).default([]),
   author: z.object({ name: z.string(), initials: z.string(), tier: Tier }),
   createdAt: z.iso.datetime(),
 });
@@ -991,3 +1009,24 @@ export const SetSuspended = z.object({
   reason: z.string().trim().min(3).max(300),
 });
 export type SetSuspended = z.infer<typeof SetSuspended>;
+
+/* ── Member media uploads ────────────────────────────────────────────────
+   Posts and wins share one shape. The browser asks for a ticket, PUTs the
+   file straight at storage, then tells the API the key it used — the file
+   never passes through a request worker. */
+
+export const MediaTicket = z.object({
+  key: z.string(),
+  url: z.string(),
+  token: z.string(),
+  method: z.literal('PUT'),
+});
+export type MediaTicket = z.infer<typeof MediaTicket>;
+
+export const AttachMedia = z.object({
+  key: z.string().min(1).max(500),
+  mime: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+  width: z.int().positive().max(20000).nullable().default(null),
+  height: z.int().positive().max(20000).nullable().default(null),
+});
+export type AttachMedia = z.infer<typeof AttachMedia>;

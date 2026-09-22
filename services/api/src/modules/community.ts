@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { CreateComment, CreatePost } from '@ipc/contracts';
+import { AttachMedia, CreateComment, CreatePost } from '@ipc/contracts';
 import type { AppEnv } from '../context.ts';
 import { getLeaderboard } from '../rollups.ts';
 import { problem } from '../lib/problem.ts';
@@ -19,6 +19,14 @@ import {
   setCommentLike,
   setPostLike,
 } from '../engagement.ts';
+
+/** Shared by both media routes: what we accept, and how it is named on disk. */
+const MediaMime = z.enum(['image/jpeg', 'image/png', 'image/webp']);
+const EXT: Record<z.infer<typeof MediaMime>, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
 export const communityRoutes = new Hono<AppEnv>()
   .get('/channels', async (c) => c.json({ items: await listChannels(c.env, c.get('userId')) }))
@@ -106,27 +114,71 @@ export const communityRoutes = new Hono<AppEnv>()
   // XP totals come from member_stats, which the worker rebuilds from
   // activity_events. Without a database this falls back to seed content.
   .get('/leaderboard', async (c) => c.json({ items: await getLeaderboard(c.env, c.get('userId')) }))
-  // Post media: browser uploads straight to storage, API only signs + records.
-  .post('/posts/:id/media-ticket', requireAuth, async (c) => {
-    const { createStorage } = await import('../lib/storage.ts');
-    const key = `posts/${c.req.param('id')}/${crypto.randomUUID()}.jpg`;
-    const { url, token } = await createStorage(c.env).signedUploadUrl(key);
-    return c.json({ key, url, token, method: 'PUT' });
-  })
-  .post('/posts/:id/media', requireAuth, async (c) => {
-    const { postMedia, withUser } = await import('@ipc/db');
-    const { getDb } = await import('../repo.ts');
-    const { HttpError } = await import('../lib/problem.ts');
-    const db = getDb(c.env);
-    if (!db) throw new HttpError(503, 'Needs a database');
-    const body = await c.req.json<{ key: string; mime?: string; width?: number; height?: number }>();
-    const { assertImage } = await import('../lib/images.ts');
-    assertImage(body.mime ?? 'image/jpeg', 0);
-    return withUser(db, c.get('userId'), async (tx) => {
-      const row = (await tx.insert(postMedia).values({
-        postId: c.req.param('id'), storageKey: body.key,
-        mime: body.mime ?? 'image/jpeg', width: body.width, height: body.height,
-      }).returning())[0]!;
-      return c.json({ id: row.id }, 201);
-    });
-  });
+  /* ── Post media ───────────────────────────────────────────────────────────
+     The browser uploads straight at storage and only then tells us the key.
+     Two rules make that safe: the ticket is minted per post, and RLS on
+     post_media rejects the insert unless the caller owns the post — so a
+     stolen key still cannot be attached to somebody else's photo. */
+  .post(
+    '/posts/:id/media-ticket',
+    requireAuth,
+    rateLimit({ name: 'media', limit: 60, windowSeconds: 3600 }),
+    zValidator('json', z.object({ mime: MediaMime }), (result, c) =>
+      result.success ? undefined : problem(c, 422, 'Only JPEG, PNG or WebP images'),
+    ),
+    async (c) => {
+      const { createStorage } = await import('../lib/storage.ts');
+      // Extension follows the declared type. Storing a PNG under .jpg works
+      // but makes every downloaded file lie about itself.
+      const ext = EXT[c.req.valid('json').mime];
+      const key = `posts/${c.req.param('id')}/${crypto.randomUUID()}.${ext}`;
+      const { url, token } = await createStorage(c.env).signedUploadUrl(key);
+      return c.json({ key, url, token, method: 'PUT' as const });
+    },
+  )
+  .post(
+    '/posts/:id/media',
+    requireAuth,
+    zValidator('json', AttachMedia, (result, c) =>
+      result.success ? undefined : problem(c, 422, 'Invalid image', result.error.issues[0]?.message),
+    ),
+    async (c) => {
+      const { postMedia, withUser } = await import('@ipc/db');
+      const { getDb } = await import('../repo.ts');
+      const { HttpError } = await import('../lib/problem.ts');
+      const db = getDb(c.env);
+      if (!db) throw new HttpError(503, 'Needs a database');
+      const postId = c.req.param('id');
+      const body = c.req.valid('json');
+      // The key must sit under this post's prefix. Without the check a member
+      // could attach any object in the bucket — including another member's.
+      if (!body.key.startsWith(`posts/${postId}/`)) {
+        throw new HttpError(422, 'That file does not belong to this post');
+      }
+      return withUser(db, c.get('userId'), async (tx) => {
+        const row = (
+          await tx
+            .insert(postMedia)
+            .values({
+              postId,
+              storageKey: body.key,
+              mime: body.mime,
+              width: body.width,
+              height: body.height,
+            })
+            .returning()
+        )[0]!;
+        const { createStorage } = await import('../lib/storage.ts');
+        return c.json(
+          {
+            id: row.id,
+            url: await createStorage(c.env).signedDownloadUrl(row.storageKey, 3600),
+            mime: row.mime,
+            width: row.width ?? null,
+            height: row.height ?? null,
+          },
+          201,
+        );
+      });
+    },
+  );

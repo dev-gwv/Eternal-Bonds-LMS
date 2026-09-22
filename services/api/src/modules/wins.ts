@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { activityEvents, reactions, users, winComments, winMedia, wins, withUser } from '@ipc/db';
-import { CreateReport, SubmitWin } from '@ipc/contracts';
+import { AttachMedia, CreateComment, SubmitWin } from '@ipc/contracts';
 import type { AppEnv } from '../context.ts';
 import { problem, HttpError } from '../lib/problem.ts';
 import { requireAuth } from '../middleware/auth.ts';
@@ -19,6 +20,14 @@ function needDb(env: any) {
   if (!db) throw new HttpError(503, 'Needs a database', 'Set DATABASE_URL.');
   return db;
 }
+
+/** Accepted image types, and the extension each is stored under. */
+const MediaMime = z.enum(['image/jpeg', 'image/png', 'image/webp']);
+const EXT: Record<z.infer<typeof MediaMime>, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
 export const winsRoutes = new Hono<AppEnv>()
   .get('/', async (c) => {
@@ -162,29 +171,67 @@ export const winsRoutes = new Hono<AppEnv>()
       });
     });
   })
+  // Was validating a comment against the *report* schema, borrowed for its
+  // `reason` field. It worked, and it meant a one-word "Congratulations" was
+  // rejected for being under four characters.
   .post('/:id/comments', requireAuth, rateLimit({ name: 'comment', limit: 30, windowSeconds: 300 }),
-    zValidator('json', CreateReport.pick({ reason: true }), invalid), async (c) => {
+    zValidator('json', CreateComment.pick({ bodyMd: true }), invalid), async (c) => {
       const db = needDb(c.env);
       const userId = c.get('userId')!;
-      const { reason: bodyMd } = c.req.valid('json');
+      const { bodyMd } = c.req.valid('json');
       return withUser(db, userId, async (tx) => {
         const row = (await tx.insert(winComments).values({ winId: c.req.param('id'), authorId: userId, bodyMd }).returning())[0]!;
         return c.json({ id: row.id }, 201);
       });
     })
-  // Signed upload ticket for win proof media. EXIF is stripped worker-side on read.
-  .post('/:id/media-ticket', requireAuth, async (c) => {
-    const storage = createStorage(c.env);
-    const key = `wins/${c.req.param('id')}/${crypto.randomUUID()}.jpg`;
-    const { url, token } = await storage.signedUploadUrl(key);
-    return c.json({ key, url, token, method: 'PUT' });
-  })
-  .post('/:id/media', requireAuth, async (c) => {
-    const db = needDb(c.env);
-    const userId = c.get('userId')!;
-    const body = await c.req.json<{ key: string; mime?: string }>();
-    return withUser(db, userId, async (tx) => {
-      const row = (await tx.insert(winMedia).values({ winId: c.req.param('id'), storageKey: body.key, mime: body.mime ?? 'image/jpeg' }).returning())[0]!;
-      return c.json({ id: row.id }, 201);
-    });
-  });
+  /* ── Win proof ────────────────────────────────────────────────────────────
+     A win without the photograph is a claim. Same two-step as post media:
+     ticket, direct upload, then record — and RLS refuses the record unless
+     the caller wrote the win. */
+  .post(
+    '/:id/media-ticket',
+    requireAuth,
+    zValidator('json', z.object({ mime: MediaMime }), (result, c) =>
+      result.success ? undefined : problem(c, 422, 'Only JPEG, PNG or WebP images'),
+    ),
+    async (c) => {
+      const storage = createStorage(c.env);
+      const key = `wins/${c.req.param('id')}/${crypto.randomUUID()}.${EXT[c.req.valid('json').mime]}`;
+      const { url, token } = await storage.signedUploadUrl(key);
+      return c.json({ key, url, token, method: 'PUT' as const });
+    },
+  )
+  .post(
+    '/:id/media',
+    requireAuth,
+    zValidator('json', AttachMedia, (result, c) =>
+      result.success ? undefined : problem(c, 422, 'Invalid image', result.error.issues[0]?.message),
+    ),
+    async (c) => {
+      const db = needDb(c.env);
+      const userId = c.get('userId')!;
+      const winId = c.req.param('id');
+      const body = c.req.valid('json');
+      if (!body.key.startsWith(`wins/${winId}/`)) {
+        throw new HttpError(422, 'That file does not belong to this win');
+      }
+      return withUser(db, userId, async (tx) => {
+        const row = (
+          await tx
+            .insert(winMedia)
+            .values({ winId, storageKey: body.key, mime: body.mime })
+            .returning()
+        )[0]!;
+        return c.json(
+          {
+            id: row.id,
+            url: await createStorage(c.env).signedDownloadUrl(row.storageKey, 3600),
+            mime: row.mime,
+            width: null,
+            height: null,
+          },
+          201,
+        );
+      });
+    },
+  );

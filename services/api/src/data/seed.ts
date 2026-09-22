@@ -226,6 +226,7 @@ export const posts: Post[] = [
     bodyMd:
       'Closed my first ₹1.2L wedding package this week using the quotation format from the Library. Sent it the same evening as the enquiry — they signed in two days.',
     mediaCount: 2,
+    media: [],
     likes: 186,
     likedByMe: false,
     views: 0,
@@ -240,6 +241,7 @@ export const posts: Post[] = [
     bodyMd:
       'Request to IPC — if a call is not happening, please send a notification. I waited 1:30 hours today for a session that had not started.',
     mediaCount: 0,
+    media: [],
     likes: 42,
     likedByMe: false,
     views: 0,

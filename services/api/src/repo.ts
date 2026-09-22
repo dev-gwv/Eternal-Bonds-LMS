@@ -9,6 +9,7 @@ import {
   lessonProgress,
   lessons,
   modules,
+  postMedia,
   posts,
   users,
   withUser,
@@ -309,7 +310,34 @@ export async function listPosts(env: Env, userId: string | null, channelSlug?: s
       .orderBy(desc(posts.createdAt))
       .limit(50);
 
-    return rows.map((r): Post => ({
+    // One query for the whole page's attachments, then one signing round per
+    // image. `mediaCount` used to be hardcoded to zero, which meant a member
+    // could upload a photo and nobody — including them — would ever see it.
+    const media = rows.length
+      ? await tx
+          .select()
+          .from(postMedia)
+          .where(sql`${postMedia.postId} in (${sql.join(rows.map((r) => sql`${r.id}::uuid`), sql`, `)})`)
+          .orderBy(asc(postMedia.rank), asc(postMedia.id))
+      : [];
+
+    const storage = createStorage(env);
+    // Signed for an hour rather than the 15-minute default: a feed sits open
+    // on a phone, and a link that expires mid-scroll shows a broken image.
+    const signed = new Map<string, string>();
+    await Promise.all(
+      media.map(async (m) => {
+        try {
+          signed.set(m.id, await storage.signedDownloadUrl(m.storageKey, 3600));
+        } catch {
+          // A missing object must not take the whole feed down with it.
+        }
+      }),
+    );
+
+    return rows.map((r): Post => {
+      const mine = media.filter((m) => m.postId === r.id && signed.has(m.id));
+      return {
       id: r.id,
       channelSlug: r.channelSlug,
       author: {
@@ -318,14 +346,22 @@ export async function listPosts(env: Env, userId: string | null, channelSlug?: s
         tier: (r.authorTier ?? 'free') as Post['author']['tier'],
       },
       bodyMd: r.bodyMd,
-      mediaCount: 0,
+      mediaCount: mine.length,
+      media: mine.map((m) => ({
+        id: m.id,
+        url: signed.get(m.id)!,
+        mime: m.mime,
+        width: m.width ?? null,
+        height: m.height ?? null,
+      })),
       likes: r.likesCount,
       likedByMe: Boolean(r.likedByMe),
       comments: r.commentsCount,
       views: r.viewsCount,
       createdAt: r.createdAt.toISOString(),
       teamReply: null,
-    }));
+      };
+    });
   });
 }
 

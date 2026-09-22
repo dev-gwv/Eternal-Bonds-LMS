@@ -5,6 +5,9 @@ import { api, relativeTime, xpLabel } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Avatar, Card, Chip, EmptyState, Icon, Tile } from '../shared/ui/primitives.tsx';
 import { CommentThread } from '../shared/ui/Comments.tsx';
+import { Gallery } from '../shared/ui/Gallery.tsx';
+import { PickerButton, PickerStrip, usePicker } from '../shared/ui/ImagePicker.tsx';
+import { uploadAll } from '../shared/media.ts';
 import { NextUp } from '../shared/ui/NextUp.tsx';
 import { ReportButton } from '../shared/ui/ReportButton.tsx';
 import { useSeen } from '../shared/ui/useSeen.tsx';
@@ -65,24 +68,9 @@ function PostCard({ post, seenRef }: { post: Post; seenRef?: (node: HTMLElement 
 
       <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: '#4a4a57' }}>{post.bodyMd}</p>
 
-      {post.mediaCount > 0 && (
-        <div style={{ display: 'flex', gap: 8 }}>
-          {Array.from({ length: Math.min(post.mediaCount, 3) }).map((_, i) => (
-            <div
-              key={i}
-              style={{
-                flex: 1,
-                height: 116,
-                borderRadius: 11,
-                background:
-                  i % 2 === 0
-                    ? 'linear-gradient(135deg, #fdecf5 0%, #f9d6e6 100%)'
-                    : 'linear-gradient(135deg, #fef3c7 0%, #fbe5a0 100%)',
-              }}
-            />
-          ))}
-        </div>
-      )}
+      {/* Was a row of pink gradient rectangles standing in for photographs
+          that the app could not upload. Both halves are real now. */}
+      {post.media.length > 0 && <Gallery media={post.media} />}
 
       {post.teamReply && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--yellow-soft)', borderRadius: 10, padding: '10px 12px' }}>
@@ -194,10 +182,22 @@ export function CommunityPage() {
   const posts = useQuery({ queryKey: ['posts', channel ?? 'all'], queryFn: () => api.posts(channel) });
   const leaderboard = useQuery({ queryKey: ['leaderboard'], queryFn: api.leaderboard });
 
+  const picker = usePicker();
+
+  // Post first, then photographs. A media ticket is scoped to a post id, so
+  // the row has to exist before anything can be uploaded against it — and it
+  // means a failed upload costs the photos, never the words.
   const createPost = useMutation({
-    mutationFn: api.createPost,
+    mutationFn: async (input: CreatePost) => {
+      const post = await api.createPost(input);
+      if (picker.items.length > 0) {
+        await uploadAll({ kind: 'post', id: post.id }, picker.items, picker.patch);
+      }
+      return post;
+    },
     onSuccess: () => {
       setDraft('');
+      picker.reset();
       // Refetch rather than patch the cache: the server owns ordering and counts.
       void queryClient.invalidateQueries({ queryKey: ['posts'] });
     },
@@ -332,9 +332,25 @@ export function CommunityPage() {
                 className="btn btn-pink"
                 disabled={draft.trim().length < 4 || createPost.isPending}
               >
-                {createPost.isPending ? 'Posting…' : 'Post'}
+                {createPost.isPending
+                  ? picker.items.length > 0
+                    ? 'Uploading…'
+                    : 'Posting…'
+                  : 'Post'}
               </button>
             </div>
+
+            <PickerStrip items={picker.items} onRemove={picker.remove} />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 45 }}>
+              <PickerButton onPick={picker.add} count={picker.items.length} disabled={createPost.isPending} />
+              <span style={{ fontSize: 10 }} className="dim">
+                {picker.items.length > 0 && draft.trim().length < 4
+                  ? 'Add a line about the shot — a photo with no words gets no replies.'
+                  : 'Photos are resized and their location data removed before upload.'}
+              </span>
+            </div>
+
             {createPost.isError && (
               <span style={{ fontSize: 11, color: 'var(--red)' }}>{createPost.error.message}</span>
             )}

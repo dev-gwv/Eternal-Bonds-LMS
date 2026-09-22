@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
-import { api, timeRange } from '../shared/api.ts';
+import { api, relativeTime, timeRange } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
-import { Card, EmptyState, Hero } from '../shared/ui/primitives.tsx';
+import { Card, Chip, EmptyState, Hero } from '../shared/ui/primitives.tsx';
+import { Gallery } from '../shared/ui/Gallery.tsx';
+import { ReportButton } from '../shared/ui/ReportButton.tsx';
 import { SkeletonCard, LoadingLabel } from '../shared/ui/Skeleton.tsx';
 
 export function EventsPage() {
@@ -55,22 +58,117 @@ const winRoute = getRouteApi('/wins/$slug');
 
 export function WinDetailPage() {
   const { slug } = winRoute.useParams();
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState('');
   const win = useQuery({ queryKey: ['win', slug], queryFn: () => api.win(slug) });
+  const id = win.data?.id;
+
+  const comments = useQuery({
+    queryKey: ['win-comments', id],
+    queryFn: () => api.winComments(id!),
+    enabled: Boolean(id),
+  });
+
+  const add = useMutation({
+    mutationFn: (bodyMd: string) => api.addWinComment(id!, bodyMd),
+    onSuccess: () => {
+      setDraft('');
+      void qc.invalidateQueries({ queryKey: ['win-comments', id] });
+      void qc.invalidateQueries({ queryKey: ['win', slug] });
+    },
+  });
+
+  const react = useMutation({
+    mutationFn: (r: boolean) => api.reactWin(id!, r),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['win', slug] }),
+  });
+
   return (
     <Page>
       <PageHeader title="Win" crumbs={[{ label: 'Wins', to: '/wins' }, { label: slug }]} />
-      {win.isPending ? <SkeletonCard /> : win.isError ? <LoadingLabel>Something went wrong</LoadingLabel> : (
-        <Card>
-          <h2 style={{ marginTop: 0 }}>{win.data.title}</h2>
-          <p style={{ fontSize: 12 }} className="muted">By {win.data.author.name}</p>
-          <h4>The big idea</h4>
-          <p style={{ fontSize: 12, lineHeight: 1.7 }}>{win.data.bigIdeaMd}</p>
-          <h4>How it happened</h4>
-          <p style={{ fontSize: 12, lineHeight: 1.7 }}>{win.data.howItHappenedMd}</p>
-          {win.data.media.map((m) => (
-            <img key={m.id} src={m.url} alt="Win proof" style={{ maxWidth: '100%', borderRadius: 10, marginTop: 8 }} loading="lazy" />
-          ))}
-        </Card>
+      {win.isPending ? (
+        <SkeletonCard />
+      ) : win.isError ? (
+        <LoadingLabel>Something went wrong</LoadingLabel>
+      ) : (
+        <>
+          <Card>
+            <h2 style={{ marginTop: 0 }}>{win.data.title}</h2>
+            <p style={{ fontSize: 12 }} className="muted">
+              By {win.data.author.name} · {win.data.category}
+              {win.data.occurredOn ? ` · ${win.data.occurredOn}` : ''}
+            </p>
+
+            {/* Proof first, prose after — it is what a member scrolled here for. */}
+            {win.data.media.length > 0 && <Gallery media={win.data.media} />}
+
+            <h4>The big idea</h4>
+            <p style={{ fontSize: 12, lineHeight: 1.7 }}>{win.data.bigIdeaMd}</p>
+            <h4>How it happened</h4>
+            <p style={{ fontSize: 12, lineHeight: 1.7 }}>{win.data.howItHappenedMd}</p>
+
+            {win.data.tags.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {win.data.tags.map((t) => (
+                  <Chip key={t}>{t}</Chip>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', paddingTop: 8, borderTop: '1px solid var(--softer)' }}>
+              <button
+                className="btn btn-soft"
+                disabled={react.isPending}
+                onClick={() => react.mutate(!win.data.reactedByMe)}
+              >
+                ♥ {win.data.reactions}
+              </button>
+              <span style={{ flex: 1 }} />
+              <ReportButton targetType="win" targetId={win.data.id} />
+            </div>
+          </Card>
+
+          <Card title={`Discussion (${comments.data?.length ?? win.data.comments})`}>
+            <form
+              style={{ display: 'flex', gap: 8 }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (draft.trim()) add.mutate(draft.trim());
+              }}
+            >
+              <input
+                className="input"
+                style={{ flex: 1 }}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Ask how they did it, or say what you would copy"
+                aria-label="Add a comment"
+              />
+              <button type="submit" className="btn btn-pink" disabled={!draft.trim() || add.isPending}>
+                {add.isPending ? 'Posting…' : 'Comment'}
+              </button>
+            </form>
+            {add.isError && <span className="field-error">{(add.error as Error).message}</span>}
+
+            {comments.isPending && <LoadingLabel>Loading the discussion</LoadingLabel>}
+            {comments.data?.length === 0 && (
+              <span style={{ fontSize: 11 }} className="dim">
+                Nobody has replied yet. The first question is usually the useful one.
+              </span>
+            )}
+            {comments.data?.map((c) => (
+              <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 600 }}>
+                  {c.authorName}
+                  <span style={{ fontWeight: 400, marginLeft: 6 }} className="dim">
+                    {relativeTime(c.createdAt)}
+                  </span>
+                </span>
+                <span style={{ fontSize: 12, lineHeight: 1.6 }}>{c.bodyMd}</span>
+              </div>
+            ))}
+          </Card>
+        </>
       )}
     </Page>
   );

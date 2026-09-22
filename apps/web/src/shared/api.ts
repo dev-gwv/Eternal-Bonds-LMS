@@ -191,6 +191,15 @@ export const api = {
       z.object({ items: z.array(Win), nextCursor: z.string().nullable() })),
   win: (slug: string) => get(`/v1/wins/${slug}`, Win),
   submitWin: (input: SubmitWin) => send('POST', '/v1/wins', input, z.object({ id: z.string(), slug: z.string() })),
+  // The wins board had a comment count, a comments endpoint, and no way to
+  // read or write one. These are that missing half.
+  winComments: (id: string) =>
+    get(
+      `/v1/wins/${id}/comments`,
+      list(z.object({ id: z.string(), bodyMd: z.string(), authorName: z.string(), createdAt: z.string() })),
+    ).then((r) => r.items),
+  addWinComment: (id: string, bodyMd: string) =>
+    send('POST', `/v1/wins/${id}/comments`, { bodyMd }, z.object({ id: z.string() })),
   reactWin: (id: string, reacted: boolean) =>
     send(reacted ? 'POST' : 'DELETE', `/v1/wins/${id}/react`, undefined, LikeState),
 
