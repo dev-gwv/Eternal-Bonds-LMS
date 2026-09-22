@@ -96,6 +96,26 @@ export const Post = z.object({
 });
 export type Post = z.infer<typeof Post>;
 
+/**
+ * One thing in the library.
+ *
+ * `url` is resolved by the API: a stored file comes back as a short-lived
+ * signed link and an external resource as its own address, so the client never
+ * has to know which kind it is holding.
+ */
+export const LibraryItem = z.object({
+  id: z.uuid(),
+  categorySlug: z.string(),
+  title: z.string(),
+  /** 'file' when it lives in our storage, 'link' when it points elsewhere. */
+  kind: z.enum(['file', 'link']),
+  url: z.string().nullable(),
+  mime: z.string().nullable(),
+  minTier: Tier,
+  createdAt: z.iso.datetime(),
+});
+export type LibraryItem = z.infer<typeof LibraryItem>;
+
 export const LibraryCategory = z.object({
   id: z.uuid(),
   slug: z.string(),
@@ -563,6 +583,14 @@ export type LikeState = z.infer<typeof LikeState>;
 
 /* ── Notifications ─────────────────────────────────────────────────────────*/
 
+/**
+ * Must stay in step with the `notification_kind` enum in Postgres.
+ *
+ * A value added to the database and not to this list is not a cosmetic
+ * mismatch: the browser parses the feed with this schema, so one unknown kind
+ * makes the *entire* notification list fail to parse and the bell go dark.
+ * `bun run test:contracts` exists to catch exactly this, and did.
+ */
 export const NotificationKind = z.enum([
   'post.replied',
   'post.liked',
@@ -574,6 +602,12 @@ export const NotificationKind = z.enum([
   'membership.expiring',
   'digest.weekly',
   'system',
+  // Added with the learning and ritual work.
+  'learning.nudge',
+  'learning.unlocked',
+  'cohort.deadline',
+  'thinktank.featured',
+  'onboarding.nudge',
 ]);
 export type NotificationKind = z.infer<typeof NotificationKind>;
 

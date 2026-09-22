@@ -6,6 +6,7 @@ import { useSession } from '../shared/session.tsx';
 import { signOut } from '../shared/supabase.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Card, Chip, Icon } from '../shared/ui/primitives.tsx';
+import { PublicProfileCard } from '../shared/ui/PublicProfile.tsx';
 
 /**
  * Account settings, including the two things that are legally required and
@@ -75,6 +76,11 @@ export function AccountPage() {
               <span style={{ fontSize: 12 }} className="muted">Loading…</span>
             )}
           </Card>
+
+          {/* The Profile card above is entirely read-only, so until now there
+              was nothing on this page a member could actually change about
+              themselves — while the endpoint to do it sat with no caller. */}
+          <PublicProfileCard />
 
           <Card
             title="Notifications"

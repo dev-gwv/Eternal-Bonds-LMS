@@ -46,6 +46,21 @@ export const directoryRoutes = new Hono<AppEnv>()
       });
     });
   })
+  // Reading your own profile back. The editor needs somewhere to start from,
+  // and the directory listing only returns members who opted into it — so a
+  // member who has not opted in could not see their own row.
+  .get('/me', requireAuth, async (c) => {
+    const db = needDb(c.env);
+    const userId = c.get('userId')!;
+    return withUser(db, userId, async (tx) => {
+      const [row] = await tx.select().from(memberProfiles).where(eq(memberProfiles.userId, userId)).limit(1);
+      return c.json({
+        bioMd: row?.bioMd ?? null,
+        expertise: row?.expertise ?? [],
+        showInDirectory: row?.showInDirectory ?? false,
+      });
+    });
+  })
   .put('/me', requireAuth, zValidator('json', z.object({
     bioMd: z.string().max(2000).nullable().optional(),
     expertise: z.array(z.string().max(40)).max(10).optional(),

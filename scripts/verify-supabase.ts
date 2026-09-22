@@ -11,6 +11,7 @@
  */
 import { sql } from 'drizzle-orm';
 import { createDb } from '@ipc/db';
+import { NotificationKind } from '@ipc/contracts';
 import { JOBS, runJob } from '@ipc/worker';
 
 const url = process.env.DATABASE_URL;
@@ -34,6 +35,12 @@ const EXPECTED_TABLES = [
   'post_likes', 'post_comments', 'comment_likes',
   'notifications', 'notification_prefs', 'push_tokens',
   'plans', 'orders', 'payments', 'webhook_events', 'channel_reads',
+  // Scheduling and sequencing.
+  'cohorts', 'cohort_members', 'journeys', 'journey_steps',
+  // The ledgers behind every automated message. Each one is what stops a job
+  // sending the same thing twice, so an unprotected one is a real problem.
+  'learning_nudges', 'module_unlock_notices', 'cohort_deadline_notices',
+  'onboarding_notices',
 ];
 
 // Service-role-only tables: RLS on with no policy, deliberately. No policy
@@ -166,6 +173,34 @@ const memberCount = Number(members?.count ?? 0);
 memberCount > 0
   ? pass(`${memberCount} member profiles`)
   : warn('no members yet', 'sign up once in the app — the trigger creates the profile');
+
+// A notification_kind in Postgres that the contract does not list is not a
+// cosmetic mismatch: the browser parses the whole feed with that schema, so a
+// single unknown value makes every notification fail to parse and the bell go
+// dark. This drifted once already, and the contract suite only caught it
+// because a row of the new kind happened to exist to parse.
+console.log('\nNotification kinds');
+{
+  const rows = await db.execute<{ label: string }>(sql`
+    select e.enumlabel as label
+    from pg_enum e
+    join pg_type t on t.oid = e.enumtypid
+    where t.typname = 'notification_kind'
+  `);
+  const inDb = new Set(rows.map((r) => r.label));
+  const inContract = new Set<string>(NotificationKind.options);
+
+  const missing = [...inDb].filter((k) => !inContract.has(k));
+  const extra = [...inContract].filter((k) => !inDb.has(k));
+
+  missing.length === 0
+    ? pass(`${inDb.size} kinds, all present in the contract`)
+    : fail(`the contract is missing ${missing.join(', ')}`, 'add them to NotificationKind in @ipc/contracts');
+
+  // The other direction is harmless to read but means somebody wrote a kind
+  // the database will reject on insert.
+  if (extra.length > 0) warn(`the contract has ${extra.join(', ')}, which Postgres does not`);
+}
 
 console.log('\nWorker jobs');
 for (const job of JOBS) {

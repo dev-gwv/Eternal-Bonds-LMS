@@ -34,6 +34,7 @@ import {
   FeatureFlag,
   LeaderboardRow,
   LibraryCategory,
+  LibraryItem,
   Member,
   Performance,
   PlaybackTicket,
@@ -116,6 +117,12 @@ export const api = {
     get(`/v1/community/posts${channel ? `?channel=${channel}` : ''}`, list(Post)).then((r) => r.items),
   leaderboard: () => get('/v1/community/leaderboard', list(LeaderboardRow)).then((r) => r.items),
   libraryCategories: () => get('/v1/library/categories', list(LibraryCategory)).then((r) => r.items),
+  libraryItems: (category?: string) =>
+    get(`/v1/library/items${category ? `?category=${category}` : ''}`, list(LibraryItem)).then((r) => r.items),
+  // Opening an item is the event the activity chart reads. Fire-and-forget:
+  // a failed XP write must never stop a download.
+  openLibraryItem: (id: string) =>
+    send<{ ok: boolean }>('POST', `/v1/library/items/${id}/open`).catch(() => ({ ok: false })),
   course: (slug: string) => get(`/v1/courses/${slug}`, CourseDetail),
   playback: (lessonId: string) => get(`/v1/lessons/${lessonId}/playback`, PlaybackTicket),
   me: () => get('/v1/me', Member),
@@ -124,6 +131,21 @@ export const api = {
   stats: () => get('/v1/me/stats', DashboardStats),
   dashboard: () => get('/v1/me/dashboard', Dashboard),
   onboarding: () => get('/v1/me/onboarding', Onboarding),
+
+  /* Your public profile — the directory entry. The PUT existed with no caller,
+     which meant a member could not write a bio, and the Account page showed
+     their details with nothing editable on it. */
+  myProfile: () =>
+    get(
+      '/v1/learning/me',
+      z.object({
+        bioMd: z.string().nullable(),
+        expertise: z.array(z.string()),
+        showInDirectory: z.boolean(),
+      }),
+    ),
+  saveMyProfile: (input: { bioMd: string | null; expertise: string[]; showInDirectory: boolean }) =>
+    send<{ ok: boolean }>('PUT', '/v1/learning/me', input),
   search: (q: string) => get(`/v1/search?q=${encodeURIComponent(q)}`, SearchResults),
 
   /* Journeys — the ordered answer to "what do I do first?" */

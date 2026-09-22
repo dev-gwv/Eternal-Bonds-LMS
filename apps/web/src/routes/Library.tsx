@@ -4,6 +4,7 @@ import type { LibraryCategory } from '@ipc/contracts';
 import { api } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Card, EmptyState, Icon, Tile } from '../shared/ui/primitives.tsx';
+import { LoadingLabel } from '../shared/ui/Skeleton.tsx';
 
 const META: Record<string, { icon: string; tone: 'pink' | 'yellow' | 'blue' | 'green' }> = {
   'business-docs': { icon: 'file', tone: 'pink' },
@@ -24,10 +25,33 @@ const TONE_TEXT = {
 
 const SUGGESTIONS = ['quotation format', 'sadhana link', 'sales script', 'ad template'];
 
-function CategoryCard({ category }: { category: LibraryCategory }) {
+function CategoryCard({
+  category,
+  open,
+  onOpen,
+}: {
+  category: LibraryCategory;
+  open: boolean;
+  onOpen: () => void;
+}) {
   const meta = META[category.slug] ?? { icon: 'file', tone: 'pink' as const };
   return (
-    <a href={`#${category.slug}`} className="card" style={{ padding: 15, gap: 10, color: 'inherit' }}>
+    // Was an anchor to #slug, which went nowhere: there was no section with
+    // that id and no endpoint that could have filled one.
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-expanded={open}
+      className="card"
+      style={{
+        padding: 15,
+        gap: 10,
+        color: 'inherit',
+        textAlign: 'left',
+        cursor: 'pointer',
+        border: open ? '1px solid var(--pink)' : undefined,
+      }}
+    >
       <Tile size={38} tone={meta.tone}><Icon name={meta.icon} size={17} /></Tile>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <span style={{ fontSize: 13, fontWeight: 500 }}>{category.name}</span>
@@ -36,13 +60,73 @@ function CategoryCard({ category }: { category: LibraryCategory }) {
       <span style={{ fontSize: 10, fontWeight: 500, color: TONE_TEXT[meta.tone] }}>
         {category.itemCount} {category.unit}
       </span>
-    </a>
+    </button>
+  );
+}
+
+/**
+ * What is actually in a category.
+ *
+ * `POST /library/items/:id/open` has existed since the library was built and
+ * nothing called it, because nothing ever listed an item to click. Opening one
+ * reports it before following the link — the activity chart counts opening a
+ * resource as learning, and browsing categories deliberately does not.
+ */
+function ItemList({ slug }: { slug: string }) {
+  const items = useQuery({ queryKey: ['library-items', slug], queryFn: () => api.libraryItems(slug) });
+
+  if (items.isPending) return <LoadingLabel>Loading resources</LoadingLabel>;
+  if (items.data?.length === 0) {
+    return (
+      <Card>
+        <EmptyState icon="file" title="Nothing in here yet" hint="Resources appear as the team adds them." />
+      </Card>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      {items.data?.map((item) => (
+        <a
+          key={item.id}
+          className="card-row"
+          href={item.url ?? '#'}
+          target="_blank"
+          rel="noreferrer"
+          style={{ color: 'inherit', gap: 11, opacity: item.url ? 1 : 0.5 }}
+          onClick={() => {
+            // Fire and forget. A failed XP write must never block a download.
+            if (item.url) void api.openLibraryItem(item.id);
+          }}
+        >
+          <Tile size={30} tone="blue">
+            <Icon name={item.kind === 'link' ? 'link' : 'file'} size={14} />
+          </Tile>
+          <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span style={{ fontSize: 12, fontWeight: 500 }}>{item.title}</span>
+            <span style={{ fontSize: 10 }} className="dim">
+              {item.kind === 'link' ? 'External link' : (item.mime ?? 'File')}
+            </span>
+          </span>
+          {item.url ? (
+            <span style={{ fontSize: 11 }} className="dim">
+              Open
+            </span>
+          ) : (
+            <span style={{ fontSize: 10 }} className="dim">
+              Unavailable
+            </span>
+          )}
+        </a>
+      ))}
+    </div>
   );
 }
 
 export function LibraryPage() {
   const categories = useQuery({ queryKey: ['library'], queryFn: api.libraryCategories });
   const [query, setQuery] = useState('');
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
 
   // Filtered here rather than on the server: the category list is small, fully
   // loaded, and a request per keystroke would be slower than the scan.
@@ -153,8 +237,24 @@ export function LibraryPage() {
         </Card>
       ) : (
         <div className="grid grid-4" style={{ alignContent: 'start' }}>
-          {shown.map((c) => <CategoryCard key={c.id} category={c} />)}
+          {shown.map((c) => (
+            <CategoryCard
+              key={c.id}
+              category={c}
+              open={openCategory === c.slug}
+              onOpen={() => setOpenCategory(openCategory === c.slug ? null : c.slug)}
+            />
+          ))}
         </div>
+      )}
+
+      {openCategory && (
+        <>
+          <span className="section-label">
+            {shown.find((c) => c.slug === openCategory)?.name ?? 'Resources'}
+          </span>
+          <ItemList slug={openCategory} />
+        </>
       )}
     </Page>
   );
