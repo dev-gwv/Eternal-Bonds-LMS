@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { getRouteApi } from '@tanstack/react-router';
+import { Link, getRouteApi } from '@tanstack/react-router';
 import { api, relativeTime, timeRange } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Card, Chip, EmptyState, Hero } from '../shared/ui/primitives.tsx';
@@ -39,8 +39,24 @@ export function EventsPage() {
                   </span>
                 )}
               </span>
-              {e.rsvpd && e.joinUrl ? (
+              {/* A past session with a recording is the point of the whole
+                  ritual: it stops being an hour that happened and becomes
+                  something a member who joined in March can still watch. */}
+              {e.recordingCourseSlug && e.recordingLessonSlug ? (
+                <Link
+                  className="btn btn-pink"
+                  to="/learn/$courseSlug/$lessonSlug"
+                  params={{ courseSlug: e.recordingCourseSlug, lessonSlug: e.recordingLessonSlug }}
+                  style={{ color: '#fff' }}
+                >
+                  Watch the recording
+                </Link>
+              ) : e.rsvpd && e.joinUrl ? (
                 <a className="btn btn-pink" href={e.joinUrl} target="_blank" rel="noreferrer">Join</a>
+              ) : new Date(e.endsAt).getTime() < Date.now() ? (
+                <span style={{ fontSize: 11 }} className="dim">
+                  Finished — recording not posted yet
+                </span>
               ) : (
                 <button className="btn btn-soft" disabled={rsvp.isPending}
                   onClick={() => rsvp.mutate({ id: e.id, rsvpd: !e.rsvpd })}>

@@ -5,6 +5,7 @@ import { expireMemberships, reprocessWebhooks } from './jobs/billing.ts';
 import { awardBadges, eventReminders } from './jobs/platform.ts';
 import { buildWeeklyDigest, creditWorkshopAttendance, purgeDeletedAccounts, sweepExpired } from './jobs/lifecycle.ts';
 import { announceUnlocks, sendLearningNudges, warnCohortDeadlines } from './jobs/learning.ts';
+import { closeVoteCycle, openVoteCycle } from './jobs/thinktank.ts';
 import { guardPublishedCourses, pollVideoStatus } from './jobs/media.ts';
 import { deliverNotifications, drainOutbox } from './jobs/notify.ts';
 import {
@@ -156,6 +157,21 @@ export const JOBS: JobDefinition[] = [
     description: 'Warn cohort members who are behind, once, a week before it ends',
     everySeconds: 86400,
     run: ({ db }) => warnCohortDeadlines(db),
+  },
+  {
+    kind: 'thinktank.open_cycle',
+    // A ritual is defined by happening on time. A weekly vote that opens when
+    // somebody remembers is not weekly, and "remembers every Monday for a
+    // year" is not a plan for a club with one author.
+    description: 'Open a voting cycle when the current one runs out',
+    everySeconds: 3600,
+    run: ({ db }) => openVoteCycle(db),
+  },
+  {
+    kind: 'thinktank.close_cycle',
+    description: 'Close a finished cycle, feature the winner, and pencil in the session',
+    everySeconds: 3600,
+    run: ({ db }) => closeVoteCycle(db),
   },
   {
     kind: 'workshops.credit',

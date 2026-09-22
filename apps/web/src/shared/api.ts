@@ -241,6 +241,12 @@ export const api = {
   /* Moderation + legal + flags. */
   report: (input: CreateReport) => send('POST', '/v1/moderation/reports', input),
   reports: () => get('/v1/moderation/reports', z.object({ items: z.array(Report) })).then((r) => r.items),
+  // Was a bare fetch('/v1/...') in the moderation page: no API base, so on
+  // production it hit the web worker instead of the API, and no bearer token,
+  // so it would have been refused even if it had arrived. The resolve button
+  // has never worked outside a local dev server.
+  resolveReport: (id: string, status: 'actioned' | 'dismissed') =>
+    send<{ ok: boolean }>('POST', `/v1/moderation/reports/${id}/resolve`, { status }),
   pendingWins: () => get('/v1/moderation/wins/pending',
     z.object({ items: z.array(z.object({
       id: z.string(), slug: z.string(), title: z.string(), bigIdeaMd: z.string(),
@@ -250,6 +256,16 @@ export const api = {
     send('POST', `/v1/moderation/wins/${id}/review`, { status }),
   audit: () => get('/v1/moderation/audit', z.object({ items: z.array(AuditEntry) })).then((r) => r.items),
   flags: () => get('/v1/moderation/flags', z.object({ items: z.array(FeatureFlag) })).then((r) => r.items),
+  // A kill switch that can only be read is not a kill switch. The endpoint
+  // existed; nothing in the app could call it.
+  setFlag: (key: string, enabled: boolean) =>
+    send<{ ok: boolean }>('PUT', `/v1/moderation/flags/${key}`, { enabled }),
+  addModerator: (channelId: string, userId: string) =>
+    send<{ ok: boolean }>('POST', '/v1/moderation/moderators', { channelId, userId }),
+  // The last leg of the Think Tank loop: the session's recording becomes a
+  // lesson, so the hour that happened stays watchable.
+  promoteRecording: (eventId: string, lessonId: string) =>
+    send<{ ok: boolean }>('POST', `/v1/events/${eventId}/promote-recording`, { lessonId }),
   acceptTerms: (version: string) => send('POST', '/v1/legal/terms', { version }),
   createEvent: (input: EventInput) => send('POST', '/v1/events', input),
 };

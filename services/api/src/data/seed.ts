@@ -444,13 +444,15 @@ export const clubEvents: ClubEvent[] = [
     descriptionMd: 'This week’s voted-up insights, workshopped live with the authors.',
     startsAt: '2026-09-26T13:30:00.000Z', endsAt: '2026-09-26T15:00:00.000Z',
     joinUrl: null, rsvpd: false, rsvpCount: 214, isFeaturedSession: true,
+    recordingLessonId: null, recordingCourseSlug: null, recordingLessonSlug: null,
     featuredInsights: [{ id: id(80), slug: 'same-evening-quotation', title: 'The same-evening quotation that doubled my close rate' }],
   },
   {
     id: id(111), slug: 'pricing-clinic', title: 'Pricing Clinic — Packages That Close',
     descriptionMd: 'Bring one package. Leave with one that sells.',
     startsAt: '2026-09-30T13:30:00.000Z', endsAt: '2026-09-30T14:30:00.000Z',
-    joinUrl: null, rsvpd: false, rsvpCount: 86, isFeaturedSession: false, featuredInsights: [],
+    joinUrl: null, rsvpd: false, rsvpCount: 86, isFeaturedSession: false,
+    recordingLessonId: null, recordingCourseSlug: null, recordingLessonSlug: null, featuredInsights: [],
   },
 ];
 

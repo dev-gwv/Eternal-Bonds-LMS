@@ -25,13 +25,40 @@ export function ModerationPage() {
   });
 
   const resolve = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: 'actioned' | 'dismissed' }) => {
-      const res = await fetch(`/v1/moderation/reports/${id}/resolve`, {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status }),
-      });
-      if (!res.ok) throw new Error('Could not resolve');
-    },
+    mutationFn: ({ id, status }: { id: string; status: 'actioned' | 'dismissed' }) =>
+      api.resolveReport(id, status),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['reports'] }),
+  });
+
+  // Sessions that have finished and have no recording attached yet — the last
+  // leg of the Think Tank loop, which had an endpoint and no way to call it.
+  const events = useQuery({ queryKey: ['events'], queryFn: api.events });
+  const courses = useQuery({ queryKey: ['courses', 'all'], queryFn: () => api.courses('all') });
+  const [promote, setPromote] = useState({ eventId: '', courseSlug: '', lessonId: '' });
+
+  // The lesson list comes from whichever course the admin picked. Loading
+  // every lesson in the catalogue into one dropdown would be 572 options.
+  const source = useQuery({
+    queryKey: ['course', promote.courseSlug],
+    queryFn: () => api.course(promote.courseSlug),
+    enabled: promote.courseSlug !== '',
+  });
+  const lessonOptions = (source.data?.modules ?? []).flatMap((m) =>
+    m.lessons.map((l) => ({ id: l.id, label: `${m.title} · ${l.title}` })),
+  );
+
+  const setFlag = useMutation({
+    mutationFn: ({ key, enabled }: { key: string; enabled: boolean }) => api.setFlag(key, enabled),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['flags'] }),
+  });
+
+  const attachRecording = useMutation({
+    mutationFn: () => api.promoteRecording(promote.eventId, promote.lessonId),
+    onSuccess: () => {
+      setPromote({ eventId: '', courseSlug: '', lessonId: '' });
+      qc.invalidateQueries({ queryKey: ['events'] });
+      setMsg('Recording attached.');
+    },
   });
 
   const openReports = (reports.data ?? []).filter((r: { status: string }) => r.status === 'open');
@@ -91,9 +118,95 @@ export function ModerationPage() {
         {msg && <p style={{ fontSize: 12 }}>{msg}</p>}
       </Card>
 
+      <span className="section-label">Session recordings</span>
+      <Card>
+        <span style={{ fontSize: 11, lineHeight: 1.6 }} className="muted">
+          The last step of the weekly loop. Upload the recording as a lesson in a course first, then attach it
+          here — the session stops being an hour that happened and becomes something a member who joined in
+          March can still watch.
+        </span>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <select
+            className="input"
+            aria-label="Session"
+            value={promote.eventId}
+            onChange={(e) => setPromote({ ...promote, eventId: e.target.value })}
+          >
+            <option value="">Finished session…</option>
+            {(events.data ?? [])
+              .filter((e) => new Date(e.endsAt).getTime() < Date.now() && !e.recordingLessonId)
+              .map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.title}
+                </option>
+              ))}
+          </select>
+
+          <select
+            className="input"
+            aria-label="Course holding the recording"
+            value={promote.courseSlug}
+            onChange={(e) => setPromote({ ...promote, courseSlug: e.target.value, lessonId: '' })}
+          >
+            <option value="">Course…</option>
+            {(courses.data ?? []).map((c) => (
+              <option key={c.id} value={c.slug}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="input"
+            aria-label="Recording lesson"
+            disabled={promote.courseSlug === ''}
+            value={promote.lessonId}
+            onChange={(e) => setPromote({ ...promote, lessonId: e.target.value })}
+          >
+            <option value="">Lesson holding the recording…</option>
+            {lessonOptions.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+
+          <button
+            className="btn btn-pink"
+            disabled={!promote.eventId || !promote.lessonId || attachRecording.isPending}
+            onClick={() => attachRecording.mutate()}
+          >
+            {attachRecording.isPending ? 'Attaching…' : 'Attach recording'}
+          </button>
+        </div>
+        {attachRecording.error && (
+          <span className="field-error">{(attachRecording.error as Error).message}</span>
+        )}
+      </Card>
+
       <span className="section-label">Feature flags</span>
+      {(flags.data ?? []).length === 0 && (
+        <Card><span className="muted" style={{ fontSize: 12 }}>No flags defined.</span></Card>
+      )}
       {(flags.data ?? []).map((f: { key: string; enabled: boolean }) => (
-        <Card key={f.key}><span style={{ fontSize: 12 }}><strong>{f.key}</strong>: {f.enabled ? 'on' : 'off'}</span></Card>
+        <Card key={f.key}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span style={{ flex: 1, fontSize: 12 }}>
+              <strong>{f.key}</strong>
+              <span className="dim" style={{ marginLeft: 8, fontSize: 11 }}>
+                {f.enabled ? 'on' : 'off'}
+              </span>
+            </span>
+            {/* A kill switch that can only be read is not a kill switch. */}
+            <button
+              className={f.enabled ? 'btn btn-soft' : 'btn btn-pink'}
+              disabled={setFlag.isPending}
+              onClick={() => setFlag.mutate({ key: f.key, enabled: !f.enabled })}
+            >
+              Turn {f.enabled ? 'off' : 'on'}
+            </button>
+          </div>
+        </Card>
       ))}
 
       <span className="section-label">Audit log</span>

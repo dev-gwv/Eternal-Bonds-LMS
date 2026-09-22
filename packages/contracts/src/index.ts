@@ -808,6 +808,15 @@ export const ClubEvent = z.object({
   rsvpd: z.boolean().default(false),
   rsvpCount: z.int().nonnegative().default(0),
   isFeaturedSession: z.boolean(),
+  /**
+   * The lesson this session's recording became, once an admin promotes it.
+   * The last leg of the Think Tank loop: vote, session, and then the session
+   * stops being an hour that happened and becomes something a member who
+   * joined in March can still watch.
+   */
+  recordingLessonId: z.uuid().nullable().default(null),
+  recordingCourseSlug: z.string().nullable().default(null),
+  recordingLessonSlug: z.string().nullable().default(null),
   featuredInsights: z.array(z.object({ id: z.uuid(), slug: z.string(), title: z.string() })).default([]),
 });
 export type ClubEvent = z.infer<typeof ClubEvent>;

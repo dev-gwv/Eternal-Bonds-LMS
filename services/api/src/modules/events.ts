@@ -8,6 +8,30 @@ import { problem, HttpError } from '../lib/problem.ts';
 import { requireAdmin, requireAuth } from '../middleware/auth.ts';
 import { getDb } from '../repo.ts';
 
+/**
+ * Turn recording lesson ids into something linkable.
+ *
+ * `events.recording_lesson_id` is the last leg of the Think Tank loop, and on
+ * its own it is unusable: /learn needs a course slug *and* a lesson slug. One
+ * query for the page rather than one per event.
+ */
+async function recordingRoutes(
+  tx: { execute: (q: never) => Promise<unknown> },
+  lessonIds: (string | null)[],
+): Promise<Map<string, { courseSlug: string; lessonSlug: string }>> {
+  const ids = lessonIds.filter((id): id is string => Boolean(id));
+  if (ids.length === 0) return new Map();
+
+  const rows = (await tx.execute(sql`
+    select l.id as lesson_id, c.slug as course_slug, l.slug as lesson_slug
+    from lessons l
+    join modules m on m.id = l.module_id
+    join courses c on c.id = m.course_id
+    where l.id in (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)})
+  ` as never)) as { lesson_id: string; course_slug: string; lesson_slug: string }[];
+  return new Map(rows.map((r) => [r.lesson_id, { courseSlug: r.course_slug, lessonSlug: r.lesson_slug }]));
+}
+
 const invalid = (result: any, c: any) =>
   result.success ? undefined : problem(c, 422, 'Invalid event', result.error.issues[0]?.message);
 
@@ -27,6 +51,10 @@ export const eventsRoutes = new Hono<AppEnv>()
     const userId = c.get('userId');
     return withUser(db, userId, async (tx) => {
       const rows = await tx.select().from(events).orderBy(desc(events.startsAt)).limit(50);
+      // A lesson id alone cannot be linked to: /learn wants a course slug and
+      // a lesson slug. Resolved here, once for the page, rather than making
+      // the client fetch each one.
+      const recordings = await recordingRoutes(tx, rows.map((e) => e.recordingLessonId));
       const rsvps = userId
         ? await tx.select({ eventId: eventRsvps.eventId }).from(eventRsvps).where(eq(eventRsvps.userId, userId))
         : [];
@@ -40,7 +68,11 @@ export const eventsRoutes = new Hono<AppEnv>()
           startsAt: e.startsAt.toISOString(), endsAt: e.endsAt.toISOString(),
           joinUrl: mine.has(e.id) ? e.joinUrl : null,
           rsvpd: mine.has(e.id), rsvpCount: countBy.get(e.id) ?? 0,
-          isFeaturedSession: e.isFeaturedSession, featuredInsights: [],
+          isFeaturedSession: e.isFeaturedSession,
+          recordingLessonId: e.recordingLessonId ?? null,
+          recordingCourseSlug: recordings.get(e.recordingLessonId ?? '')?.courseSlug ?? null,
+          recordingLessonSlug: recordings.get(e.recordingLessonId ?? '')?.lessonSlug ?? null,
+          featuredInsights: [],
         })),
       });
     });
@@ -57,11 +89,16 @@ export const eventsRoutes = new Hono<AppEnv>()
       const rsvpd = userId
         ? (await tx.select().from(eventRsvps).where(and(eq(eventRsvps.eventId, e.id), eq(eventRsvps.userId, userId))).limit(1)).length > 0
         : false;
+      const recordings = await recordingRoutes(tx, [e.recordingLessonId]);
       return c.json({
         id: e.id, slug: e.slug, title: e.title, descriptionMd: e.descriptionMd,
         startsAt: e.startsAt.toISOString(), endsAt: e.endsAt.toISOString(),
         joinUrl: rsvpd ? e.joinUrl : null, rsvpd, rsvpCount: 0,
-        isFeaturedSession: e.isFeaturedSession, featuredInsights: linked,
+        isFeaturedSession: e.isFeaturedSession,
+        recordingLessonId: e.recordingLessonId ?? null,
+        recordingCourseSlug: recordings.get(e.recordingLessonId ?? '')?.courseSlug ?? null,
+        recordingLessonSlug: recordings.get(e.recordingLessonId ?? '')?.lessonSlug ?? null,
+        featuredInsights: linked,
       });
     });
   })
