@@ -170,7 +170,10 @@ function StepRow({ step, index, isNext }: { step: JourneyStep; index: number; is
         </span>
       </span>
 
-      <span style={{ width: 90, height: 5, borderRadius: 999, background: 'var(--track)', flexShrink: 0 }}>
+      <span
+        className="hide-xs"
+        style={{ width: 90, height: 5, borderRadius: 999, background: 'var(--track)', flexShrink: 0 }}
+      >
         <span
           style={{
             display: 'block',

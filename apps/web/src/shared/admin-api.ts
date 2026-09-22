@@ -11,6 +11,7 @@ import {
   CohortDetail,
   Journey,
   JourneyDetail,
+  Revenue,
   UploadTicket,
   Viewer,
   type CourseInput,
@@ -122,6 +123,8 @@ export const adminApi = {
     call('POST', `/v1/admin/members/${id}/suspension`, { body, schema: AdminMemberDetail }),
 
   /* Cohorts. One start date, and the schedule falls out of it. */
+  revenue: (days = 90) => call('GET', `/v1/admin/revenue?days=${days}`, { schema: Revenue }),
+
   cohorts: () =>
     call('GET', '/v1/admin/cohorts', { schema: z.object({ items: z.array(Cohort) }) }).then((r) => r.items),
   cohort: (id: string) => call('GET', `/v1/admin/cohorts/${id}`, { schema: CohortDetail }),

@@ -78,10 +78,25 @@ try {
   check('and is not marked complete', start.completedAt === null);
 
   console.log('\nProfile');
+  await db.execute(sql`update users set city = 'Jaipur' where id = ${rookie}`);
+  // A city alone is not a profile. The step asks for both, because a directory
+  // entry with a city and no line about the work is not worth finding.
+  check('a city on its own does not tick the box', (await stepDone(rookie, 'profile')) === false);
+
   await db.execute(sql`
-    update users set city = 'Jaipur', avatar_url = 'https://example.test/a.jpg' where id = ${rookie}
+    insert into member_profiles (user_id, bio_md, show_in_directory)
+    values (${rookie}, 'Weddings out of Jaipur, six years in.', true)
+    on conflict (user_id) do update set bio_md = excluded.bio_md
   `);
-  check('filling in a city and a photo ticks the box', await stepDone(rookie, 'profile'));
+  check('a city and a bio does', await stepDone(rookie, 'profile'));
+
+  // Whitespace is not a bio. Without the trim, a member who typed a space
+  // would tick a step they had not completed.
+  await db.execute(sql`update member_profiles set bio_md = '   ' where user_id = ${rookie}`);
+  check('but whitespace does not count as one', (await stepDone(rookie, 'profile')) === false);
+  await db.execute(sql`
+    update member_profiles set bio_md = 'Weddings out of Jaipur, six years in.' where user_id = ${rookie}
+  `);
 
   console.log('\nIntroduction');
   const [intro] = await db.execute<{ id: string }>(

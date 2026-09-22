@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { DeleteAccount, NotificationPrefs, RegisterPushToken } from '@ipc/contracts';
+import { DeleteAccount, NotificationPrefs, ProfilePatch, RegisterPushToken } from '@ipc/contracts';
 import type { AppEnv } from '../context.ts';
 import { roleOf } from '../admin.ts';
 import { listNotifications, markNotificationsRead } from '../engagement.ts';
@@ -29,6 +29,35 @@ export const meRoutes = new Hono<AppEnv>()
   // One round trip for first paint. The individual endpoints stay for the
   // pages that own them.
   .get('/dashboard', async (c) => c.json(await getDashboard(c.env, c.get('userId'))))
+  /* A member changing their own details.
+     There was no such endpoint, which is why the Account page rendered their
+     name, city and phone with nothing editable on it — and why the setup flow
+     had nowhere to write. Deliberately narrow: name and city only. Email and
+     phone are identity and change through auth; role and tier are not the
+     member's to set. */
+  .patch(
+    '/',
+    requireAuth,
+    zValidator('json', ProfilePatch, (result, c) =>
+      result.success
+        ? undefined
+        : problem(c, 422, 'That does not look right', result.error.issues[0]?.message),
+    ),
+    async (c) => {
+      const { updateOwnProfile } = await import('../onboarding.ts');
+      return c.json(await updateOwnProfile(c.env, c.get('userId'), c.req.valid('json')));
+    },
+  )
+
+  // Skipping the setup flow. Recorded server-side rather than in localStorage,
+  // so it does not reappear on the member's phone as if the app had forgotten
+  // them. It records that they skipped, never that they finished.
+  .post('/onboarding/dismiss', requireAuth, async (c) => {
+    const { dismissOnboarding } = await import('../onboarding.ts');
+    await dismissOnboarding(c.env, c.get('userId'));
+    return c.body(null, 204);
+  })
+
   // The first week. Derived on read rather than tracked — see onboarding.ts.
   .get('/onboarding', async (c) => {
     const { getOnboarding } = await import('../onboarding.ts');

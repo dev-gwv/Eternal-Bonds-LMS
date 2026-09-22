@@ -131,6 +131,9 @@ export const api = {
   stats: () => get('/v1/me/stats', DashboardStats),
   dashboard: () => get('/v1/me/dashboard', Dashboard),
   onboarding: () => get('/v1/me/onboarding', Onboarding),
+  updateProfile: (input: { fullName: string; city: string | null }) =>
+    send<{ fullName: string; city: string | null }>('PATCH', '/v1/me', input),
+  dismissOnboarding: () => send<void>('POST', '/v1/me/onboarding/dismiss'),
 
   /* Your public profile — the directory entry. The PUT existed with no caller,
      which meant a member could not write a bio, and the Account page showed

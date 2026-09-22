@@ -34,7 +34,7 @@ function CourseRow({ c }: { c: AdminMemberDetail['courses'][number] }) {
         </span>
       </span>
 
-      <span style={{ width: 150, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ width: 150, maxWidth: '38vw', display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ flex: 1, height: 5, borderRadius: 999, background: 'var(--track)' }}>
           <span
             style={{
@@ -51,7 +51,7 @@ function CourseRow({ c }: { c: AdminMemberDetail['courses'][number] }) {
         </span>
       </span>
 
-      <span style={{ width: 70, textAlign: 'right', fontSize: 10 }} className="dim">
+      <span style={{ width: 70, textAlign: 'right', fontSize: 10 }} className="dim hide-sm">
         {c.lessonsDone}/{c.lessonsTotal}
       </span>
       {done && <Chip tone="green">Done</Chip>}

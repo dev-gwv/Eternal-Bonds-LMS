@@ -1,4 +1,5 @@
-import { Link, Outlet, useRouterState } from '@tanstack/react-router';
+import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
 import { Suspense, useEffect, useState, type PropsWithChildren, type ReactNode } from 'react';
 import { OfflineBanner } from '../offline.tsx';
 import { Icon } from '../ui/primitives.tsx';
@@ -7,7 +8,9 @@ import { NotificationBell } from '../ui/NotificationBell.tsx';
 import { UserMenu } from '../ui/UserMenu.tsx';
 import { useSession } from '../session.tsx';
 import { devLoginEnabled } from '../supabase.ts';
+import { api } from '../api.ts';
 import { PublicWinPage } from '../../routes/PublicWin.tsx';
+import { WelcomePage } from '../../routes/Welcome.tsx';
 import { SignInPage } from '../../routes/SignIn.tsx';
 
 /**
@@ -274,6 +277,58 @@ export function AppShell() {
   }
 
   if (status === 'signed-out') return <SignInPage />;
+
+  // A member who has never been through setup goes there first, once. The
+  // wizard renders bare — it is a full-page flow and the surrounding nav is
+  // exactly the distraction it exists to remove.
+  if (pathname === '/welcome') return <WelcomePage />;
+  return <Shell sub={sub} demo={demo} navOpen={navOpen} setNavOpen={setNavOpen} />;
+}
+
+/**
+ * Sends a brand-new member into setup, once.
+ *
+ * Only on the dashboard: intercepting every route would hijack a link somebody
+ * followed from an email, which is both rude and the one moment they had a
+ * specific destination in mind. And only when the answer is known — while the
+ * query is loading `dismissed` is undefined, and redirecting on undefined
+ * would send a returning member through setup again on every cold start.
+ */
+function useFirstRunRedirect(pathname: string) {
+  const navigate = useNavigate();
+  const onboarding = useQuery({
+    queryKey: ['onboarding'],
+    queryFn: api.onboarding,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (pathname !== '/') return;
+    const data = onboarding.data;
+    if (!data) return;
+    if (data.completedAt || data.dismissed) return;
+    // Nothing done at all. Somebody mid-way through has already seen it and
+    // gets the dashboard checklist instead.
+    if (data.done > 0) return;
+    void navigate({ to: '/welcome', replace: true });
+  }, [pathname, onboarding.data, navigate]);
+}
+
+function Shell({
+  sub,
+  demo,
+  navOpen,
+  setNavOpen,
+}: {
+  sub: NavItem[];
+  demo: boolean;
+  navOpen: boolean;
+  setNavOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
+  useFirstRunRedirect(pathname);
+
 
   return (
     <div className="app">

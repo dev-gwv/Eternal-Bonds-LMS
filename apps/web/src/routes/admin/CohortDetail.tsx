@@ -42,7 +42,7 @@ function MemberRow({
         </span>
       </span>
 
-      <span style={{ width: 150, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ width: 150, maxWidth: '38vw', display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ flex: 1, height: 5, borderRadius: 999, background: 'var(--track)' }}>
           <span
             style={{
@@ -59,7 +59,7 @@ function MemberRow({
         </span>
       </span>
 
-      <span style={{ width: 62, textAlign: 'right', fontSize: 10 }} className="dim num">
+      <span style={{ width: 62, textAlign: 'right', fontSize: 10 }} className="dim num hide-sm">
         {m.lessonsDone}/{m.lessonsTotal}
       </span>
 
@@ -215,7 +215,14 @@ export function CohortDetailPage() {
       <div className="content">
         <div className="col col-main">
           <Card>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+            <div
+              style={{
+                display: 'grid',
+                // Four fixed columns become four unreadable slivers on a phone.
+                gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+                gap: 14,
+              }}
+            >
               {[
                 ['Members', `${c.memberCount}${c.capacity !== null ? ` / ${c.capacity}` : ''}`],
                 ['Average progress', `${c.averageProgress}%`],

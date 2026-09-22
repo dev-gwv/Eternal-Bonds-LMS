@@ -97,7 +97,13 @@ body {
 }
 
 a { color: var(--pink-ink); text-decoration: none; }
-a:hover { color: var(--pink-strong); }
+/* Not `.btn`. A link styled as a button carries its own colour, and this rule
+   beat it: `.btn-pink:hover` only sets filter and transform, never re-declares
+   colour, so `a:hover` at (0,1,1) won over `.btn-pink` at (0,1,0) and painted
+   the label pink on a pink gradient — invisible. It affected every
+   <Link className="btn ..."> in the app, which is most of the primary
+   actions. */
+a:not(.btn):hover { color: var(--pink-strong); }
 
 button { font-family: inherit; cursor: pointer; }
 input, select, textarea { font-family: inherit; }
@@ -374,7 +380,25 @@ input, select, textarea { font-family: inherit; }
 
 .grid { display: grid; gap: 14px; }
 .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* Was missing while `grid grid-3` was already in use, so the continue-learning
+   rail rendered as one column on every screen size. */
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* --- responsive helpers ---------------------------------------------------
+   The roster-style rows are built from inline styles with fixed pixel columns
+   — a progress bar at 150px, an XP figure at 70px — which no media query can
+   reach. Rather than rewrite each into CSS, the secondary columns carry a
+   class that removes them below the width where they stop fitting.
+
+   Which columns get dropped is a judgement, not a default: on a phone a member
+   row keeps the name, the progress and the risk chip, and loses XP and
+   last-seen. Those two are scanning aids for somebody working down a list on a
+   laptop, and on a phone they are what pushes the name off the screen. */
+/* No base rule on purpose. Declaring `display: initial` here would resolve to
+   `inline` and quietly flatten any flex or grid child that carried the class.
+   The element keeps whatever display it already had, and the media queries
+   below only ever remove it. */
 
 /* --- controls ------------------------------------------------------------- */
 
@@ -393,10 +417,11 @@ input, select, textarea { font-family: inherit; }
 }
 .btn:active { transform: scale(0.97); }
 .btn-pink { background: var(--grad-brand); color: #fff; box-shadow: var(--sh-brand); }
-.btn-pink:hover { filter: brightness(1.06); transform: translateY(-1px); box-shadow: var(--sh-md), var(--sh-brand); }
+.btn-pink:hover { color: #fff; filter: brightness(1.06); transform: translateY(-1px); box-shadow: var(--sh-md), var(--sh-brand); }
 .btn-blue { background: var(--blue); color: var(--blue-strong); }
-.btn-blue:hover { transform: translateY(-1px); box-shadow: var(--sh-sm); }
+.btn-blue:hover { color: var(--blue-strong); transform: translateY(-1px); box-shadow: var(--sh-sm); }
 .btn-green { background: linear-gradient(135deg, #5bb98c, #3d8f66); color: #fff; box-shadow: 0 6px 18px -6px rgba(61, 143, 102, 0.55); }
+.btn-green:hover { color: #fff; filter: brightness(1.06); transform: translateY(-1px); }
 .btn-soft { background: #fff; color: var(--ink-2); border: 1px solid var(--hair); box-shadow: var(--sh-sm); }
 .btn-soft:hover { color: var(--ink); border-color: var(--ink-4); transform: translateY(-1px); }
 .btn-ghost { background: transparent; color: var(--ink-2); padding: 9px 4px; }
@@ -529,6 +554,10 @@ img, svg, video { max-width: 100%; }
   .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+@media (max-width: 1000px) {
+  .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 1100px) {
   .content { flex-direction: column; }
   .rail { width: auto; }
@@ -549,6 +578,8 @@ img, svg, video { max-width: 100%; }
 }
 
 @media (max-width: 720px) {
+  .hide-sm { display: none !important; }
+  .grid-3 { grid-template-columns: minmax(0, 1fr); }
   .app { padding: 0; }
   .panel { border-radius: 0; padding: 14px; min-height: 100vh; }
 
@@ -567,6 +598,7 @@ img, svg, video { max-width: 100%; }
 }
 
 @media (max-width: 460px) {
+  .hide-xs { display: none !important; }
   .panel { padding: 10px; }
   /* Below this the two-up date badge and title in a workshop row collide. */
   .card-row { flex-wrap: wrap; row-gap: 8px; }

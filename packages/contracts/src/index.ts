@@ -1267,6 +1267,13 @@ export const OnboardingStep = z.object({
 });
 export type OnboardingStep = z.infer<typeof OnboardingStep>;
 
+/** What a member may change about their own core profile. */
+export const ProfilePatch = z.object({
+  fullName: z.string().trim().min(2, 'Your name, as members will see it').max(80),
+  city: z.string().trim().max(80).nullable().default(null),
+});
+export type ProfilePatch = z.infer<typeof ProfilePatch>;
+
 export const Onboarding = z.object({
   steps: z.array(OnboardingStep),
   done: z.int().nonnegative(),
@@ -1295,3 +1302,47 @@ export const PublicWin = z.object({
   createdAt: z.iso.datetime(),
 });
 export type PublicWin = z.infer<typeof PublicWin>;
+
+/* ── Revenue ─────────────────────────────────────────────────────────────
+   Money, in rupees. The database stores paise — ₹4,999.00 in a float is how
+   you end up owing somebody a rupee — and the conversion happens once, in the
+   response shape. Captured payments only: an order is an intention, and
+   counting intentions as revenue overstates it by everybody who hesitated. */
+
+export const RevenueOrder = z.object({
+  id: z.uuid(),
+  memberName: z.string(),
+  memberEmail: z.string().nullable(),
+  planName: z.string(),
+  inr: z.int().nonnegative(),
+  status: z.string(),
+  /** Card, UPI, netbanking — whatever the provider reported. */
+  method: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  /** Null until the money actually arrived. */
+  capturedAt: z.iso.datetime().nullable(),
+});
+export type RevenueOrder = z.infer<typeof RevenueOrder>;
+
+export const Revenue = z.object({
+  thisMonthInr: z.int().nonnegative(),
+  lastMonthInr: z.int().nonnegative(),
+  allTimeInr: z.int().nonnegative(),
+  payingMembers: z.int().nonnegative(),
+  /** Null when nobody has paid yet — not ₹0, which would read as a real average. */
+  averageOrderInr: z.int().nonnegative().nullable(),
+  /** Started over an hour ago and never completed. Someone who wanted to buy. */
+  pendingCheckouts: z.int().nonnegative(),
+  failedCheckouts: z.int().nonnegative(),
+  byPlan: z.array(
+    z.object({
+      name: z.string(),
+      tier: Tier,
+      sold: z.int().nonnegative(),
+      inr: z.int().nonnegative(),
+    }),
+  ),
+  daily: z.array(z.object({ day: z.string(), inr: z.int().nonnegative() })),
+  recent: z.array(RevenueOrder),
+});
+export type Revenue = z.infer<typeof Revenue>;

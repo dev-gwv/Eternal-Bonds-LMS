@@ -40,6 +40,7 @@ const AccountPage = lazyPage(() => import('../routes/Account.tsx'), 'AccountPage
 const CourseBuilderPage = lazyPage(() => import('../routes/admin/CourseBuilder.tsx'), 'CourseBuilderPage');
 const StudioPage = lazyPage(() => import('../routes/admin/Studio.tsx'), 'StudioPage');
 const MembersPage = lazyPage(() => import('../routes/admin/Members.tsx'), 'MembersPage');
+const WelcomePage = lazyPage(() => import('../routes/Welcome.tsx'), 'WelcomePage');
 const JourneysPage = lazyPage(() => import('../routes/Journeys.tsx'), 'JourneysPage');
 const JourneyDetailPage = lazyPage(() => import('../routes/Journeys.tsx'), 'JourneyDetailPage');
 const AdminJourneysPage = lazyPage(() => import('../routes/admin/Journeys.tsx'), 'AdminJourneysPage');
@@ -135,6 +136,11 @@ const memberDetailRoute = createRoute({
   path: '/admin/members/$id',
   component: MemberDetailPage,
 });
+const welcomeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/welcome',
+  component: WelcomePage,
+});
 const journeysRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/journeys',
@@ -202,6 +208,7 @@ const routeTree = rootRoute.addChildren([
   studioRoute,
   membersRoute,
   memberDetailRoute,
+  welcomeRoute,
   journeysRoute,
   journeyDetailRoute,
   adminJourneysRoute,

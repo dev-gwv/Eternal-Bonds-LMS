@@ -41,12 +41,18 @@ const STEPS = (userId: string): StepDef[] => [
   {
     key: 'profile',
     title: 'Say who you are',
-    hint: 'A city and a face. Members reply to people, not to avatars with initials.',
-    href: '/account',
+    hint: 'Your city and a line about what you shoot. Members reply to people.',
+    href: '/welcome',
     cta: 'Fill in your profile',
+    // Bio rather than avatar. A step that asks for a photograph is one most
+    // people will not finish on a laptop, and unlike an avatar the bio is
+    // rendered somewhere real — the directory.
     done: sql`exists (
       select 1 from users u
-      where u.id = ${userId}::uuid and u.city is not null and u.avatar_url is not null
+      left join member_profiles p on p.user_id = u.id
+      where u.id = ${userId}::uuid
+        and u.city is not null and length(trim(u.city)) > 0
+        and p.bio_md is not null and length(trim(p.bio_md)) > 0
     )`,
   },
   {
@@ -115,7 +121,8 @@ export async function getOnboarding(env: Env, userId: string | null): Promise<On
           defs.map((d) => sql`${d.done} as ${sql.raw(d.key)}`),
           sql`, `,
         )},
-        (select u.onboarding_completed_at from users u where u.id = ${userId}::uuid) as completed_at
+        (select u.onboarding_completed_at from users u where u.id = ${userId}::uuid) as completed_at,
+        (select u.onboarding_dismissed_at from users u where u.id = ${userId}::uuid) as dismissed_at
     `);
 
     const steps: OnboardingStep[] = defs.map((d) => ({
@@ -129,6 +136,7 @@ export async function getOnboarding(env: Env, userId: string | null): Promise<On
 
     const done = steps.filter((s) => s.done).length;
     const completedAt = (row?.completed_at as string | null) ?? null;
+    const dismissed = Boolean(row?.dismissed_at);
 
     // Stamp it the first time everything is done. A write inside a read is not
     // free, but it happens once per member in their lifetime, and the
@@ -139,9 +147,50 @@ export async function getOnboarding(env: Env, userId: string | null): Promise<On
         update users set onboarding_completed_at = now()
         where id = ${userId}::uuid and onboarding_completed_at is null
       `);
-      return { steps, done, total: steps.length, completedAt: new Date().toISOString(), dismissed: false };
+      return { steps, done, total: steps.length, completedAt: new Date().toISOString(), dismissed };
     }
 
-    return { steps, done, total: steps.length, completedAt, dismissed: false };
+    return { steps, done, total: steps.length, completedAt, dismissed };
+  });
+}
+
+/**
+ * A member changing their own name or city.
+ *
+ * Narrow on purpose. Email and phone are identity and move through auth; role,
+ * tier and suspension are not the member's to set. Everything here runs under
+ * RLS as them, so the policy is a second lock on the same door.
+ */
+export async function updateOwnProfile(
+  env: Env,
+  userId: string | null,
+  input: { fullName: string; city: string | null },
+): Promise<{ fullName: string; city: string | null }> {
+  const db = getDb(env);
+  if (!db || !userId) throw new Error('Not authenticated');
+
+  return withUser(db, userId, async (tx) => {
+    const [row] = await tx.execute<{ full_name: string; city: string | null }>(sql`
+      update users
+      set full_name = ${input.fullName},
+          -- An empty box means "not set", not an empty string. Otherwise the
+          -- onboarding check sees a value and ticks a step nobody completed.
+          city = nullif(trim(coalesce(${input.city}, '')), '')
+      where id = ${userId}::uuid
+      returning full_name, city
+    `);
+    return { fullName: row?.full_name ?? input.fullName, city: row?.city ?? null };
+  });
+}
+
+/** Records that a member skipped setup. Never that they finished it. */
+export async function dismissOnboarding(env: Env, userId: string | null): Promise<void> {
+  const db = getDb(env);
+  if (!db || !userId) return;
+  await withUser(db, userId, async (tx) => {
+    await tx.execute(sql`
+      update users set onboarding_dismissed_at = now()
+      where id = ${userId}::uuid and onboarding_dismissed_at is null
+    `);
   });
 }

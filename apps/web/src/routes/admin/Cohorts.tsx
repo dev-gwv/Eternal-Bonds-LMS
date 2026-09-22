@@ -164,12 +164,12 @@ function CohortRow({ c }: { c: Cohort }) {
         </span>
       </span>
 
-      <span style={{ width: 110, textAlign: 'right', fontSize: 11 }} className="muted num">
+      <span style={{ width: 110, textAlign: 'right', fontSize: 11 }} className="muted num hide-sm">
         {c.memberCount}
         {c.capacity !== null ? ` / ${c.capacity}` : ''} member{c.memberCount === 1 ? '' : 's'}
       </span>
 
-      <span style={{ width: 140, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ width: 140, maxWidth: '40vw', display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ flex: 1, height: 5, borderRadius: 999, background: 'var(--track)' }}>
           <span
             style={{

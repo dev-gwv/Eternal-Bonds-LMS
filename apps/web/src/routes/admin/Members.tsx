@@ -68,13 +68,13 @@ function MemberRow({ m }: { m: AdminMember }) {
         </span>
       </span>
 
-      <span style={{ width: 92, textAlign: 'right', fontSize: 11 }} className="muted">
+      <span style={{ width: 92, textAlign: 'right', fontSize: 11 }} className="muted hide-xs">
         {m.coursesEnrolled > 0 ? `${m.coursesCompleted}/${m.coursesEnrolled} courses` : '—'}
       </span>
-      <span style={{ width: 70, textAlign: 'right', fontSize: 11 }} className="num muted">
+      <span style={{ width: 70, textAlign: 'right', fontSize: 11 }} className="num muted hide-sm">
         {m.xp.toLocaleString('en-IN')} XP
       </span>
-      <span style={{ width: 84, textAlign: 'right', fontSize: 10 }} className="dim">
+      <span style={{ width: 84, textAlign: 'right', fontSize: 10 }} className="dim hide-sm">
         {m.lastSeenAt ? relativeTime(m.lastSeenAt) : 'never'}
       </span>
 
