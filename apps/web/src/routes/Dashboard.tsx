@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { api, dayNumber, hoursMinutes, monthShort, timeRange, xpLabel } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { ActivityChart } from '../shared/ui/charts.tsx';
+import { ContinueRail } from '../shared/ui/ContinueRail.tsx';
 import { Card, DateBadge, EmptyState, Hero, Icon, StatTile } from '../shared/ui/primitives.tsx';
 import { LoadingLabel, Skeleton, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 
@@ -18,6 +19,7 @@ export function DashboardPage() {
   const activityDays = dashboard.data?.activity ?? [];
   const workshopList = dashboard.data?.workshops ?? [];
   const board = dashboard.data?.leaderboard ?? [];
+  const inFlight = dashboard.data?.continueLearning ?? [];
 
   const watched = activityDays.reduce((sum, d) => sum + d.courses + d.workshops + d.library, 0);
   const { hours, minutes } = hoursMinutes(watched);
@@ -65,7 +67,18 @@ export function DashboardPage() {
         }
         actions={
           <>
-            <Link to="/courses" className="btn btn-pink" style={{ color: '#fff' }}>Continue learning</Link>
+            {inFlight[0] ? (
+              <Link
+                to="/courses/$slug"
+                params={{ slug: inFlight[0].courseSlug }}
+                className="btn btn-pink"
+                style={{ color: '#fff' }}
+              >
+                Continue {inFlight[0].courseTitle}
+              </Link>
+            ) : (
+              <Link to="/courses" className="btn btn-pink" style={{ color: '#fff' }}>Browse courses</Link>
+            )}
             <Link to="/think-tank" className="btn btn-soft">This week's insights</Link>
           </>
         }
@@ -73,6 +86,10 @@ export function DashboardPage() {
 
       <div className="content">
         <div className="col col-main">
+          {/* Above the numbers, deliberately. A returning member wants the
+              lesson they stopped on, not a chart of how little they did. */}
+          <ContinueRail items={inFlight} />
+
           {/* A member's four numbers, not the organiser's. These used to be
               total workshops, registrations, attendees and attendance rate —
               facts about the club, on the landing page of one person in it. */}

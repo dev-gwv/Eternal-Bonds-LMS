@@ -4,6 +4,7 @@ import { readEnv, type Env } from './env.ts';
 import { expireMemberships, reprocessWebhooks } from './jobs/billing.ts';
 import { awardBadges, eventReminders } from './jobs/platform.ts';
 import { buildWeeklyDigest, creditWorkshopAttendance, purgeDeletedAccounts, sweepExpired } from './jobs/lifecycle.ts';
+import { sendLearningNudges } from './jobs/learning.ts';
 import { guardPublishedCourses, pollVideoStatus } from './jobs/media.ts';
 import { deliverNotifications, drainOutbox } from './jobs/notify.ts';
 import {
@@ -131,6 +132,15 @@ export const JOBS: JobDefinition[] = [
     description: 'Remind RSVP’d members 24h before an event starts',
     everySeconds: 900,
     run: ({ db }) => eventReminders(db),
+  },
+  {
+    kind: 'learning.nudge',
+    // Hourly, but the job's own five-day floor means a given member hears from
+    // it far less often than that. The frequency is about catching people
+    // promptly once they cross a threshold, not about how often they are told.
+    description: 'Nudge members who started a course and stopped, four times and then never again',
+    everySeconds: 3600,
+    run: ({ db }) => sendLearningNudges(db),
   },
   {
     kind: 'workshops.credit',

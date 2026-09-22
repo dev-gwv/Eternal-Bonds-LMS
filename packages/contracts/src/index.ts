@@ -184,8 +184,35 @@ export type DashboardStats = z.infer<typeof DashboardStats>;
  * The whole dashboard in one round trip: five parallel queries were five TLS
  * handshakes on a phone over 4G before first paint.
  */
+/**
+ * One course a member is partway through, ready to resume.
+ *
+ * `lessonSlug` is the lesson they stopped on, not the next unwatched one: a
+ * member who left at 40% of a video wants that video, and a member who
+ * finished it gets the same lesson page, which sends them onward. Guessing
+ * "next" is how a resume button skips the thing somebody meant to rewatch.
+ */
+export const ContinueItem = z.object({
+  courseId: z.uuid(),
+  courseSlug: z.string(),
+  courseTitle: z.string(),
+  lessonId: z.uuid().nullable(),
+  lessonTitle: z.string().nullable(),
+  /** 0–100, over the whole course. */
+  progress: z.int().min(0).max(100),
+  lessonsDone: z.int().nonnegative(),
+  lessonsTotal: z.int().nonnegative(),
+  /** Null when they enrolled and never opened anything. */
+  lastActivityAt: z.iso.datetime().nullable(),
+  /** Rough minutes left, from lesson durations. Null when nothing has one. */
+  minutesLeft: z.int().nonnegative().nullable(),
+});
+export type ContinueItem = z.infer<typeof ContinueItem>;
+
 export const Dashboard = z.object({
   stats: DashboardStats,
+  /** Courses in flight, coldest last. Empty for a member with nothing started. */
+  continueLearning: z.array(ContinueItem).default([]),
   activity: z.array(ActivityDay),
   performance: Performance,
   leaderboard: z.array(LeaderboardRow),

@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { withUser } from '@ipc/db';
-import type { ActivityDay, DashboardStats, LeaderboardRow, Performance, Workshop } from '@ipc/contracts';
+import type { ActivityDay, ContinueItem, DashboardStats, LeaderboardRow, Performance, Workshop } from '@ipc/contracts';
 import type { Env } from './env.ts';
 import { getDb } from './repo.ts';
 import { listWorkshops } from './repo.ts';
@@ -155,14 +155,88 @@ export async function getStats(env: Env, userId: string | null): Promise<Dashboa
  * body. The individual endpoints stay for the pages that own them.
  */
 export async function getDashboard(env: Env, userId: string | null) {
-  const [stats, activity, performance, leaderboard, workshops] = await Promise.all([
+  const [stats, activity, performance, leaderboard, workshops, continueLearning] = await Promise.all([
     getStats(env, userId),
     getActivity(env, userId),
     getPerformance(env, userId),
     getLeaderboard(env, userId),
     listWorkshops(env, userId, 'upcoming'),
+    getContinueLearning(env, userId),
   ]);
-  return { stats, activity, performance, leaderboard, workshops };
+  return { stats, activity, performance, leaderboard, workshops, continueLearning };
+}
+
+/**
+ * What the member is halfway through.
+ *
+ * The single most useful thing a learning dashboard can show, and the one this
+ * one did not: `enrollments.last_lesson_id` has held the answer since the
+ * first migration and nothing ever read it. A member returning after a week
+ * should not have to remember which course, which module, which lesson — the
+ * cost of that recall is most of why people do not come back.
+ *
+ * Ordered by most-recent activity: the top card is where they actually were.
+ * Courses never opened come last, because "start this" is a weaker prompt than
+ * "finish this" and should not displace it.
+ */
+export async function getContinueLearning(env: Env, userId: string | null): Promise<ContinueItem[]> {
+  const db = getDb(env);
+  if (!db || !userId) return [];
+
+  return withUser(db, userId, async (tx) => {
+    const rows = await tx.execute<{
+      course_id: string; course_slug: string; course_title: string;
+      lesson_id: string | null; lesson_title: string | null;
+      lessons_done: number; lessons_total: number;
+      last_activity_at: string | null; seconds_left: number | null;
+    }>(sql`
+      select
+        c.id as course_id, c.slug as course_slug, c.title as course_title,
+        e.last_lesson_id as lesson_id,
+        ll.title as lesson_title,
+        counts.done  as lessons_done,
+        counts.total as lessons_total,
+        counts.last_at as last_activity_at,
+        counts.seconds_left
+      from enrollments e
+      join courses c on c.id = e.course_id and c.is_published
+      left join lessons ll on ll.id = e.last_lesson_id
+      join lateral (
+        select
+          count(*) filter (where lp.is_completed)::int as done,
+          count(*)::int as total,
+          max(lp.updated_at) as last_at,
+          sum(l.duration_seconds) filter (where lp.is_completed is not true)::int as seconds_left
+        from lessons l
+        join modules m on m.id = l.module_id
+        left join lesson_progress lp on lp.lesson_id = l.id and lp.user_id = ${userId}::uuid
+        where m.course_id = c.id
+      ) counts on true
+      where e.completed_at is null
+        and counts.total > 0
+      -- Anything touched, most recent first; untouched courses fall to the end.
+      order by counts.last_at desc nulls last, e.enrolled_at desc
+      limit 4
+    `);
+
+    return rows.map((r): ContinueItem => {
+      const total = Number(r.lessons_total) || 0;
+      const done = Number(r.lessons_done) || 0;
+      const secondsLeft = r.seconds_left === null ? null : Number(r.seconds_left);
+      return {
+        courseId: r.course_id,
+        courseSlug: r.course_slug,
+        courseTitle: r.course_title,
+        lessonId: r.lesson_id,
+        lessonTitle: r.lesson_title,
+        progress: total === 0 ? 0 : Math.round((done / total) * 100),
+        lessonsDone: done,
+        lessonsTotal: total,
+        lastActivityAt: r.last_activity_at ? new Date(r.last_activity_at).toISOString() : null,
+        minutesLeft: secondsLeft === null || secondsLeft <= 0 ? null : Math.max(1, Math.round(secondsLeft / 60)),
+      };
+    });
+  });
 }
 
 /**
