@@ -5,7 +5,6 @@ import { fetchViewer } from '../admin-api.ts';
 import { api } from '../api.ts';
 import { signOut } from '../supabase.ts';
 import { Avatar, Icon } from './primitives.tsx';
-import { getTheme, setTheme, type Theme } from './theme.ts';
 
 /**
  * Everything about *you*, behind one avatar.
@@ -36,35 +35,6 @@ const ADMIN: Item[] = [
   { to: '/admin/revenue', label: 'Revenue', icon: 'chart', hint: 'What came in' },
   { to: '/admin/moderation', label: 'Moderation', icon: 'bell', hint: 'Reports and reviews' },
 ];
-
-/** Three states, not a switch: "system" is a real choice, not a default. */
-function ThemePicker() {
-  const [theme, setLocal] = useState<Theme>(() => getTheme());
-  const options: { value: Theme; label: string }[] = [
-    { value: 'light', label: 'Light' },
-    { value: 'dark', label: 'Dark' },
-    { value: 'system', label: 'Auto' },
-  ];
-
-  return (
-    <div className="theme-picker" role="group" aria-label="Appearance">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          aria-pressed={theme === o.value}
-          className={theme === o.value ? 'theme-option is-on' : 'theme-option'}
-          onClick={() => {
-            setTheme(o.value);
-            setLocal(o.value);
-          }}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 export function UserMenu() {
   const [open, setOpen] = useState(false);
@@ -162,11 +132,6 @@ export function UserMenu() {
               <div className="menu-group">{ADMIN.map(row)}</div>
             </>
           )}
-
-          <div className="menu-label">Appearance</div>
-          <div style={{ padding: '2px 10px 8px' }}>
-            <ThemePicker />
-          </div>
 
           <div className="menu-group" style={{ borderTop: '1px solid var(--rule)', paddingTop: 4 }}>
             <button
