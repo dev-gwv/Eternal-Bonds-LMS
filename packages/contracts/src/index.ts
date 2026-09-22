@@ -1210,3 +1210,29 @@ export const JourneyStepInput = z.object({
   note: z.string().trim().max(300).nullable().default(null),
 });
 export type JourneyStepInput = z.infer<typeof JourneyStepInput>;
+
+/* ── Onboarding ──────────────────────────────────────────────────────────
+   The first week. Every step is derived from tables that already know the
+   answer — posts, lesson_progress, enrollments, event_rsvps — so there is
+   nothing to keep in sync and nothing that can go stale. */
+
+export const OnboardingStep = z.object({
+  key: z.enum(['profile', 'introduce', 'first_lesson', 'journey', 'session']),
+  title: z.string(),
+  hint: z.string(),
+  /** Where the step is done. An in-app path, never an absolute URL. */
+  href: z.string(),
+  cta: z.string(),
+  done: z.boolean(),
+});
+export type OnboardingStep = z.infer<typeof OnboardingStep>;
+
+export const Onboarding = z.object({
+  steps: z.array(OnboardingStep),
+  done: z.int().nonnegative(),
+  total: z.int().nonnegative(),
+  /** Set once, the first time every step is done. */
+  completedAt: z.iso.datetime().nullable(),
+  dismissed: z.boolean().default(false),
+});
+export type Onboarding = z.infer<typeof Onboarding>;

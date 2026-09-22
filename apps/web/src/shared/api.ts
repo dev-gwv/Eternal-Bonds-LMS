@@ -24,6 +24,7 @@ import {
   Notification,
   NotificationFeed,
   NotificationPrefs,
+  Onboarding,
   OrderTicket,
   DeletionState,
   Channel,
@@ -122,6 +123,7 @@ export const api = {
   performance: () => get('/v1/me/performance', Performance),
   stats: () => get('/v1/me/stats', DashboardStats),
   dashboard: () => get('/v1/me/dashboard', Dashboard),
+  onboarding: () => get('/v1/me/onboarding', Onboarding),
   search: (q: string) => get(`/v1/search?q=${encodeURIComponent(q)}`, SearchResults),
 
   /* Journeys — the ordered answer to "what do I do first?" */

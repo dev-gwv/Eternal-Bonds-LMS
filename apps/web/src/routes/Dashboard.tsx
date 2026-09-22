@@ -4,6 +4,7 @@ import { api, dayNumber, hoursMinutes, monthShort, timeRange, xpLabel } from '..
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { ActivityChart } from '../shared/ui/charts.tsx';
 import { ContinueRail } from '../shared/ui/ContinueRail.tsx';
+import { FirstWeek } from '../shared/ui/FirstWeek.tsx';
 import { Card, DateBadge, EmptyState, Hero, Icon, StatTile } from '../shared/ui/primitives.tsx';
 import { LoadingLabel, Skeleton, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 
@@ -86,6 +87,10 @@ export function DashboardPage() {
 
       <div className="content">
         <div className="col col-main">
+          {/* Above everything for a member who has not finished it, and gone
+              entirely for everyone who has. */}
+          <FirstWeek />
+
           {/* Above the numbers, deliberately. A returning member wants the
               lesson they stopped on, not a chart of how little they did. */}
           <ContinueRail items={inFlight} />

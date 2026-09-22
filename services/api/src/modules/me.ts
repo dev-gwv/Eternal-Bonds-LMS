@@ -29,6 +29,11 @@ export const meRoutes = new Hono<AppEnv>()
   // One round trip for first paint. The individual endpoints stay for the
   // pages that own them.
   .get('/dashboard', async (c) => c.json(await getDashboard(c.env, c.get('userId'))))
+  // The first week. Derived on read rather than tracked — see onboarding.ts.
+  .get('/onboarding', async (c) => {
+    const { getOnboarding } = await import('../onboarding.ts');
+    return c.json(await getOnboarding(c.env, c.get('userId')));
+  })
 
   /* Who the UI is rendering for. It exists so the shell can decide whether to
      show the Studio link without guessing — the API still re-checks on every

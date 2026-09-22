@@ -4,7 +4,7 @@ import { readEnv, type Env } from './env.ts';
 import { expireMemberships, reprocessWebhooks } from './jobs/billing.ts';
 import { awardBadges, eventReminders } from './jobs/platform.ts';
 import { buildWeeklyDigest, creditWorkshopAttendance, purgeDeletedAccounts, sweepExpired } from './jobs/lifecycle.ts';
-import { announceUnlocks, sendLearningNudges, warnCohortDeadlines } from './jobs/learning.ts';
+import { announceUnlocks, nudgeOnboarding, sendLearningNudges, warnCohortDeadlines } from './jobs/learning.ts';
 import { closeVoteCycle, openVoteCycle } from './jobs/thinktank.ts';
 import { guardPublishedCourses, pollVideoStatus } from './jobs/media.ts';
 import { deliverNotifications, drainOutbox } from './jobs/notify.ts';
@@ -157,6 +157,12 @@ export const JOBS: JobDefinition[] = [
     description: 'Warn cohort members who are behind, once, a week before it ends',
     everySeconds: 86400,
     run: ({ db }) => warnCohortDeadlines(db),
+  },
+  {
+    kind: 'onboarding.nudge',
+    description: 'Two messages to a member who joined and stopped, then never again',
+    everySeconds: 3600,
+    run: ({ db }) => nudgeOnboarding(db),
   },
   {
     kind: 'thinktank.open_cycle',

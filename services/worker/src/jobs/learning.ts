@@ -299,3 +299,67 @@ export async function warnCohortDeadlines(db: Db) {
 
   return { warned: rows.length };
 }
+
+/**
+ * Two messages to a member who joined and then stopped.
+ *
+ * Day two and day seven, and then never again. Somebody who has not posted an
+ * introduction after a fortnight has decided; a third reminder does not change
+ * that, it only spends the goodwill needed for the messages that would have
+ * worked.
+ *
+ * The condition is the same set of derived facts the checklist uses — no
+ * profile, no introduction, no lesson — so what the member is told and what
+ * the card shows them cannot disagree.
+ */
+export async function nudgeOnboarding(db: Db) {
+  const STAGES = [
+    { stage: 1, afterDays: 2, title: 'One thing to get started', body: 'Introduce yourself in the community. Two lines about where you shoot is enough — members reply to introductions more than to anything else.' },
+    { stage: 2, afterDays: 7, title: 'Still worth five minutes', body: 'Your first week checklist is on the dashboard. The first lesson is the only hard one.' },
+  ];
+
+  let sent = 0;
+
+  for (const s of STAGES) {
+    const rows = await db.execute<{ id: string }>(sql`
+      with candidate as (
+        select u.id as user_id
+        from users u
+        where u.onboarding_completed_at is null
+          and not u.is_suspended
+          and u.created_at < now() - ${`${s.afterDays} days`}::interval
+          -- Somebody who joined last year is not in their first week. Without
+          -- this, switching the job on would mail the entire back catalogue.
+          and u.created_at > now() - interval '30 days'
+          -- The same derived facts the checklist uses, so the message and the
+          -- card cannot disagree about what is left to do.
+          and not exists (
+            select 1 from posts p
+            join channels c on c.id = p.channel_id
+            where p.author_id = u.id and c.slug = 'introductions'
+          )
+          and not exists (select 1 from lesson_progress lp where lp.user_id = u.id)
+          and not exists (
+            select 1 from onboarding_notices n where n.user_id = u.id and n.stage = ${s.stage}
+          )
+          and coalesce((select p.in_app from notification_prefs p where p.user_id = u.id), true)
+      ),
+      logged as (
+        insert into onboarding_notices (user_id, stage)
+        select user_id, ${s.stage} from candidate
+        on conflict (user_id, stage) do nothing
+        returning user_id
+      )
+      insert into notifications (user_id, kind, title, body, link, subject_type, subject_id)
+      select cand.user_id, 'onboarding.nudge', ${s.title}, ${s.body}, '/', 'onboarding', cand.user_id
+      from candidate cand
+      join logged on logged.user_id = cand.user_id
+      on conflict (user_id, kind, subject_type, subject_id) where subject_id is not null
+      do update set title = excluded.title, body = excluded.body, created_at = now(), read_at = null
+      returning id
+    `);
+    sent += rows.length;
+  }
+
+  return { sent };
+}
