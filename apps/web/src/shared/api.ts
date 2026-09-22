@@ -138,9 +138,12 @@ export const api = {
   /* Your public profile — the directory entry. The PUT existed with no caller,
      which meant a member could not write a bio, and the Account page showed
      their details with nothing editable on it. */
+  // /v1/directory/me, not /v1/learning/me. The handlers are defined on the
+  // directory router; I read the file and attributed them to the wrong one,
+  // so both of these 404'd and the profile editor silently never saved.
   myProfile: () =>
     get(
-      '/v1/learning/me',
+      '/v1/directory/me',
       z.object({
         bioMd: z.string().nullable(),
         expertise: z.array(z.string()),
@@ -148,7 +151,7 @@ export const api = {
       }),
     ),
   saveMyProfile: (input: { bioMd: string | null; expertise: string[]; showInDirectory: boolean }) =>
-    send<{ ok: boolean }>('PUT', '/v1/learning/me', input),
+    send<{ ok: boolean }>('PUT', '/v1/directory/me', input),
   search: (q: string) => get(`/v1/search?q=${encodeURIComponent(q)}`, SearchResults),
 
   /* Journeys — the ordered answer to "what do I do first?" */

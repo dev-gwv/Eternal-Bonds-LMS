@@ -26,13 +26,18 @@ import {
   DashboardStats,
   DeletionState,
   LeaderboardRow,
+  Cohort,
+  Journey,
   LibraryCategory,
+  LibraryItem,
   Member,
   MembershipState,
   NotificationFeed,
   NotificationPrefs,
+  Onboarding,
   Performance,
   Post,
+  Revenue,
   SearchResults,
   Viewer,
   Workshop,
@@ -74,7 +79,21 @@ const list = <T>(item: z.ZodType<T>) => z.object({ items: z.array(item) });
  * is reported as a skip rather than a red line — this suite is about shape,
  * not about seed data being present.
  */
-async function check(path: string, schema: z.ZodType<unknown>, { expectItems = false } = {}) {
+/**
+ * `optional: true` for a route that may legitimately not exist yet. Everything
+ * else must answer.
+ *
+ * 404 used to be an automatic skip, which is how `/v1/directory/me` went
+ * unnoticed: the client called `/v1/learning/me`, the route had never existed
+ * on that prefix, and this suite printed "nothing to check against" and moved
+ * on. A path the app actually calls returning 404 is the most complete failure
+ * an endpoint can have, and it was the one result treated as fine.
+ */
+async function check(
+  path: string,
+  schema: z.ZodType<unknown>,
+  { expectItems = false, optional = false } = {},
+) {
   let res: Response;
   try {
     res = await fetch(`${API}${path}`, {
@@ -90,7 +109,11 @@ async function check(path: string, schema: z.ZodType<unknown>, { expectItems = f
   }
 
   if (res.status === 404) {
-    console.log(`  skip  ${path} — 404, nothing to check against`);
+    if (optional) {
+      console.log(`  skip  ${path} — 404, and marked optional`);
+      return;
+    }
+    fail(path, '404 — the app calls this path and nothing answers on it');
     return;
   }
   if (!res.ok) {
@@ -152,6 +175,35 @@ if (token) {
   await check('/v1/billing/membership', MembershipState);
 } else {
   console.log('  skip  needs a session');
+}
+
+/* Everything added since the platform work. These are the paths most likely to
+   drift, because each was wired by hand rather than generated. */
+if (token) {
+  console.log('\nPlatform');
+  await check('/v1/me/onboarding', Onboarding);
+  await check('/v1/journeys', list(Journey));
+  await check('/v1/library/items', list(LibraryItem));
+  await check('/v1/directory/me', z.object({
+    bioMd: z.string().nullable(),
+    expertise: z.array(z.string()),
+    showInDirectory: z.boolean(),
+  }));
+
+  console.log('\nThe studio');
+  // These 403 for a member, which is correct and not a contract failure — so
+  // they are only checked when the signed-in account can actually author.
+  const viewer = await fetch(`${API}/v1/me/viewer`, { headers: { authorization: `Bearer ${token}` } })
+    .then((r) => r.json() as Promise<{ canAuthor?: boolean }>)
+    .catch(() => ({ canAuthor: false }));
+
+  if (viewer.canAuthor) {
+    await check('/v1/admin/revenue', Revenue);
+    await check('/v1/admin/cohorts', list(Cohort));
+    await check('/v1/admin/journeys', list(Journey));
+  } else {
+    console.log('  skip  not an admin, so the studio contracts are not checked');
+  }
 }
 
 console.log('\nDetail routes');

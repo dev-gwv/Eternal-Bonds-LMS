@@ -65,8 +65,12 @@ export async function getRevenue(env: Env, userId: string, days = 90): Promise<R
         (select count(distinct m.user_id)::int from memberships m
           where m.status = 'active' and m.tier <> 'free') as paying,
         count(*) filter (where p.status = 'captured')::int as captured_count,
+        -- 'created' and 'abandoned' are the real states for a checkout that
+        -- was started and not completed. There is no 'pending' in
+        -- order_status, and naming one Postgres does not know rejects the
+        -- whole statement — which is why this was a 500 rather than a zero.
         (select count(*)::int from orders o
-          where o.status in ('created', 'pending')
+          where o.status in ('created', 'abandoned')
             and o.created_at < now() - interval '1 hour'
             and o.created_at > now() - interval '30 days') as pending,
         (select count(*)::int from orders o
