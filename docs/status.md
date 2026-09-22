@@ -94,7 +94,7 @@ Audited 18 Sep 2026. "Real" means it runs against Supabase Postgres with RLS.
 | Razorpay account + webhook | The code path is complete and `BILLING_MODE=web_only` until keys are set |
 | Play user-choice billing + iOS IAP | v1.1, after the entitlement-only build clears review — `EntitlementGrant` per provider, `BILLING_MODE` toggles the client |
 | Seeded insights + wins (PLAN §10.1) | Schema, wizards and Solution Finder exist; 25–40 insights and 10–15 wins need real authors from the founding cohort |
-| End-to-end tests | 55 unit tests (`bun test`), three database suites, and `bun run smoke` — 22 in-process endpoint checks in seed mode, under a second. No browser-level tests |
+| End-to-end tests | 58 unit tests (`bun test`), three database suites, and `bun run smoke` — 23 in-process endpoint checks in seed mode, under a second. No browser-level tests |
 | Rehearsed restore + progress load test | Backup exists; the restore has never been rehearsed and the progress endpoint never load-tested |
 | SMS/DLT registration | Phone OTP rides on Supabase Auth; MSG91/Twilio + DLT is an M0 lead-time item |
 | Direct messages | Deliberately off in v1 (`feature_flags.direct_messages = false`) — moderation policy undecided |

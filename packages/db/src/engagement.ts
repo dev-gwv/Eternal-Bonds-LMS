@@ -67,6 +67,23 @@ export const commentLikes = pgTable(
   (t) => [primaryKey({ columns: [t.commentId, t.userId] })],
 );
 
+/**
+ * Who has seen a post.
+ *
+ * Distinct viewers rather than a hit counter: a counter that increments on
+ * every render rewards refreshing and can never answer the only question an
+ * author has, which is how many *people* read it.
+ */
+export const postViews = pgTable(
+  'post_views',
+  {
+    postId: uuid('post_id').notNull().references(() => posts.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    firstViewedAt: timestamp('first_viewed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.postId, t.userId] }), index('post_views_user_idx').on(t.userId)],
+);
+
 /* ── Notifications ─────────────────────────────────────────────────────────*/
 
 export const notificationKindEnum = pgEnum('notification_kind', [

@@ -6,6 +6,7 @@ import {
   notifications,
   postComments,
   postLikes,
+  postViews,
   posts,
   users,
   withUser,
@@ -100,6 +101,38 @@ export async function setCommentLike(
     if (!row) throw new HttpError(404, 'Comment not found');
 
     return { liked, likes: row.likes };
+  });
+}
+
+/**
+ * Records that this member has seen these posts.
+ *
+ * Takes a batch because the client reports a screenful at a time — one request
+ * per post scrolling by would be a request per scroll tick.
+ *
+ * `onConflictDoNothing` is what makes it idempotent: the primary key already
+ * says one row per person per post, so re-reporting is free and the client
+ * does not have to remember what it has already sent.
+ *
+ * Never counts the author's own view. Reading your own post is not readership,
+ * and a post that shows "1 view" the moment it is written reads as a bug.
+ */
+export async function recordPostViews(env: Env, userId: string | null, postIds: string[]): Promise<void> {
+  if (!userId || postIds.length === 0) return;
+  const db = getDb(env);
+  if (!db) return;
+
+  await withUser(db, userId, async (tx) => {
+    const visible = await tx
+      .select({ id: posts.id })
+      .from(posts)
+      .where(and(inArray(posts.id, postIds), sql`${posts.authorId} <> ${userId}::uuid`));
+    if (visible.length === 0) return;
+
+    await tx
+      .insert(postViews)
+      .values(visible.map((p) => ({ postId: p.id, userId })))
+      .onConflictDoNothing();
   });
 }
 

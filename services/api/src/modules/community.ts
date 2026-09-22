@@ -12,6 +12,7 @@ import { createPost } from '../writes.ts';
 import {
   createComment,
   markChannelRead,
+  recordPostViews,
   deleteComment,
   editComment,
   listComments,
@@ -27,6 +28,19 @@ export const communityRoutes = new Hono<AppEnv>()
     await markChannelRead(c.env, c.get('userId'), c.req.param('slug'));
     return c.body(null, 204);
   })
+  // Reported in batches as posts scroll into view. Fire-and-forget by design:
+  // a failed view count must never surface as an error over the feed.
+  .post(
+    '/posts/views',
+    requireAuth,
+    zValidator('json', z.object({ postIds: z.array(z.uuid()).min(1).max(50) }), (result, c) =>
+      result.success ? undefined : problem(c, 422, 'Invalid post ids'),
+    ),
+    async (c) => {
+      await recordPostViews(c.env, c.get('userId'), c.req.valid('json').postIds);
+      return c.body(null, 204);
+    },
+  )
   .get('/posts', async (c) => {
     const items = await listPosts(c.env, c.get('userId'), c.req.query('channel'));
     return c.json({ items });

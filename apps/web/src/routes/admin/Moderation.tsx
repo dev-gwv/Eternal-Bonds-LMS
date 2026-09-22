@@ -8,10 +8,21 @@ import { Card } from '../../shared/ui/primitives.tsx';
 export function ModerationPage() {
   const qc = useQueryClient();
   const reports = useQuery({ queryKey: ['reports'], queryFn: api.reports });
+  const pending = useQuery({ queryKey: ['pending-wins'], queryFn: api.pendingWins });
   const audit = useQuery({ queryKey: ['audit'], queryFn: api.audit });
   const flags = useQuery({ queryKey: ['flags'], queryFn: api.flags });
   const [event, setEvent] = useState({ slug: '', title: '', startsAt: '', endsAt: '' });
   const [msg, setMsg] = useState<string | null>(null);
+
+  const review = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: 'published' | 'hidden' }) => {
+      await api.reviewWin(id, status);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pending-wins'] });
+      qc.invalidateQueries({ queryKey: ['wins'] });
+    },
+  });
 
   const resolve = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: 'actioned' | 'dismissed' }) => {
@@ -24,10 +35,31 @@ export function ModerationPage() {
   });
 
   const openReports = (reports.data ?? []).filter((r: { status: string }) => r.status === 'open');
+  const pendingWins = pending.data ?? [];
 
   return (
     <Page>
       <PageHeader title="Moderation" crumbs={[{ label: 'Studio', to: '/admin' }, { label: 'Moderation' }]} />
+      <span className="section-label">Wins awaiting review</span>
+      {pendingWins.map((w: { id: string; title: string; bigIdeaMd: string; authorName: string }) => (
+        <Card key={w.id}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ flex: 1, minWidth: 220 }}>
+              <strong style={{ fontSize: 12 }}>{w.title}</strong>
+              <span style={{ display: 'block', fontSize: 11 }} className="muted">
+                by {w.authorName} · {w.bigIdeaMd.slice(0, 140)}
+              </span>
+            </span>
+            <button className="btn btn-soft" disabled={review.isPending}
+              onClick={() => review.mutate({ id: w.id, status: 'hidden' })}>Hide</button>
+            <button className="btn btn-pink" disabled={review.isPending} style={{ color: '#fff' }}
+              onClick={() => review.mutate({ id: w.id, status: 'published' })}>Publish</button>
+          </div>
+        </Card>
+      ))}
+      {pendingWins.length === 0 && !pending.isPending && (
+        <Card><span className="muted" style={{ fontSize: 12 }}>No wins waiting.</span></Card>
+      )}
       <span className="section-label">Reports queue</span>
       {openReports.map((r: { id: string; targetType: string; reason: string }) => (
         <Card key={r.id}>

@@ -9,33 +9,38 @@ import { LoadingLabel, Skeleton, SkeletonCard } from '../shared/ui/Skeleton.tsx'
 const TONES = ['pink', 'yellow', 'blue', 'green'] as const;
 
 export function DashboardPage() {
-  const stats = useQuery({ queryKey: ['stats'], queryFn: api.stats });
+  // One round trip for first paint (GET /v1/me/dashboard) instead of five
+  // parallel queries — five TLS handshakes on a phone over 4G.
+  const dashboard = useQuery({ queryKey: ['dashboard'], queryFn: api.dashboard });
   const me = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: 5 * 60_000, retry: false });
-  const activity = useQuery({ queryKey: ['activity'], queryFn: api.activity });
-  const workshops = useQuery({ queryKey: ['workshops', 'upcoming'], queryFn: () => api.workshops('upcoming') });
-  const leaderboard = useQuery({ queryKey: ['leaderboard'], queryFn: api.leaderboard });
 
-  const watched = (activity.data ?? []).reduce((sum, d) => sum + d.courses + d.workshops + d.library, 0);
+  const stats = dashboard.data?.stats;
+  const activityDays = dashboard.data?.activity ?? [];
+  const workshopList = dashboard.data?.workshops ?? [];
+  const board = dashboard.data?.leaderboard ?? [];
+
+  const watched = activityDays.reduce((sum, d) => sum + d.courses + d.workshops + d.library, 0);
   const { hours, minutes } = hoursMinutes(watched);
   // The tile covers 30 days and the chart covers 7, so they are different
   // numbers on purpose — the tile says so in its label.
-  const learned = hoursMinutes(stats.data?.minutesLearned ?? 0);
+  const learned = hoursMinutes(stats?.minutesLearned ?? 0);
 
   // How much XP separates them from the member directly above. Null when they
   // have none yet — there is no gap to close if the race has not started.
+  // 'capped' when their rank is beyond the board the API returns: claiming a
+  // gap of zero there would read as "top of the club" to someone at rank 51.
   const gapToNext = (() => {
-    const me = stats.data;
-    const board = leaderboard.data ?? [];
-    if (!me || me.xp === 0 || me.rank === null) return null;
-    if (me.rank === 1) return 0;
-    const above = board.filter((r) => r.xp > me.xp).sort((a, b) => a.xp - b.xp)[0];
-    return above ? Math.max(0, above.xp - me.xp) : 0;
+    if (!stats || stats.xp === 0 || stats.rank === null) return null;
+    if (stats.rank === 1) return 0;
+    const above = board.filter((r) => r.xp > stats.xp).sort((a, b) => a.xp - b.xp)[0];
+    if (above) return Math.max(0, above.xp - stats.xp);
+    return 'capped' as const;
   })();
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const firstName = me.data?.fullName.split(' ')[0];
-  const streak = stats.data?.streakDays ?? 0;
+  const streak = stats?.streakDays ?? 0;
 
   return (
     <Page>
@@ -54,7 +59,7 @@ export function DashboardPage() {
         eyebrow={`Day streak · ${streak} ${streak === 1 ? 'day' : 'days'} and counting`}
         title={firstName ? `${greeting}, ${firstName}.` : `${greeting}.`}
         sub={
-          gapToNext !== null && gapToNext > 0
+          typeof gapToNext === 'number' && gapToNext > 0
             ? `You're ${gapToNext.toLocaleString('en-IN')} XP from the member above you. One lesson closes it.`
             : 'Small efforts, repeated daily. Pick up where you left off.'
         }
@@ -72,7 +77,7 @@ export function DashboardPage() {
               total workshops, registrations, attendees and attendance rate —
               facts about the club, on the landing page of one person in it. */}
           <div className="grid grid-4">
-            {stats.isPending ? (
+            {dashboard.isPending ? (
               <>
                 <LoadingLabel>Loading your stats</LoadingLabel>
                 {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} lines={1} />)}
@@ -83,7 +88,7 @@ export function DashboardPage() {
                   label="Lessons finished"
                   tone="pink"
                   icon={<Icon name="check" size={18} strokeWidth={2.3} />}
-                  value={String(stats.data?.lessonsCompleted ?? 0)}
+                  value={String(stats?.lessonsCompleted ?? 0)}
                 />
                 <StatTile
                   label={learned.hours > 0 ? 'Learning time · 30 days' : 'Learning time'}
@@ -93,21 +98,21 @@ export function DashboardPage() {
                 />
                 <StatTile
                   label={
-                    (stats.data?.streakDays ?? 0) > 0
-                      ? `Day streak · best ${stats.data?.longestStreakDays}`
+                    (stats?.streakDays ?? 0) > 0
+                      ? `Day streak · best ${stats?.longestStreakDays}`
                       : 'Day streak'
                   }
                   tone="blue"
                   icon={<Icon name="chart" size={18} strokeWidth={1.9} />}
-                  value={String(stats.data?.streakDays ?? 0)}
+                  value={String(stats?.streakDays ?? 0)}
                 />
                 <StatTile
                   // Rank is null until they have any XP — an unranked member
                   // is not in last place, and saying so would be a small lie.
-                  label={stats.data?.rank ? `XP · rank ${stats.data.rank}` : 'XP'}
+                  label={stats?.rank ? `XP · rank ${stats.rank}` : 'XP'}
                   tone="green"
                   icon={<Icon name="courses" size={18} strokeWidth={1.9} />}
-                  value={(stats.data?.xp ?? 0).toLocaleString('en-IN')}
+                  value={(stats?.xp ?? 0).toLocaleString('en-IN')}
                 />
               </>
             )}
@@ -123,20 +128,20 @@ export function DashboardPage() {
               <span className="metric num">{minutes}</span>
               <span style={{ fontSize: 11 }} className="dim">minutes</span>
             </div>
-            {activity.isPending ? (
+            {dashboard.isPending ? (
               <Skeleton height={192} radius={12} />
             ) : (
-              activity.data && <ActivityChart days={activity.data} />
+              <ActivityChart days={activityDays} />
             )}
           </Card>
         </div>
 
         <div className="col rail">
           <Card title="Upcoming" action={<Link to="/workshops" style={{ fontSize: 11 }}>See all</Link>}>
-            {(workshops.data ?? []).length === 0 && !workshops.isPending && (
+            {workshopList.length === 0 && !dashboard.isPending && (
               <EmptyState icon="workshops" title="Nothing scheduled" hint="Live sessions show up here." />
             )}
-            {(workshops.data ?? []).slice(0, 3).map((w, i) => (
+            {workshopList.slice(0, 3).map((w, i) => (
               <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                 <DateBadge month={monthShort(w.startsAt)} day={dayNumber(w.startsAt)} tone={TONES[i % TONES.length]} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -148,14 +153,16 @@ export function DashboardPage() {
           </Card>
 
           <Card title="Leaderboard" style={{ flex: 1 }}>
-            {(leaderboard.data ?? []).length === 0 && !leaderboard.isPending && (
+            {board.length === 0 && !dashboard.isPending && (
               <EmptyState
                 icon="chart"
                 title="No rankings yet"
                 hint="Finish a lesson or post a win and you will be on it."
               />
             )}
-            {(leaderboard.data ?? []).map((row) => (
+            {/* The API returns the top 50 so the gap promo can find the member
+                directly above anyone at a realistic rank; the rail shows ten. */}
+            {board.slice(0, 10).map((row) => (
               <div
                 key={row.rank}
                 style={{
@@ -193,12 +200,14 @@ export function DashboardPage() {
           {/* Was a hardcoded "You are 3.1K XP away … top 25" shown to everyone,
               including members with no XP at all. Now it only appears when
               there is a real gap to close, and states the real number. */}
-          {stats.data && gapToNext !== null && (
+          {stats && gapToNext !== null && (
             <div className="promo">
               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--yellow-deep)' }}>
                 {gapToNext === 0
-                  ? `You are ${stats.data.rank === 1 ? 'top of the club' : `rank ${stats.data.rank}`}`
-                  : `${xpLabel(gapToNext)} XP to rank ${(stats.data.rank ?? 2) - 1}`}
+                  ? `You are ${stats.rank === 1 ? 'top of the club' : `rank ${stats.rank}`}`
+                  : gapToNext === 'capped'
+                    ? `You are rank ${stats.rank} — climb into the top 50`
+                    : `${xpLabel(gapToNext)} XP to rank ${(stats.rank ?? 2) - 1}`}
               </span>
               <span style={{ fontSize: 11, lineHeight: 1.5, color: '#7a5a00' }}>
                 {gapToNext === 0
@@ -211,7 +220,7 @@ export function DashboardPage() {
             </div>
           )}
 
-          {stats.data && stats.data.xp === 0 && (
+          {stats && stats.xp === 0 && (
             <div className="promo">
               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--yellow-deep)' }}>Start earning XP</span>
               <span style={{ fontSize: 11, lineHeight: 1.5, color: '#7a5a00' }}>

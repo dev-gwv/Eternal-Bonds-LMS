@@ -1,67 +1,110 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import { api, relativeTime } from '../shared/api.ts';
-import { Page } from '../shared/layout/AppShell.tsx';
-import { Card, Chip, EmptyState, Hero } from '../shared/ui/primitives.tsx';
-import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
+import { useEffect, useState } from 'react';
+import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
+import { Icon } from '../shared/ui/primitives.tsx';
 
-/** Photolancer: paid work inside the club. Briefs → applications → agreed terms. */
+/**
+ * Photolancer.
+ *
+ * This page used to say the marketplace was "in development". It is not —
+ * photolancer.in is a live product with photographers, gigs and messaging on
+ * it, and the club's current platform simply embeds it. Building a second
+ * marketplace next to a working one would be the expensive way to have two
+ * half-populated marketplaces.
+ *
+ * So it is framed, exactly as the existing platform does it, with an escape
+ * hatch. The frame is the risk: a third party can add X-Frame-Options at any
+ * time, and the browser gives no usable event when it does — a blocked frame
+ * and a slow frame look identical from here. Hence the always-visible "open in
+ * a new tab" and the nudge that appears if nothing has painted after a few
+ * seconds, so the failure mode is a visible door rather than a white rectangle.
+ */
+
+const SRC = 'https://photolancer.in/';
+
 export function PhotolancerPage() {
-  const qc = useQueryClient();
-  const briefs = useQuery({ queryKey: ['briefs'], queryFn: api.briefs });
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', bodyMd: '', city: '' });
-  const [pitch, setPitch] = useState<Record<string, string>>({});
+  const [loaded, setLoaded] = useState(false);
+  const [slow, setSlow] = useState(false);
 
-  const create = useMutation({
-    mutationFn: () => api.createBrief({ ...form, city: form.city || null, budgetPaise: null, shootOn: null }),
-    onSuccess: () => { setShowForm(false); setForm({ title: '', bodyMd: '', city: '' }); qc.invalidateQueries({ queryKey: ['briefs'] }); },
-  });
-  const apply = useMutation({
-    mutationFn: ({ id, pitchMd }: { id: string; pitchMd: string }) => api.applyBrief(id, pitchMd),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['briefs'] }),
-  });
+  // Not an error state — a blocked frame is undetectable from here — just an
+  // offer of the other way in once waiting has stopped being reasonable.
+  useEffect(() => {
+    const id = setTimeout(() => setSlow(true), 6000);
+    return () => clearTimeout(id);
+  }, []);
 
   return (
     <Page>
-      <Hero
-        tone="ink"
-        eyebrow="Photolancer · Paid work inside the club"
-        title="Real shoots, real budgets."
-        sub="Clients post briefs with dates and budgets. Your profile, tier and finished courses travel with every application."
-        actions={<button className="btn btn-pink" style={{ color: '#fff' }} onClick={() => setShowForm((s) => !s)}>Post a brief</button>}
+      <PageHeader
+        title="Photolancer"
+        crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Photolancer' }]}
+        actions={
+          <a
+            href={SRC}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="btn btn-soft"
+            style={{ color: 'inherit' }}
+          >
+            <Icon name="link" size={13} />
+            Open in a new tab
+          </a>
+        }
       />
-      {showForm && (
-        <Card>
-          <label style={{ fontSize: 12 }}>Shoot title<input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
-          <label style={{ fontSize: 12 }}>What is actually wanted<textarea className="input" rows={4} value={form.bodyMd} onChange={(e) => setForm({ ...form, bodyMd: e.target.value })} /></label>
-          <label style={{ fontSize: 12 }}>City<input className="input" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></label>
-          <button className="btn btn-pink" disabled={form.title.trim().length < 8 || form.bodyMd.trim().length < 20 || create.isPending}
-            onClick={() => create.mutate()}>Publish brief</button>
-        </Card>
+
+      {!loaded && slow && (
+        <div className="callout">
+          Photolancer is taking a while to load here. It sometimes refuses to run inside another site —{' '}
+          <a href={SRC} target="_blank" rel="noreferrer noopener" style={{ color: 'var(--pink-ink)' }}>
+            open it in a new tab
+          </a>{' '}
+          instead.
+        </div>
       )}
-      <span className="section-label">Open briefs</span>
-      {briefs.isPending ? <SkeletonCard /> : briefs.isError ? <LoadingLabel>Something went wrong</LoadingLabel> :
-        briefs.data.length === 0 ? <EmptyState title="No open briefs" hint="Post one, or check the community — members pass briefs there every week." /> :
-        briefs.data.map((b) => (
-          <Card key={b.id}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <strong style={{ fontSize: 13, flex: 1 }}>{b.title}</strong>
-              {b.city && <Chip>{b.city}</Chip>}
-              <Chip tone="pink">{b.applicationCount} applied</Chip>
-            </div>
-            <p style={{ fontSize: 12 }} className="muted">{b.bodyMd.slice(0, 300)}</p>
-            <span style={{ fontSize: 10 }} className="dim">{relativeTime(b.createdAt)}</span>
-            {b.appliedByMe ? <span className="muted" style={{ fontSize: 12 }}>✓ Applied — your profile, tier and finished courses travelled with it.</span> : (
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input className="input" placeholder="Your pitch…" value={pitch[b.id] ?? ''}
-                  onChange={(e) => setPitch((p) => ({ ...p, [b.id]: e.target.value }))} aria-label="Pitch" />
-                <button className="btn btn-soft" disabled={!(pitch[b.id] ?? '').trim() || apply.isPending}
-                  onClick={() => apply.mutate({ id: b.id, pitchMd: pitch[b.id] ?? '' })}>Apply</button>
-              </div>
-            )}
-          </Card>
-        ))}
+
+      <div
+        style={{
+          position: 'relative',
+          flex: 1,
+          minHeight: 'min(78vh, 900px)',
+          borderRadius: 'var(--r-card)',
+          overflow: 'hidden',
+          border: '1px solid var(--hair)',
+          background: 'var(--softer)',
+        }}
+      >
+        {!loaded && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: 12,
+            }}
+            className="dim"
+          >
+            Loading Photolancer…
+          </div>
+        )}
+
+        <iframe
+          src={SRC}
+          title="Photolancer — find photographers and gigs"
+          onLoad={() => setLoaded(true)}
+          // Deliberately narrow. Photolancer is a third party: it gets to run
+          // scripts, submit its own forms and open links, and nothing else.
+          // No allow-same-origin, so it cannot reach our storage or cookies.
+          sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+          referrerPolicy="strict-origin-when-cross-origin"
+          loading="lazy"
+          style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+        />
+      </div>
+
+      <span style={{ fontSize: 10.5, lineHeight: 1.55 }} className="dim">
+        Photolancer is a separate product. Your Eternal Bonds membership and your Photolancer account are
+        not linked yet — signing in there is its own login.
+      </span>
     </Page>
   );
 }

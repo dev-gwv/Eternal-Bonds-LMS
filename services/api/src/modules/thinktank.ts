@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { bookmarks, insightDomains, insightImpactAreas, insightSteps, insightVotes, insights, solutions, unmatchedDilemmas, users, voteCycles, withUser } from '@ipc/db';
+import { activityEvents, bookmarks, insightDomains, insightImpactAreas, insightSteps, insightVotes, insights, solutions, unmatchedDilemmas, users, voteCycles, withUser } from '@ipc/db';
 import { ShareInsight } from '@ipc/contracts';
 import type { AppEnv } from '../context.ts';
 import { problem } from '../lib/problem.ts';
@@ -148,6 +148,11 @@ export const thinktankRoutes = new Hono<AppEnv>()
         for (const [i, s] of input.steps.entries()) {
           await tx.insert(insightSteps).values({ insightId: row.id, title: s.title, bodyMd: s.bodyMd, rank: String(100 * (i + 1)) });
         }
+        // Same transaction as the insight: the badge engine counts this kind,
+        // and the count cannot drift from the thing it counts.
+        await tx.insert(activityEvents).values({
+          userId, kind: 'insight.published', payload: { insightId: row.id }, xp: 30,
+        });
         return c.json({ id: row.id, slug: row.slug }, 201);
       });
     })

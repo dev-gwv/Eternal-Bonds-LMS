@@ -213,6 +213,8 @@ export const posts = pgTable(
     status: text('status').notNull().default('published'),
     likesCount: integer('likes_count').notNull().default(0),
     commentsCount: integer('comments_count').notNull().default(0),
+    /** Distinct viewers, maintained by a trigger on post_views. */
+    viewsCount: integer('views_count').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('posts_channel_created_idx').on(t.channelId, t.createdAt)],

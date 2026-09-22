@@ -3,7 +3,7 @@ import type { Db } from '@ipc/db';
 import { readEnv, type Env } from './env.ts';
 import { expireMemberships, reprocessWebhooks } from './jobs/billing.ts';
 import { awardBadges, eventReminders } from './jobs/platform.ts';
-import { buildWeeklyDigest, purgeDeletedAccounts, sweepExpired } from './jobs/lifecycle.ts';
+import { buildWeeklyDigest, creditWorkshopAttendance, purgeDeletedAccounts, sweepExpired } from './jobs/lifecycle.ts';
 import { guardPublishedCourses, pollVideoStatus } from './jobs/media.ts';
 import { deliverNotifications, drainOutbox } from './jobs/notify.ts';
 import {
@@ -131,6 +131,12 @@ export const JOBS: JobDefinition[] = [
     description: 'Remind RSVP’d members 24h before an event starts',
     everySeconds: 900,
     run: ({ db }) => eventReminders(db),
+  },
+  {
+    kind: 'workshops.credit',
+    description: 'Credit attendance for registrations of workshops that have ended',
+    everySeconds: 3600,
+    run: ({ db }) => creditWorkshopAttendance(db),
   },
 ];
 

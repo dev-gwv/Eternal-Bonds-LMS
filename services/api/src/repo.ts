@@ -289,6 +289,7 @@ export async function listPosts(env: Env, userId: string | null, channelSlug?: s
         bodyMd: posts.bodyMd,
         likesCount: posts.likesCount,
         commentsCount: posts.commentsCount,
+        viewsCount: posts.viewsCount,
         createdAt: posts.createdAt,
         channelSlug: channels.slug,
         authorName: users.fullName,
@@ -321,6 +322,7 @@ export async function listPosts(env: Env, userId: string | null, channelSlug?: s
       likes: r.likesCount,
       likedByMe: Boolean(r.likedByMe),
       comments: r.commentsCount,
+      views: r.viewsCount,
       createdAt: r.createdAt.toISOString(),
       teamReply: null,
     }));

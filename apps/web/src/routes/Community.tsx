@@ -6,6 +6,7 @@ import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Avatar, Card, Chip, EmptyState, Icon, Tile } from '../shared/ui/primitives.tsx';
 import { CommentThread } from '../shared/ui/Comments.tsx';
 import { NextUp } from '../shared/ui/NextUp.tsx';
+import { useSeen } from '../shared/ui/useSeen.tsx';
 import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 
 const CHANNEL_ICON: Record<string, { icon: string; tone: 'pink' | 'yellow' | 'blue' | 'green' }> = {
@@ -15,7 +16,7 @@ const CHANNEL_ICON: Record<string, { icon: string; tone: 'pink' | 'yellow' | 'bl
   introductions: { icon: 'plus', tone: 'green' },
 };
 
-function PostCard({ post }: { post: Post }) {
+function PostCard({ post, seenRef }: { post: Post; seenRef?: (node: HTMLElement | null) => void }) {
   const queryClient = useQueryClient();
   // The thread is collapsed until asked for: a feed of twenty posts must not
   // be twenty comment queries nobody wanted.
@@ -114,6 +115,16 @@ function PostCard({ post }: { post: Post }) {
           <Icon name="comment" size={15} strokeWidth={1.9} />
           {post.comments}
         </button>
+        {post.views > 0 && (
+          <span
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11 }}
+            className="dim"
+            title={`${post.views} member${post.views === 1 ? '' : 's'} have seen this`}
+          >
+            <Icon name="eye" size={14} strokeWidth={1.9} />
+            {post.views > 999 ? `${(post.views / 1000).toFixed(1)}K` : post.views}
+          </span>
+        )}
         <span style={{ flex: 1 }} />
         <button
           type="button"
@@ -168,6 +179,7 @@ export function CommunityPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['channels'] }),
   });
 
+  const seen = useSeen();
   const totalUnread = (channels.data ?? []).reduce((n, ch) => n + ch.unread, 0);
 
   const openChannel = (slug: string | undefined) => {
@@ -350,7 +362,7 @@ export function CommunityPage() {
             </Card>
           )}
 
-          {(posts.data ?? []).map((p) => <PostCard key={p.id} post={p} />)}
+          {(posts.data ?? []).map((p) => <PostCard key={p.id} post={p} seenRef={seen(p.id)} />)}
         </div>
 
         <div className="col rail">

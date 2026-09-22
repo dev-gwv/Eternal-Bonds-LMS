@@ -6,9 +6,9 @@ import { ActivityChart, ProgressRing, ScoreGauge, TrendLine } from '../shared/ui
 import { Card, Chip, Dropdown, Icon, Tile } from '../shared/ui/primitives.tsx';
 
 const SERIES_LABELS = [
-  { key: 'participation', label: 'Participation', color: 'var(--s1)' },
-  { key: 'quiz', label: 'Quiz', color: 'var(--s2)' },
-  { key: 'exam', label: 'Exam', color: 'var(--s3)' },
+  { key: 'consistency', label: 'Consistency · active days', color: 'var(--s1)' },
+  { key: 'completion', label: 'Completion · lessons finished', color: 'var(--s2)' },
+  { key: 'streak', label: 'Streak · longest run', color: 'var(--s3)' },
 ] as const;
 
 const CONTACT_TONE = { email: 'pink', phone: 'yellow', address: 'blue' } as const;
@@ -157,7 +157,7 @@ export function MemberPage() {
               {activity.data && <ActivityChart days={activity.data} />}
             </Card>
 
-            <Card title="Performance" action={<Dropdown label="Last 6 Months" />} style={{ width: 396, minHeight: 286 }}>
+            <Card title="Momentum" action={<Dropdown label="Last 6 Months" />} style={{ width: 396, minHeight: 286 }}>
               {performance.data && (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

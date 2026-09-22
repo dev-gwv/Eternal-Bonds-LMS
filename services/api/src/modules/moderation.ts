@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { desc, eq, sql } from 'drizzle-orm';
-import { auditLog, channelModerators, featureFlags, impersonationSessions, reports, users, withUser } from '@ipc/db';
+import { activityEvents, auditLog, channelModerators, featureFlags, impersonationSessions, reports, users, wins, withUser } from '@ipc/db';
 import { CreateReport, TermsAccept } from '@ipc/contracts';
 import type { AppEnv } from '../context.ts';
 import { problem, HttpError } from '../lib/problem.ts';
@@ -57,8 +57,47 @@ export const moderationRoutes = new Hono<AppEnv>()
         return c.json({ ok: true });
       });
     })
-  .get('/audit', requireAdmin, async (c) => {
+  // Wins moderation: first-time posters wait here; trusted members never do
+  // (they auto-publish on submit). Approving fires the same publish
+  // transition — outbox fan-out plus badge count — as the trusted path.
+  .get('/wins/pending', requireAdmin, async (c) => {
     const db = needDb(c.env);
+    return withUser(db, c.get('userId'), async (tx) => {
+      const rows = await tx.select({ w: wins, authorName: users.fullName })
+        .from(wins).innerJoin(users, eq(users.id, wins.authorId))
+        .where(eq(wins.status, 'pending' as any))
+        .orderBy(desc(wins.createdAt)).limit(50);
+      return c.json({
+        items: rows.map((r) => ({
+          id: r.w.id, slug: r.w.slug, title: r.w.title, bigIdeaMd: r.w.bigIdeaMd,
+          howItHappenedMd: r.w.howItHappenedMd, category: r.w.category,
+          authorName: r.authorName, createdAt: r.w.createdAt.toISOString(),
+        })),
+      });
+    });
+  })
+  .post('/wins/:id/review', requireAdmin,
+    zValidator('json', z.object({ status: z.enum(['published', 'hidden']) }), invalid), async (c) => {
+      const db = needDb(c.env);
+      const adminId = c.get('userId');
+      const status = c.req.valid('json').status;
+      return withUser(db, adminId, async (tx) => {
+        const [row] = await tx.update(wins).set({ status: status as any })
+          .where(eq(wins.id, c.req.param('id'))).returning();
+        if (!row) throw new HttpError(404, 'Win not found');
+        if (status === 'published') {
+          await tx.insert(activityEvents).values({
+            userId: row.authorId, kind: 'win.published', payload: { winId: row.id }, xp: 40,
+          });
+        }
+        await tx.insert(auditLog).values({
+          actorId: adminId, action: `win.${status}`,
+          targetType: 'win', targetId: c.req.param('id'),
+        });
+        return c.json({ ok: true, status });
+      });
+    })
+  .get('/audit', requireAdmin, async (c) => {    const db = needDb(c.env);
     return withUser(db, c.get('userId'), async (tx) => {
       const rows = await tx.select({ a: auditLog, name: users.fullName })
         .from(auditLog).leftJoin(users, eq(users.id, auditLog.actorId))

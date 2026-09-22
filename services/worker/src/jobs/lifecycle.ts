@@ -90,6 +90,40 @@ export async function buildWeeklyDigest(db: Db) {
 }
 
 /**
+ * Credits workshop attendance after the fact.
+ *
+ * There is no attendance tracking on the call itself, so "registered when it
+ * ended" is the honest proxy — and it beats the alternative, which is the
+ * `workshops_attended` rollup reading a kind nothing ever emits. The NOT
+ * EXISTS guard makes it idempotent: run hourly, credit once. An "I was there"
+ * button can replace the proxy later without changing the event shape.
+ */
+export async function creditWorkshopAttendance(db: Db) {
+  const result = await db.execute<{ count: number }>(sql`
+    with credited as (
+      insert into activity_events (user_id, kind, payload, xp, minutes)
+      select
+        r.user_id,
+        'workshop.attended',
+        jsonb_build_object('workshopId', r.workshop_id),
+        60, 60
+      from workshop_registrations r
+      join workshops w on w.id = r.workshop_id
+      where w.ends_at < now() - interval '1 hour'
+        and not exists (
+          select 1 from activity_events a
+          where a.user_id = r.user_id
+            and a.kind = 'workshop.attended'
+            and a.payload ->> 'workshopId' = r.workshop_id::text
+        )
+      returning 1
+    )
+    select count(*)::int as count from credited
+  `);
+  return { credited: result[0]?.count ?? 0 };
+}
+
+/**
  * Deletes rows whose only job was to remember something for a short while.
  *
  * Idempotency records past their 24-hour replay window and rate-limit windows

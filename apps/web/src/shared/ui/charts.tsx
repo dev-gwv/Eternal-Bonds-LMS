@@ -194,7 +194,7 @@ export function ScoreGauge({ performance, width = 160 }: { performance: Performa
   const arc = 'M22 84 A58 58 0 0 1 138 84';
   const len = Math.PI * 58;
   const seg = (pct: number) => (pct / 100) * len;
-  const { participation, quiz, exam } = performance.breakdown;
+  const { consistency, completion, streak } = performance.breakdown;
 
   return (
     <svg
@@ -202,16 +202,16 @@ export function ScoreGauge({ performance, width = 160 }: { performance: Performa
       height={(width / 160) * 96}
       viewBox="0 0 160 96"
       role="img"
-      aria-label={`Total score ${performance.totalScore} percent: participation ${participation}, quiz ${quiz}, exam ${exam}`}
+      aria-label={`Momentum ${performance.totalScore} percent: consistency ${consistency}, completion ${completion}, streak ${streak}`}
     >
       <path d={arc} fill="none" stroke="var(--track)" strokeWidth="17" strokeLinecap="round" />
       <path d={arc} fill="none" stroke="var(--s1)" strokeWidth="17" strokeLinecap="round"
-        strokeDasharray={`${seg(participation)} ${len}`} />
+        strokeDasharray={`${seg(consistency)} ${len}`} />
       <path d={arc} fill="none" stroke="var(--s2)" strokeWidth="17"
-        strokeDasharray={`${seg(quiz)} ${len}`} strokeDashoffset={-seg(participation) - 3} />
+        strokeDasharray={`${seg(completion)} ${len}`} strokeDashoffset={-seg(consistency) - 3} />
       <path d={arc} fill="none" stroke="var(--s3)" strokeWidth="17" strokeLinecap="round"
-        strokeDasharray={`${seg(exam)} ${len}`} strokeDashoffset={-seg(participation + quiz) - 6} />
-      <text x="80" y="66" textAnchor="middle" fontSize="10" fill="var(--ink-3)">Total Score</text>
+        strokeDasharray={`${seg(streak)} ${len}`} strokeDashoffset={-seg(consistency + completion) - 6} />
+      <text x="80" y="66" textAnchor="middle" fontSize="10" fill="var(--ink-3)">Momentum</text>
       <text x="80" y="86" textAnchor="middle" fontSize="24" fontWeight="600" fill="var(--ink)">
         {performance.totalScore}%
       </text>

@@ -3,11 +3,10 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { DeleteAccount, NotificationPrefs, RegisterPushToken } from '@ipc/contracts';
 import type { AppEnv } from '../context.ts';
-import { performance } from '../data/seed.ts';
 import { roleOf } from '../admin.ts';
 import { listNotifications, markNotificationsRead } from '../engagement.ts';
 import { getPrefs, registerPushToken, revokePushToken, updatePrefs } from '../prefs.ts';
-import { getActivity, getStats } from '../rollups.ts';
+import { getActivity, getDashboard, getPerformance, getStats } from '../rollups.ts';
 import { problem } from '../lib/problem.ts';
 import { requireAuth } from '../middleware/auth.ts';
 import { rateLimit } from '../middleware/rateLimit.ts';
@@ -23,9 +22,13 @@ export const meRoutes = new Hono<AppEnv>()
   })
   // Read from the worker's rollups, never from the raw event stream.
   .get('/activity', async (c) => c.json({ items: await getActivity(c.env, c.get('userId')) }))
-  // Performance has no rollup yet — quizzes and exams do not exist (PLAN §10.3).
-  .get('/performance', (c) => c.json(performance))
+  // Momentum, computed from real rollups. There are no quizzes, so the old
+  // participation/quiz/exam breakdown was fiction served as data.
+  .get('/performance', async (c) => c.json(await getPerformance(c.env, c.get('userId'))))
   .get('/stats', async (c) => c.json(await getStats(c.env, c.get('userId'))))
+  // One round trip for first paint. The individual endpoints stay for the
+  // pages that own them.
+  .get('/dashboard', async (c) => c.json(await getDashboard(c.env, c.get('userId'))))
 
   /* Who the UI is rendering for. It exists so the shell can decide whether to
      show the Studio link without guessing — the API still re-checks on every

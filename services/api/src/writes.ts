@@ -42,6 +42,7 @@ export async function createPost(env: Env, userId: string | null, input: CreateP
       likes: 0,
       likedByMe: false,
       comments: 0,
+      views: 0,
       createdAt: new Date().toISOString(),
       teamReply: null,
     };
@@ -96,6 +97,7 @@ export async function createPost(env: Env, userId: string | null, input: CreateP
       likes: row.likesCount,
       likedByMe: false,
       comments: row.commentsCount,
+      views: row.viewsCount,
       createdAt: row.createdAt.toISOString(),
       teamReply: null,
     } satisfies Post;
@@ -222,6 +224,19 @@ export async function saveProgress(
         payload: { lessonId, courseId: course.courseId },
         xp: 50,
         minutes: Math.round(input.watchedSeconds / 60),
+      });
+    } else if (input.watchedSeconds > 0) {
+      // Heartbeat, not just finish line: the chart, the 30-day headline and
+      // the streak all read `minutes` from activity_events, and a member who
+      // watches 40 minutes without completing would otherwise record zero.
+      // Writes already arrive debounced (~15s), so this is ~4 rows/minute per
+      // active viewer — trivial for an append-only table.
+      await tx.insert(activityEvents).values({
+        userId,
+        kind: 'lesson.progress',
+        payload: { lessonId, courseId: course.courseId },
+        xp: 0,
+        minutes: Math.max(1, Math.round(input.watchedSeconds / 60)),
       });
     }
 

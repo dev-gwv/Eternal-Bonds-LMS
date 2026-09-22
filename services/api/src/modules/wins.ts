@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { reactions, users, winComments, winMedia, wins, withUser } from '@ipc/db';
+import { activityEvents, reactions, users, winComments, winMedia, wins, withUser } from '@ipc/db';
 import { CreateReport, SubmitWin } from '@ipc/contracts';
 import type { AppEnv } from '../context.ts';
 import { problem, HttpError } from '../lib/problem.ts';
@@ -109,11 +109,25 @@ export const winsRoutes = new Hono<AppEnv>()
       const input = c.req.valid('json');
       return withUser(db, userId, async (tx) => {
         const base = input.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+        // Trusted members skip the queue: one published win is the proof the
+        // next one does not need reviewing. Everyone else starts pending.
+        const trusted = (await tx.select({ id: wins.id }).from(wins)
+          .where(and(eq(wins.authorId, userId), eq(wins.status, 'published' as any)))
+          .limit(1)).length > 0;
         const row = (await tx.insert(wins).values({
           authorId: userId, slug: `${base}-${Date.now().toString(36)}`, title: input.title,
           bigIdeaMd: input.bigIdeaMd, howItHappenedMd: input.howItHappenedMd, category: input.category,
-          occurredOn: input.occurredOn, tags: input.tags, publicShare: input.publicShare, status: 'pending',
+          occurredOn: input.occurredOn, tags: input.tags, publicShare: input.publicShare,
+          status: 'pending',
         }).returning())[0]!;
+        if (trusted) {
+          // Update, not insert-as-published: the outbox trigger fires on the
+          // publish *transition*, so the notification cannot exist without it.
+          await tx.update(wins).set({ status: 'published' }).where(eq(wins.id, row.id));
+          await tx.insert(activityEvents).values({
+            userId, kind: 'win.published', payload: { winId: row.id }, xp: 40,
+          });
+        }
         return c.json({ id: row.id, slug: row.slug }, 201);
       });
     })

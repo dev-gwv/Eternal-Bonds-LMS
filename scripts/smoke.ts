@@ -33,6 +33,7 @@ const routes = [
   '/v1/events',
   '/v1/photolancer/briefs',
   '/v1/directory',
+  '/v1/me/dashboard',
   '/v1/moderation/flags',
 ];
 

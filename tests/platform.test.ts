@@ -3,7 +3,7 @@ import {
   badgeEarned, nextStreak, progressPercent, rankBetween, shouldAutoComplete, tierAllows,
 } from '@ipc/domain';
 import { can } from '@ipc/permissions';
-import { ShareInsight, SubmitWin } from '@ipc/contracts';
+import { Dashboard, Performance, ShareInsight, SubmitWin } from '@ipc/contracts';
 
 /**
  * Platform second half: domain rules, the permissions matrix and the
@@ -78,5 +78,46 @@ describe('reorder ranks', () => {
     expect(rankBetween(100, 200)).toBe(150);
     expect(rankBetween(null, 100)).toBeLessThan(100);
     expect(rankBetween(100, null)).toBeGreaterThan(100);
+  });
+});
+
+describe('momentum performance', () => {
+  test('quiz/exam splits are gone; consistency/completion/streak parse', () => {
+    const r = Performance.safeParse({
+      totalScore: 64,
+      breakdown: { consistency: 70, completion: 62, streak: 37 },
+      trend: [{ label: 'Sep', value: 78 }],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  test('the old fiction no longer validates', () => {
+    const r = Performance.safeParse({
+      totalScore: 80,
+      breakdown: { participation: 55, quiz: 15, exam: 10 },
+      trend: [],
+    });
+    expect(r.success).toBe(false);
+  });
+});
+
+describe('dashboard composite', () => {
+  test('stats + activity + performance + leaderboard + workshops parse together', () => {
+    const r = Dashboard.safeParse({
+      stats: {
+        lessonsCompleted: 12, coursesInProgress: 2, minutesLearned: 486,
+        streakDays: 4, longestStreakDays: 11, xp: 2450, rank: 18,
+        workshopsAttended: 0, upcomingWorkshops: 3,
+      },
+      activity: [{ day: 'mon', courses: 10, workshops: 0, library: 5 }],
+      performance: {
+        totalScore: 64,
+        breakdown: { consistency: 70, completion: 62, streak: 37 },
+        trend: [],
+      },
+      leaderboard: [{ rank: 1, name: 'A', initials: 'A', xp: 100 }],
+      workshops: [],
+    });
+    expect(r.success).toBe(true);
   });
 });

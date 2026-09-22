@@ -228,6 +228,7 @@ export const posts: Post[] = [
     mediaCount: 2,
     likes: 186,
     likedByMe: false,
+    views: 0,
     comments: 31,
     createdAt: '2026-09-18T04:30:00.000Z',
     teamReply: null,
@@ -241,6 +242,7 @@ export const posts: Post[] = [
     mediaCount: 0,
     likes: 42,
     likedByMe: false,
+    views: 0,
     comments: 9,
     createdAt: '2026-09-17T09:10:00.000Z',
     teamReply: 'Reminders now go out 15 minutes before every call.',
@@ -276,8 +278,8 @@ export const activity: ActivityDay[] = [
 ];
 
 export const performance: Performance = {
-  totalScore: 80,
-  breakdown: { participation: 55, quiz: 15, exam: 10 },
+  totalScore: 64,
+  breakdown: { consistency: 70, completion: 62, streak: 37 },
   trend: [
     { label: 'Mar', value: 42 },
     { label: 'Apr', value: 55 },

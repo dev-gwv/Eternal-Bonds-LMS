@@ -9,6 +9,7 @@ import {
   CreateComment,
   CreatePost,
   CreateReport,
+  Dashboard,
   DirectoryMember,
   EventInput,
   Insight,
@@ -118,10 +119,12 @@ export const api = {
   activity: () => get('/v1/me/activity', list(ActivityDay)).then((r) => r.items),
   performance: () => get('/v1/me/performance', Performance),
   stats: () => get('/v1/me/stats', DashboardStats),
+  dashboard: () => get('/v1/me/dashboard', Dashboard),
   search: (q: string) => get(`/v1/search?q=${encodeURIComponent(q)}`, SearchResults),
 
   createPost: (input: CreatePost) => send('POST', '/v1/community/posts', input, Post),
   markChannelRead: (slug: string) => send<void>('POST', `/v1/community/channels/${slug}/read`),
+  recordPostViews: (postIds: string[]) => send<void>('POST', '/v1/community/posts/views', { postIds }),
   setRegistration: (workshopId: string, registered: boolean) =>
     send<{ registered: boolean }>(
       registered ? 'POST' : 'DELETE',
@@ -223,6 +226,13 @@ export const api = {
   /* Moderation + legal + flags. */
   report: (input: CreateReport) => send('POST', '/v1/moderation/reports', input),
   reports: () => get('/v1/moderation/reports', z.object({ items: z.array(Report) })).then((r) => r.items),
+  pendingWins: () => get('/v1/moderation/wins/pending',
+    z.object({ items: z.array(z.object({
+      id: z.string(), slug: z.string(), title: z.string(), bigIdeaMd: z.string(),
+      howItHappenedMd: z.string(), category: z.string(), authorName: z.string(), createdAt: z.string(),
+    })) })).then((r) => r.items),
+  reviewWin: (id: string, status: 'published' | 'hidden') =>
+    send('POST', `/v1/moderation/wins/${id}/review`, { status }),
   audit: () => get('/v1/moderation/audit', z.object({ items: z.array(AuditEntry) })).then((r) => r.items),
   flags: () => get('/v1/moderation/flags', z.object({ items: z.array(FeatureFlag) })).then((r) => r.items),
   acceptTerms: (version: string) => send('POST', '/v1/legal/terms', { version }),

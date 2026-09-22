@@ -1,8 +1,9 @@
 import { sql } from 'drizzle-orm';
 import { withUser } from '@ipc/db';
-import type { ActivityDay, DashboardStats, LeaderboardRow } from '@ipc/contracts';
+import type { ActivityDay, DashboardStats, LeaderboardRow, Performance, Workshop } from '@ipc/contracts';
 import type { Env } from './env.ts';
 import { getDb } from './repo.ts';
+import { listWorkshops } from './repo.ts';
 import * as seed from './data/seed.ts';
 
 /**
@@ -26,7 +27,10 @@ export async function getLeaderboard(env: Env, userId: string | null): Promise<L
       join users u on u.id = s.user_id
       where not u.is_suspended
       order by s.xp desc
-      limit 10
+      -- Wide enough that the dashboard can find the member directly above
+      -- anyone at a realistic rank; the client renders the top 10 and uses
+      -- the rest only to compute the gap honestly.
+      limit 50
     `);
 
     return [...rows].map((r, i) => ({
@@ -93,22 +97,12 @@ export async function getStats(env: Env, userId: string | null): Promise<Dashboa
       select
         coalesce(ms.lessons_completed, 0)::int as lessons_completed,
 
-        -- Started but not finished. A course with no progress is not "in
-        -- progress", and neither is one that is done.
+        -- Started but not finished, straight from the purpose-built table:
+        -- enrollments are upserted on every progress write, with completed_at
+        -- set the moment a course hits 100%.
         (
-          select count(*)::int from courses c
-          where exists (
-            select 1 from modules m join lessons l on l.module_id = m.id
-            join lesson_progress lp on lp.lesson_id = l.id
-            where m.course_id = c.id and lp.user_id = ${userId}::uuid
-          )
-          and exists (
-            select 1 from modules m join lessons l on l.module_id = m.id
-            where m.course_id = c.id and not exists (
-              select 1 from lesson_progress lp
-              where lp.lesson_id = l.id and lp.user_id = ${userId}::uuid and lp.is_completed
-            )
-          )
+          select count(*)::int from enrollments e
+          where e.user_id = ${userId}::uuid and e.completed_at is null
         ) as courses_in_progress,
 
         -- The same 30-day window the activity chart draws, so the headline
@@ -148,6 +142,88 @@ export async function getStats(env: Env, userId: string | null): Promise<Dashboa
       rank: row?.rank == null ? null : Number(row.rank),
       workshopsAttended: Number(row?.workshops_attended ?? 0),
       upcomingWorkshops: Number(row?.upcoming_workshops ?? 0),
+    };
+  });
+}
+
+/**
+ * The whole dashboard in one round trip.
+ *
+ * The page used to fire five parallel queries — fine on fibre, five TLS
+ * handshakes on a phone over 4G before first paint. The reads run
+ * concurrently server-side (all indexed, all small) and arrive as one JSON
+ * body. The individual endpoints stay for the pages that own them.
+ */
+export async function getDashboard(env: Env, userId: string | null) {
+  const [stats, activity, performance, leaderboard, workshops] = await Promise.all([
+    getStats(env, userId),
+    getActivity(env, userId),
+    getPerformance(env, userId),
+    getLeaderboard(env, userId),
+    listWorkshops(env, userId, 'upcoming'),
+  ]);
+  return { stats, activity, performance, leaderboard, workshops };
+}
+
+/**
+ * Momentum — the honest replacement for the exam-score gauge.
+ *
+ * There are no quizzes, so participation/quiz/exam splits were fiction served
+ * as data. Every input here is a real rollup: active days, finished-vs-started
+ * lessons, and the longest streak held against a 30-day scale. The monthly
+ * trend reads the same daily_activity rows the chart reads.
+ */
+export async function getPerformance(env: Env, userId: string | null): Promise<Performance> {
+  const db = getDb(env);
+  if (!db || !userId) return seed.performance;
+
+  return withUser(db, userId, async (tx) => {
+    const [row] = await tx.execute<{
+      active_days: number; started: number; completed: number; longest: number;
+    }>(sql`
+      select
+        (select count(*)::int from daily_activity
+          where user_id = ${userId}::uuid
+            and day >= (now() at time zone 'Asia/Kolkata')::date - 30
+            and (courses_minutes + workshops_minutes + library_minutes) > 0) as active_days,
+        (select count(*)::int from lesson_progress where user_id = ${userId}::uuid) as started,
+        (select count(*)::int from lesson_progress
+          where user_id = ${userId}::uuid and is_completed) as completed,
+        (select coalesce(longest_days, 0)::int from streaks where user_id = ${userId}::uuid) as longest
+    `);
+
+    const active = Number(row?.active_days ?? 0);
+    const started = Number(row?.started ?? 0);
+    const completed = Number(row?.completed ?? 0);
+    const longest = Number(row?.longest ?? 0);
+    const consistency = Math.min(100, Math.round((active / 30) * 100));
+    const completion = started === 0 ? 0 : Math.min(100, Math.round((completed / started) * 100));
+    const streak = Math.min(100, Math.round((longest / 30) * 100));
+
+    const months = await tx.execute<{ label: string; active: number; days: number }>(sql`
+      select
+        to_char(day, 'Mon') as label,
+        count(*)::int as active,
+        -- Days in that month. Subtracting two timestamps yields an interval,
+        -- and Postgres cannot cast an interval to integer — that threw 42846
+        -- on every call. Taking the day-of-month of the month's last day gives
+        -- 28/29/30/31 directly, and gets February right in a leap year.
+        extract(day from (date_trunc('month', max(day)) + interval '1 month - 1 day'))::int as days
+      from daily_activity
+      where user_id = ${userId}::uuid
+        and (courses_minutes + workshops_minutes + library_minutes) > 0
+      group by date_trunc('month', day), to_char(day, 'Mon')
+      order by date_trunc('month', day)
+      limit 6
+    `);
+
+    return {
+      totalScore: Math.round(consistency * 0.4 + completion * 0.4 + streak * 0.2),
+      breakdown: { consistency, completion, streak },
+      trend: [...months].map((m) => ({
+        label: m.label,
+        value: Math.min(100, Math.round((Number(m.active) / Math.max(1, Number(m.days))) * 100)),
+      })),
     };
   });
 }

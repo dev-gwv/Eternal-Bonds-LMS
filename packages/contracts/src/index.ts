@@ -70,6 +70,9 @@ export const Post = z.object({
   /** Whether *this* member has liked it — drives the filled heart. */
   likedByMe: z.boolean().default(false),
   comments: z.int().nonnegative(),
+  /** Distinct people who have seen it. Zero until someone other than the
+      author scrolls past, so a brand-new post does not claim a reader. */
+  views: z.int().nonnegative().default(0),
   createdAt: z.iso.datetime(),
   teamReply: z.string().nullable(),
 });
@@ -119,12 +122,18 @@ export type ActivityDay = z.infer<typeof ActivityDay>;
 
 export const Performance = z.object({
   totalScore: z.int().min(0).max(100),
+  /**
+   * Momentum, not exam scores — there are no quizzes yet, and a breakdown
+   * into quiz/exam splits would be fiction. Consistency is active days in the
+   * last 30, completion is finished vs started lessons, streak is the longest
+   * run held against a 30-day scale.
+   */
   breakdown: z.object({
-    participation: z.int().min(0).max(100),
-    quiz: z.int().min(0).max(100),
-    exam: z.int().min(0).max(100),
+    consistency: z.int().min(0).max(100),
+    completion: z.int().min(0).max(100),
+    streak: z.int().min(0).max(100),
   }),
-  /** Monthly trend, oldest first, 0–100. */
+  /** Monthly momentum, oldest first, 0–100. */
   trend: z.array(z.object({ label: z.string(), value: z.int().min(0).max(100) })),
 });
 export type Performance = z.infer<typeof Performance>;
@@ -153,6 +162,19 @@ export const DashboardStats = z.object({
 });
 export type DashboardStats = z.infer<typeof DashboardStats>;
 
+/**
+ * The whole dashboard in one round trip: five parallel queries were five TLS
+ * handshakes on a phone over 4G before first paint.
+ */
+export const Dashboard = z.object({
+  stats: DashboardStats,
+  activity: z.array(ActivityDay),
+  performance: Performance,
+  leaderboard: z.array(LeaderboardRow),
+  workshops: z.array(Workshop),
+});
+export type Dashboard = z.infer<typeof Dashboard>;
+
 export const Problem = z.object({
   type: z.string(),
   title: z.string(),
@@ -160,7 +182,6 @@ export const Problem = z.object({
   detail: z.string().optional(),
 });
 export type Problem = z.infer<typeof Problem>;
-
 /* ── Request bodies ────────────────────────────────────────────────────────
    Every mutation validates against one of these. The web app uses the same
    schema to check a form before it ever hits the network. */
