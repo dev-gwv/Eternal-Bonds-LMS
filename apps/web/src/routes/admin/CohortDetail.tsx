@@ -8,6 +8,7 @@ import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
 import { Avatar, Card, Chip, EmptyState, Icon } from '../../shared/ui/primitives.tsx';
 import { Skeleton } from '../../shared/ui/Skeleton.tsx';
 import { ConfirmButton, ErrorNote, Toolbar } from './studio-ui.tsx';
+import { useToast } from '../../shared/ui/Toast.tsx';
 
 /**
  * One cohort: who is in it, where they are, and what opens when.
@@ -63,7 +64,11 @@ function MemberRow({
         {m.lessonsDone}/{m.lessonsTotal}
       </span>
 
-      <ConfirmButton label="Remove" confirmLabel="Really remove" disabled={busy} onConfirm={onRemove} />
+      {/* No confirm. The undo toast asks nothing up front and is there at the
+          only moment the question matters — after the mistake. */}
+      <button type="button" className="btn btn-ghost" style={{ color: 'var(--red)' }} disabled={busy} onClick={onRemove}>
+        Remove
+      </button>
     </div>
   );
 }
@@ -142,16 +147,39 @@ function AddMembers({ cohort }: { cohort: CohortDetail }) {
 export function CohortDetailPage() {
   const { id } = useParams({ from: '/admin/cohorts/$id' });
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   const cohort = useQuery({ queryKey: ['admin', 'cohort', id], queryFn: () => adminApi.cohort(id) });
 
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin', 'cohort', id] });
+    queryClient.invalidateQueries({ queryKey: ['admin', 'cohorts'] });
+  };
+
   const remove = useMutation({
     mutationFn: (userId: string) => adminApi.removeCohortMember(id, userId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin', 'cohort', id] });
-      queryClient.invalidateQueries({ queryKey: ['admin', 'cohorts'] });
+    onSuccess: refresh,
+    onError: (e) => {
+      toast.error(e);
+      refresh();
     },
   });
+
+  /**
+   * Take the member off the roster on screen straight away, and only call the
+   * API once the undo window closes. Nothing has happened server-side until
+   * then, so Undo is genuinely free rather than a second write that might fail.
+   */
+  const removeWithUndo = (member: { userId: string; fullName: string }) => {
+    queryClient.setQueryData(['admin', 'cohort', id], (old: CohortDetail | undefined) =>
+      old ? { ...old, members: old.members.filter((m) => m.userId !== member.userId) } : old,
+    );
+    toast.withUndo(
+      `${member.fullName} removed from the cohort`,
+      () => remove.mutate(member.userId),
+      refresh,
+    );
+  };
 
   const close = useMutation({
     mutationFn: (isOpen: boolean) => {
@@ -166,7 +194,11 @@ export function CohortDetailPage() {
         isOpen,
       });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'cohort', id] }),
+    onSuccess: (next) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'cohort', id] });
+      toast.show(next.isOpen ? 'Cohort reopened' : 'Cohort closed to new members');
+    },
+    onError: toast.error,
   });
 
   if (cohort.isPending) {
@@ -264,7 +296,7 @@ export function CohortDetailPage() {
                   key={m.userId}
                   m={m}
                   busy={remove.isPending}
-                  onRemove={() => remove.mutate(m.userId)}
+                  onRemove={() => removeWithUndo(m)}
                 />
               ))}
             </div>

@@ -11,13 +11,14 @@
   },
   "dependencies": {
     "@ipc/contracts": "workspace:*",
+    "@supabase/supabase-js": "^2.58.0",
     "@tanstack/react-query": "^5.90.2",
     "@tanstack/react-router": "^1.132.47",
+    "hls.js": "^1.6.16",
+    "motion": "^13.4.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "zod": "^4.1.12",
-    "@supabase/supabase-js": "^2.58.0",
-    "hls.js": "^1.6.16"
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/react": "^19.2.2",

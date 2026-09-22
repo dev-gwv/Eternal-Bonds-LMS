@@ -640,65 +640,204 @@ img, svg, video { max-width: 100%; }
   color: var(--ink-3);
   font-weight: 500;
 }
+.field-error { font-size: 10px; color: var(--red); display: flex; align-items: center; gap: 4px; }
+
+/* --- controls, one language ----------------------------------------------
+   Everything the member types into or picks from, in one place.
+
+   The problem this replaces: `.field input` and `.input` each defined their
+   own version of the same thing, `<select>` was left entirely native — a
+   grey OS dropdown with a system arrow, which is the single element that most
+   made the app look like a form from 2009 — and checkboxes were styled only
+   inside `.switch`, so every other one on the site was browser default.
+
+   Selects get `appearance: none` and a drawn chevron. That is the one place
+   where replacing a native control is worth it: the arrow is the only part
+   being replaced, the popup list stays the OS one, and keyboard behaviour is
+   untouched. Fully rebuilding a select in JavaScript costs the type-ahead,
+   the mobile wheel picker and half the accessibility, and buys nothing a
+   chevron does not. */
+
 .field input,
 .field select,
-.field textarea {
+.field textarea,
+.input,
+select.input {
   font: inherit;
   font-size: 12.5px;
+  line-height: 1.45;
   color: var(--ink);
-  background: #fff;
+  background-color: #fff;
   border: 1px solid var(--hair);
   box-shadow: var(--sh-sm);
   border-radius: var(--r-ctl);
   padding: 10px 12px;
   width: 100%;
   min-width: 0;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  /* Safari otherwise rounds text inputs into pill shapes of its own choosing
+     and ignores the border radius on date fields entirely. */
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
 }
-.field textarea { resize: vertical; min-height: 84px; line-height: 1.55; }
+
+/* The chevron. An inline SVG so it needs no network request and inherits
+   nothing that could fail to load. */
+.field select,
+select.input,
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a79dad' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  /* Room for the chevron, so a long option does not run underneath it. */
+  padding-right: 34px;
+  cursor: pointer;
+}
+.field select:hover,
+select.input:hover { border-color: var(--ink-4); }
+
+/* The option list is the OS popup, but these two properties do reach it on
+   most platforms and stop it rendering as black-on-grey in dark mode. */
+.field select option,
+select.input option { color: var(--ink); background: #fff; }
+
+.field textarea,
+textarea.input { resize: vertical; min-height: 84px; line-height: 1.6; }
+
+.field input::placeholder,
+.field textarea::placeholder,
+.input::placeholder { color: var(--ink-4); }
+
+.field input:hover,
+.field textarea:hover,
+.input:hover { border-color: var(--ink-4); }
+
 .field input:focus,
 .field select:focus,
-.field textarea:focus {
+.field textarea:focus,
+.input:focus,
+select.input:focus {
   outline: none;
   border-color: var(--pink);
   box-shadow: 0 0 0 3px rgba(239, 110, 163, 0.16), var(--sh-sm);
 }
-.field input::placeholder, .field textarea::placeholder { color: var(--ink-4); }
-.field.is-invalid input, .field.is-invalid select { border-color: var(--red); }
-.field-error { font-size: 10px; color: var(--red); }
+
+/* Date and time fields. Chrome puts a small grey calendar glyph inside them
+   that sits at a different baseline from our own chevron; tinting it is the
+   only way to make the two look like the same product. */
+.field input[type='date'],
+.field input[type='datetime-local'],
+.field input[type='time'],
+.input[type='date'],
+.input[type='datetime-local'],
+.input[type='time'] { min-height: 39px; }
+
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator {
+  opacity: 0.45;
+  cursor: pointer;
+  transition: opacity 0.16s ease;
+}
+input[type='date']::-webkit-calendar-picker-indicator:hover,
+input[type='datetime-local']::-webkit-calendar-picker-indicator:hover,
+input[type='time']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
+
+/* Number fields: the spinner arrows are tiny, unlabelled, and in a drip-day
+   box they are the wrong affordance — people type a number. */
+input[type='number'] { -moz-appearance: textfield; }
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Search inputs get a clear button in some browsers at a size and colour we
+   do not control. The pattern here is a real search icon beside the field. */
+input[type='search']::-webkit-search-decoration,
+input[type='search']::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+/* Checkboxes and radios. `accent-color` rather than a rebuilt control: it is
+   one line, it keeps every native behaviour including the indeterminate state
+   and the OS high-contrast rendering, and the only thing worth changing about
+   a checkbox is that it is the brand colour and big enough to hit. */
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--pink-ink);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+input[type='checkbox']:disabled,
+input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
+
+/* Disabled controls have to *look* disabled. Without this a greyed-out button
+   and a live one differ only by opacity on the button, and not at all on a
+   field somebody is trying to type into. */
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled,
+.input:disabled,
+select.input:disabled {
+  background-color: var(--soft);
+  color: var(--ink-3);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.field.is-invalid input,
+.field.is-invalid select,
+.field.is-invalid textarea,
+.input.is-invalid,
+[aria-invalid='true'] {
+  border-color: var(--red);
+}
+.field.is-invalid input:focus,
+.input.is-invalid:focus,
+[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px rgba(240, 68, 56, 0.16), var(--sh-sm);
+}
+
+/* --- focus, for people using a keyboard -----------------------------------
+   There was one focus-visible rule in the entire stylesheet. Tabbing through
+   a page meant guessing where you were, which makes every custom control —
+   the nav pills, the chips, the card rows that are really links — unusable
+   without a mouse.
+
+   `:focus-visible` rather than `:focus` so a mouse click does not leave a ring
+   behind on a button that was just pressed. */
+:where(a, button, [role='button'], [tabindex]):focus-visible,
+.nav-pill:focus-visible,
+.card-row:focus-visible,
+.menu-row:focus-visible,
+.side-link:focus-visible,
+.avatar-btn:focus-visible,
+.icon-btn:focus-visible {
+  outline: 2px solid var(--pink);
+  outline-offset: 2px;
+  border-radius: var(--r-ctl);
+}
+/* Pills and avatars are round; a 12px-radius ring around a circle looks broken. */
+.nav-pill:focus-visible,
+.avatar-btn:focus-visible,
+.btn:focus-visible { border-radius: var(--r-pill); }
+
+/* The skip link is the one thing that should be loud when focused. */
+.skip-link:focus-visible { outline-offset: 4px; }
 
 .field-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
 .field-row > .field { flex: 1; }
-
-/* Standalone inputs outside .field (composer bars, filters, Q&A). Same
-   tokens as the studio fields — one input language everywhere. */
-.input {
-  font: inherit;
-  font-size: 12.5px;
-  color: var(--ink);
-  background: #fff;
-  border: 1px solid var(--hair);
-  box-shadow: var(--sh-sm);
-  border-radius: var(--r-ctl);
-  padding: 10px 13px;
-  width: 100%;
-  min-width: 0;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease;
-}
-textarea.input { resize: vertical; line-height: 1.6; }
-.input::placeholder { color: var(--ink-4); }
-.input:focus {
-  outline: none;
-  border-color: var(--pink);
-  box-shadow: 0 0 0 3px rgba(239, 110, 163, 0.16), var(--sh-sm);
-}
 
 .switch { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; color: var(--ink-2); }
 .switch input { width: 14px; height: 14px; accent-color: var(--pink-ink); }
 
 .btn-danger { background: transparent; color: var(--red); padding: 9px 12px; }
 .btn-danger:hover { background: #fdeceb; }
-.btn:disabled { opacity: 0.45; pointer-events: none; }
+/* `pointer-events: none` used to be here. It stopped the click, and it also
+   stopped the *hover* — so every disabled button carrying a title explaining
+   why it is disabled ("A journey with no courses has nothing to publish")
+   could never show it. The browser blocks the click on a disabled button on
+   its own; this only has to say so. */
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn:disabled:hover { transform: none; filter: none; box-shadow: var(--sh-sm); }
 
 .btn-icon {
   display: inline-flex;
@@ -713,7 +852,7 @@ textarea.input { resize: vertical; line-height: 1.6; }
   flex-shrink: 0;
 }
 .btn-icon:hover { color: var(--ink); }
-.btn-icon:disabled { opacity: 0.35; pointer-events: none; }
+.btn-icon:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .empty {
   border: 1px dashed var(--hair);
@@ -1096,4 +1235,84 @@ textarea.input { resize: vertical; line-height: 1.6; }
 
 @media (prefers-reduced-motion: reduce) {
   .sidebar { transition: none; }
+}
+
+/* --- toasts ---------------------------------------------------------------
+   Bottom-centre on a phone, bottom-right on a desktop. Bottom rather than top
+   because the top of the screen already has a sticky header, a sub-nav and a
+   notification bell, and a fourth thing arriving there is three too many. */
+
+.toast-stack {
+  position: fixed;
+  z-index: 200;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  right: 16px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  /* The stack must not swallow clicks on the page behind it; each toast turns
+     pointer events back on for itself. */
+  pointer-events: none;
+}
+@media (min-width: 720px) {
+  .toast-stack { left: auto; align-items: flex-end; max-width: 420px; }
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 420px;
+  padding: 11px 12px 11px 14px;
+  border-radius: var(--r-ctl);
+  background: var(--ink);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: var(--sh-lg, 0 14px 40px -12px rgba(43, 36, 48, 0.45));
+  /* Enter and exit are motion's job now — CSS cannot animate a node that has
+     already left the tree, which is exactly what a dismissal is. */
+}
+.toast-success > svg { color: #7ee0ad; }
+.toast-error { background: #7a1d16; }
+.toast-error > svg { color: #ffb4ad; }
+.toast-info > svg { color: #a9cbff; }
+
+.toast-action {
+  flex-shrink: 0;
+  border: 0;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: var(--r-pill);
+  transition: background 0.14s ease;
+}
+.toast-action:hover { background: rgba(255, 255, 255, 0.28); }
+
+.toast-close {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+.toast-close:hover { color: #fff; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
 }

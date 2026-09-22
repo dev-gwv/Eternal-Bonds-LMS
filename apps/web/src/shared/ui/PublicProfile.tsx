@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api } from '../api.ts';
 import { Card, Chip } from './primitives.tsx';
+import { useToast } from './Toast.tsx';
 
 /**
  * The part of your profile other members see.
@@ -22,7 +23,7 @@ export function PublicProfileCard() {
   const [bio, setBio] = useState('');
   const [expertise, setExpertise] = useState('');
   const [listed, setListed] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     if (!profile.data) return;
@@ -41,12 +42,13 @@ export function PublicProfileCard() {
     mutationFn: () =>
       api.saveMyProfile({ bioMd: bio.trim() || null, expertise: tags, showInDirectory: listed }),
     onSuccess: () => {
-      setSaved(true);
+      toast.show('Profile saved');
       queryClient.invalidateQueries({ queryKey: ['my-profile'] });
       queryClient.invalidateQueries({ queryKey: ['directory'] });
       // The onboarding checklist reads profile completeness.
       queryClient.invalidateQueries({ queryKey: ['onboarding'] });
     },
+    onError: toast.error,
   });
 
   const dirty =
@@ -68,10 +70,7 @@ export function PublicProfileCard() {
           rows={3}
           value={bio}
           placeholder="Wedding and portrait work out of Jaipur. Six years in, mostly destination weddings."
-          onChange={(e) => {
-            setBio(e.target.value);
-            setSaved(false);
-          }}
+          onChange={(e) => setBio(e.target.value)}
         />
       </label>
 
@@ -81,10 +80,7 @@ export function PublicProfileCard() {
           className="input"
           value={expertise}
           placeholder="weddings, portraits, lighting"
-          onChange={(e) => {
-            setExpertise(e.target.value);
-            setSaved(false);
-          }}
+          onChange={(e) => setExpertise(e.target.value)}
         />
       </label>
 
@@ -100,10 +96,7 @@ export function PublicProfileCard() {
         <input
           type="checkbox"
           checked={listed}
-          onChange={(e) => {
-            setListed(e.target.checked);
-            setSaved(false);
-          }}
+          onChange={(e) => setListed(e.target.checked)}
           style={{ marginTop: 2 }}
         />
         <span>
@@ -114,8 +107,6 @@ export function PublicProfileCard() {
         </span>
       </label>
 
-      {save.error && <span className="field-error">{(save.error as Error).message}</span>}
-
       <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <button
           type="button"
@@ -125,11 +116,6 @@ export function PublicProfileCard() {
         >
           {save.isPending ? 'Saving…' : 'Save profile'}
         </button>
-        {saved && !dirty && (
-          <span style={{ fontSize: 11 }} className="dim">
-            Saved
-          </span>
-        )}
       </span>
     </Card>
   );

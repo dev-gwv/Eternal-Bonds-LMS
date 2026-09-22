@@ -6,7 +6,8 @@ import { adminApi } from '../../shared/admin-api.ts';
 import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
 import { Card, Chip, EmptyState, Icon } from '../../shared/ui/primitives.tsx';
 import { LoadingLabel, Skeleton, SkeletonRow } from '../../shared/ui/Skeleton.tsx';
-import { ConfirmButton, ErrorNote, Field, IconButton, Select, Toolbar } from './studio-ui.tsx';
+import { ConfirmButton, ErrorNote, Field, IconButton, Select, Toolbar, fieldErrors } from './studio-ui.tsx';
+import { useToast } from '../../shared/ui/Toast.tsx';
 
 /**
  * Building a journey.
@@ -44,11 +45,13 @@ function JourneyForm({ onDone }: { onDone: () => void }) {
 
   const ready = form.title.trim().length >= 3 && form.slug.trim().length >= 3 && form.promise.trim().length >= 8;
 
+  const errors = fieldErrors(create.error);
+
   return (
     <Card title="New journey">
-      <ErrorNote error={create.error} />
+      {errors.rest && <ErrorNote error={new Error(errors.rest)} />}
       <div className="field-row">
-        <Field label="Title">
+        <Field label="Title" error={errors.of('title')}>
           <input
             value={form.title}
             placeholder="Zero to your first ₹1L"
@@ -62,7 +65,7 @@ function JourneyForm({ onDone }: { onDone: () => void }) {
             }}
           />
         </Field>
-        <Field label="Slug">
+        <Field label="Slug" error={errors.of('slug')}>
           <input value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} />
         </Field>
         <Field label="Minimum tier">
@@ -70,7 +73,7 @@ function JourneyForm({ onDone }: { onDone: () => void }) {
         </Field>
       </div>
 
-      <Field label="The promise — the outcome, in a member's words">
+      <Field label="The promise — the outcome, in a member's words" error={errors.of('promise')}>
         <input
           value={form.promise}
           placeholder="Book your first paid wedding within three months"
@@ -163,6 +166,7 @@ export function AdminJourneyBuilderPage() {
   const { slug } = useParams({ from: '/admin/journeys/$slug' });
   const queryClient = useQueryClient();
 
+  const toast = useToast();
   const journey = useQuery({ queryKey: ['admin', 'journey', slug], queryFn: () => adminApi.journey(slug) });
   const courses = useQuery({ queryKey: ['admin', 'courses'], queryFn: adminApi.courses });
 
@@ -189,7 +193,11 @@ export function AdminJourneyBuilderPage() {
 
   const save = useMutation({
     mutationFn: (next: JourneyInput) => adminApi.updateJourney(journey.data!.id, next),
-    onSuccess: refresh,
+    onSuccess: (next) => {
+      refresh();
+      toast.show(next.isPublished ? 'Journey published — members can see it now' : 'Saved');
+    },
+    onError: toast.error,
   });
   const addStep = useMutation({
     mutationFn: () => adminApi.addJourneyStep(journey.data!.id, { courseId: pick, note: note.trim() || null }),
@@ -197,9 +205,18 @@ export function AdminJourneyBuilderPage() {
       setPick('');
       setNote('');
       refresh();
+      toast.show('Added to the path');
+    },
+    onError: toast.error,
+  });
+  const removeStep = useMutation({
+    mutationFn: adminApi.removeJourneyStep,
+    onSuccess: refresh,
+    onError: (e) => {
+      toast.error(e);
+      refresh();
     },
   });
-  const removeStep = useMutation({ mutationFn: adminApi.removeJourneyStep, onSuccess: refresh });
   const reorder = useMutation({
     mutationFn: (ids: string[]) => adminApi.reorderJourneySteps(journey.data!.id, ids),
     onSuccess: refresh,
@@ -332,7 +349,21 @@ export function AdminJourneyBuilderPage() {
                   <span style={{ fontSize: 10 }} className="dim num">
                     {s.lessonCount} lessons
                   </span>
-                  <ConfirmButton label="Remove" onConfirm={() => removeStep.mutate(s.id)} disabled={removeStep.isPending} />
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ color: 'var(--red)' }}
+                    disabled={removeStep.isPending}
+                    onClick={() =>
+                      toast.withUndo(
+                        `${s.courseTitle} removed from the path`,
+                        () => removeStep.mutate(s.id),
+                        refresh,
+                      )
+                    }
+                  >
+                    Remove
+                  </button>
                 </div>
               ))}
             </div>

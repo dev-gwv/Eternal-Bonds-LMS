@@ -1,4 +1,3 @@
-import Hls from 'hls.js';
 import { useEffect, useRef, useState } from 'react';
 import { clock } from '../api.ts';
 import { Icon } from './primitives.tsx';
@@ -9,6 +8,14 @@ import { Icon } from './primitives.tsx';
  * Safari and iOS play HLS natively; everywhere else hls.js attaches to the
  * same <video>. Either way this component owns playback only — it reports
  * position upward and never decides what the member is allowed to watch.
+ *
+ * **hls.js is imported dynamically.** Statically imported it was 450KB of the
+ * Lesson route's 615KB chunk — the largest thing in the application, loaded
+ * before the page could render, on every lesson. Two things make deferring it
+ * strictly better: Safari and iOS never need it at all, so a large share of
+ * members should never download it; and everybody else needs it a fraction of
+ * a second after the page paints rather than before, because the syllabus and
+ * the notes panel are useful while the player is still arriving.
  */
 export type PlayerHandle = {
   /** Called at most every `reportEverySeconds`, and on pause/seek/unmount. */
@@ -50,33 +57,44 @@ export function VideoPlayer({
 
     setError(null);
 
-    // hls.js first, native second — and not the other way round. Chrome answers
-    // "maybe" to canPlayType('application/vnd.apple.mpegurl') despite having no
-    // native HLS, so checking native first silently leaves the video at
-    // readyState 0 forever. Safari and iOS fall through to the native path.
-    if (!Hls.isSupported()) {
-      if (video.canPlayType('application/vnd.apple.mpegurl')) video.src = src;
-      else setError('Your browser cannot play this video.');
-      return;
-    }
-
     let disposed = false;
-    const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+    // Held outside the async body so the cleanup can reach it even if the
+    // effect is torn down while the import is still in flight.
+    let hls: import('hls.js').default | null = null;
 
-    // Listeners before attach, and the source loaded only once the media is
-    // attached: in React StrictMode the effect runs twice, and loading before
-    // attachment leaves the surviving instance parsed but never fetching.
-    hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-      if (!disposed) hls.loadSource(src);
-    });
-    hls.on(Hls.Events.ERROR, (_event, data) => {
-      if (data.fatal) setError('This video could not be loaded.');
-    });
-    hls.attachMedia(video);
+    void (async () => {
+      const { default: Hls } = await import('hls.js');
+      if (disposed) return;
+
+      // hls.js first, native second — and not the other way round. Chrome
+      // answers "maybe" to canPlayType('application/vnd.apple.mpegurl')
+      // despite having no native HLS, so checking native first silently
+      // leaves the video at readyState 0 forever. Safari and iOS fall through
+      // to the native path.
+      if (!Hls.isSupported()) {
+        if (video.canPlayType('application/vnd.apple.mpegurl')) video.src = src;
+        else setError('Your browser cannot play this video.');
+        return;
+      }
+
+      hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+
+      // Listeners before attach, and the source loaded only once the media is
+      // attached: in React StrictMode the effect runs twice, and loading
+      // before attachment leaves the surviving instance parsed but never
+      // fetching.
+      hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+        if (!disposed) hls?.loadSource(src);
+      });
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) setError('This video could not be loaded.');
+      });
+      hls.attachMedia(video);
+    })().catch(() => setError('The player could not be loaded.'));
 
     return () => {
       disposed = true;
-      hls.destroy();
+      hls?.destroy();
     };
   }, [src]);
 

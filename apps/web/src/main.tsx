@@ -1,6 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from './shared/ui/Toast.tsx';
+import { Motion } from './shared/ui/motion.tsx';
 import { RouterProvider } from '@tanstack/react-router';
 import { router } from './app/router.tsx';
 import { SessionProvider } from './shared/session.tsx';
@@ -19,7 +21,13 @@ createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <SessionProvider>
-        <RouterProvider router={router} />
+        {/* Outside the router so a toast survives navigation — "Saved" should
+            still be on screen when the save was the thing that navigated. */}
+        <Motion>
+          <ToastProvider>
+            <RouterProvider router={router} />
+          </ToastProvider>
+        </Motion>
       </SessionProvider>
     </QueryClientProvider>
   </StrictMode>,

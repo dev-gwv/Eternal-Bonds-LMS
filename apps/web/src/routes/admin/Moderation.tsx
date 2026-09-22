@@ -2,11 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api } from '../../shared/api.ts';
 import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
-import { Card } from '../../shared/ui/primitives.tsx';
+import { Card, EmptyState } from '../../shared/ui/primitives.tsx';
+import { useToast } from '../../shared/ui/Toast.tsx';
 
 /** Studio → Moderation: reports queue, audit log, feature flags, event scheduler. */
 export function ModerationPage() {
   const qc = useQueryClient();
+  const toast = useToast();
   const reports = useQuery({ queryKey: ['reports'], queryFn: api.reports });
   const pending = useQuery({ queryKey: ['pending-wins'], queryFn: api.pendingWins });
   const audit = useQuery({ queryKey: ['audit'], queryFn: api.audit });
@@ -18,16 +20,22 @@ export function ModerationPage() {
     mutationFn: async ({ id, status }: { id: string; status: 'published' | 'hidden' }) => {
       await api.reviewWin(id, status);
     },
-    onSuccess: () => {
+    onSuccess: (_r, vars) => {
       qc.invalidateQueries({ queryKey: ['pending-wins'] });
       qc.invalidateQueries({ queryKey: ['wins'] });
+      toast.show(vars.status === 'published' ? 'Win approved and published' : 'Win hidden');
     },
+    onError: toast.error,
   });
 
   const resolve = useMutation({
     mutationFn: ({ id, status }: { id: string; status: 'actioned' | 'dismissed' }) =>
       api.resolveReport(id, status),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['reports'] }),
+    onSuccess: (_r, vars) => {
+      qc.invalidateQueries({ queryKey: ['reports'] });
+      toast.show(vars.status === 'actioned' ? 'Report actioned' : 'Report dismissed');
+    },
+    onError: toast.error,
   });
 
   // Sessions that have finished and have no recording attached yet — the last
@@ -49,7 +57,11 @@ export function ModerationPage() {
 
   const setFlag = useMutation({
     mutationFn: ({ key, enabled }: { key: string; enabled: boolean }) => api.setFlag(key, enabled),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['flags'] }),
+    onSuccess: (_r, vars) => {
+      qc.invalidateQueries({ queryKey: ['flags'] });
+      toast.show(`${vars.key} turned ${vars.enabled ? 'on' : 'off'}`);
+    },
+    onError: toast.error,
   });
 
   const attachRecording = useMutation({
@@ -85,7 +97,13 @@ export function ModerationPage() {
         </Card>
       ))}
       {pendingWins.length === 0 && !pending.isPending && (
-        <Card><span className="muted" style={{ fontSize: 12 }}>No wins waiting.</span></Card>
+        <Card>
+          <EmptyState
+            icon="check"
+            title="No wins waiting"
+            hint="First wins from a member go through review here. After that they auto-approve."
+          />
+        </Card>
       )}
       <span className="section-label">Reports queue</span>
       {openReports.map((r: { id: string; targetType: string; reason: string }) => (
@@ -98,7 +116,13 @@ export function ModerationPage() {
         </Card>
       ))}
       {openReports.length === 0 && (
-        <Card><span className="muted" style={{ fontSize: 12 }}>Queue is clear.</span></Card>
+        <Card>
+          <EmptyState
+            icon="check"
+            title="Queue is clear"
+            hint="Reports land here when a member flags a post, a win or somebody's behaviour."
+          />
+        </Card>
       )}
 
       <span className="section-label">Schedule live session</span>
@@ -186,7 +210,13 @@ export function ModerationPage() {
 
       <span className="section-label">Feature flags</span>
       {(flags.data ?? []).length === 0 && (
-        <Card><span className="muted" style={{ fontSize: 12 }}>No flags defined.</span></Card>
+        <Card>
+          <EmptyState
+            icon="settings"
+            title="No feature flags"
+            hint="Flags are kill switches for a feature without a deploy. They appear once one is defined."
+          />
+        </Card>
       )}
       {(flags.data ?? []).map((f: { key: string; enabled: boolean }) => (
         <Card key={f.key}>

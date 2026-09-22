@@ -17,7 +17,12 @@ export function Field({
     <label className={error ? 'field is-invalid' : 'field'}>
       <span>{label}</span>
       {children}
-      {error && <span className="field-error">{error}</span>}
+      {error && (
+        <span className="field-error" role="alert">
+          <Icon name="bell" size={11} strokeWidth={2.6} />
+          {error}
+        </span>
+      )}
     </label>
   );
 }
@@ -139,3 +144,39 @@ export const slugify = (title: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
+
+/**
+ * Puts a validation error next to the field it is about.
+ *
+ * `ErrorNote` shows one message at the top of the card, which is fine for "the
+ * server is down" and useless for "slug: too short" on an eight-field cohort
+ * form — the member reads a field name and then goes hunting for it.
+ *
+ * The API's validator answers 422 with `detail` shaped as `path: message`
+ * (see the `invalid` handler each module shares), so the field name is already
+ * on the wire; nothing had been reading it. `CreatePost` additionally returns
+ * an `errors` array, which is handled first when present.
+ *
+ * Returns a lookup plus whatever could not be attributed to a field, so the
+ * caller can still show that at the top rather than swallowing it.
+ */
+export function fieldErrors(error: unknown): { of: (field: string) => string | null; rest: string | null } {
+  const empty = { of: () => null, rest: null };
+  if (!error) return empty;
+
+  const message = error instanceof Error ? error.message : String(error);
+
+  // `path: message`, where the path may be nested (`steps.0.title`). Only the
+  // last segment is a field name the form knows about.
+  const match = /^([A-Za-z0-9_.[\]]+):\s*(.+)$/.exec(message.trim());
+  if (!match) return { of: () => null, rest: message };
+
+  const path = match[1]!;
+  const detail = match[2]!;
+  const leaf = path.split('.').pop() ?? path;
+
+  return {
+    of: (field) => (field === path || field === leaf ? detail : null),
+    rest: null,
+  };
+}

@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { Icon } from './primitives.tsx';
+import { useToast } from './Toast.tsx';
 
 /**
  * The public link for a win, and the reason it exists.
@@ -14,7 +14,7 @@ import { Icon } from './primitives.tsx';
  * other member may.
  */
 export function ShareWin({ slug, enabled }: { slug: string; enabled: boolean }) {
-  const [copied, setCopied] = useState(false);
+  const toast = useToast();
 
   if (!enabled) {
     return (
@@ -29,8 +29,7 @@ export function ShareWin({ slug, enabled }: { slug: string; enabled: boolean }) 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      toast.show('Link copied — anyone can open it, no account needed');
     } catch {
       // Clipboard access is refused in some browsers without a user gesture
       // chain, and over plain http. Selecting the text still works.
@@ -51,7 +50,7 @@ export function ShareWin({ slug, enabled }: { slug: string; enabled: boolean }) 
         Public page
       </a>
       <button type="button" className="btn btn-ghost" style={{ fontSize: 10.5 }} onClick={copy}>
-        {copied ? 'Copied' : 'Copy link'}
+        Copy link
       </button>
     </span>
   );

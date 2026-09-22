@@ -3,6 +3,8 @@ import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { api } from '../shared/api.ts';
 import { Avatar, Chip, Icon } from '../shared/ui/primitives.tsx';
+import { AnimatePresence, m } from '../shared/ui/motion.tsx';
+import { useToast } from '../shared/ui/Toast.tsx';
 
 /**
  * First-run setup.
@@ -45,6 +47,7 @@ const TITLES: Record<StepId, { title: string; sub: string }> = {
 export function WelcomePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [step, setStep] = useState<StepId>('profile');
 
   const me = useQuery({ queryKey: ['me'], queryFn: api.me, retry: false });
@@ -117,8 +120,10 @@ export function WelcomePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
       queryClient.invalidateQueries({ queryKey: ['onboarding'] });
+      toast.show('Posted — members reply to introductions more than anything else');
       next();
     },
+    onError: toast.error,
   });
 
   const body = () => {
@@ -311,15 +316,27 @@ export function WelcomePage() {
           </span>
         </div>
 
-        <div className="card" style={{ padding: '26px 26px 22px', gap: 14 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <h1 style={{ margin: 0, fontSize: 20, lineHeight: 1.3 }}>{TITLES[step].title}</h1>
-            <span style={{ fontSize: 12.5, lineHeight: 1.6 }} className="muted">
-              {TITLES[step].sub}
-            </span>
-          </div>
-          {body()}
-        </div>
+        {/* `mode="wait"` so the outgoing step finishes leaving before the next
+            arrives. Crossfading two forms on top of each other is how a member
+            ends up typing into a field that is halfway out of the screen. */}
+        <AnimatePresence mode="wait" initial={false}>
+          <m.div
+            key={step}
+            className="card"
+            style={{ padding: '26px 26px 22px', gap: 14 }}
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -12, transition: { duration: 0.12 } }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <h1 style={{ margin: 0, fontSize: 20, lineHeight: 1.3 }}>{TITLES[step].title}</h1>
+              <span style={{ fontSize: 12.5, lineHeight: 1.6 }} className="muted">
+                {TITLES[step].sub}
+              </span>
+            </div>
+            {body()}
+          </m.div>
+        </AnimatePresence>
 
         {step !== 'done' && (
           <button

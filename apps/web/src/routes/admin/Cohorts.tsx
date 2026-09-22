@@ -6,7 +6,7 @@ import { adminApi } from '../../shared/admin-api.ts';
 import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
 import { Card, Chip, EmptyState, Icon } from '../../shared/ui/primitives.tsx';
 import { LoadingLabel, SkeletonRow } from '../../shared/ui/Skeleton.tsx';
-import { ErrorNote, Field, Toolbar } from './studio-ui.tsx';
+import { ErrorNote, Field, Toolbar, fieldErrors } from './studio-ui.tsx';
 
 /**
  * Cohorts: the highest-leverage thing one author can run.
@@ -64,12 +64,15 @@ function CohortForm({ onDone }: { onDone: () => void }) {
     }));
 
   const ready = form.courseId && form.name.trim().length >= 3 && form.slug.trim().length >= 3;
+  // Anything the server could attribute to a field goes next to that field;
+  // only what is left over goes to the top of the card.
+  const errors = fieldErrors(create.error);
 
   return (
     <Card title="New cohort">
-      <ErrorNote error={create.error} />
+      {errors.rest && <ErrorNote error={new Error(errors.rest)} />}
       <div className="field-row">
-        <Field label="Course">
+        <Field label="Course" error={errors.of('courseId')}>
           <select value={form.courseId} onChange={set('courseId')}>
             <option value="">Pick a course…</option>
             {courses.data?.map((c) => (
@@ -79,7 +82,7 @@ function CohortForm({ onDone }: { onDone: () => void }) {
             ))}
           </select>
         </Field>
-        <Field label="Name">
+        <Field label="Name" error={errors.of('name')}>
           <input
             value={form.name}
             placeholder="January group"
@@ -100,18 +103,18 @@ function CohortForm({ onDone }: { onDone: () => void }) {
       </div>
 
       <div className="field-row">
-        <Field label="Starts on">
+        <Field label="Starts on" error={errors.of('startsOn')}>
           <input type="date" value={form.startsOn} onChange={set('startsOn')} />
         </Field>
-        <Field label="Should finish by (optional)">
+        <Field label="Should finish by (optional)" error={errors.of('endsOn')}>
           <input type="date" value={form.endsOn} onChange={set('endsOn')} />
         </Field>
-        <Field label="Capacity (blank for no limit)">
+        <Field label="Capacity (blank for no limit)" error={errors.of('capacity')}>
           <input type="number" min={1} value={form.capacity} placeholder="—" onChange={set('capacity')} />
         </Field>
       </div>
 
-      <Field label="Slug">
+      <Field label="Slug" error={errors.of('slug')}>
         <input value={form.slug} onChange={set('slug')} />
       </Field>
 

@@ -12,6 +12,8 @@ import { NextUp } from '../shared/ui/NextUp.tsx';
 import { ReportButton } from '../shared/ui/ReportButton.tsx';
 import { useSeen } from '../shared/ui/useSeen.tsx';
 import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
+import { StaggerItem, StaggerList } from '../shared/ui/motion.tsx';
+import { useToast } from '../shared/ui/Toast.tsx';
 
 const CHANNEL_ICON: Record<string, { icon: string; tone: 'pink' | 'yellow' | 'blue' | 'green' }> = {
   wins: { icon: 'heart', tone: 'pink' },
@@ -183,6 +185,7 @@ export function CommunityPage() {
   const leaderboard = useQuery({ queryKey: ['leaderboard'], queryFn: api.leaderboard });
 
   const picker = usePicker();
+  const toast = useToast();
 
   // Post first, then photographs. A media ticket is scoped to a post id, so
   // the row has to exist before anything can be uploaded against it — and it
@@ -198,9 +201,11 @@ export function CommunityPage() {
     onSuccess: () => {
       setDraft('');
       picker.reset();
+      toast.show('Posted');
       // Refetch rather than patch the cache: the server owns ordering and counts.
       void queryClient.invalidateQueries({ queryKey: ['posts'] });
     },
+    onError: toast.error,
   });
 
   return (
@@ -351,9 +356,6 @@ export function CommunityPage() {
               </span>
             </div>
 
-            {createPost.isError && (
-              <span style={{ fontSize: 11, color: 'var(--red)' }}>{createPost.error.message}</span>
-            )}
           </form>
 
           {posts.isPending && (
@@ -382,7 +384,15 @@ export function CommunityPage() {
             </Card>
           )}
 
-          {(posts.data ?? []).map((p) => <PostCard key={p.id} post={p} seenRef={seen(p.id)} />)}
+          {/* Staggered at 40ms. A feed that appears all at once reads as a
+              screenshot; one that arrives over two seconds reads as slow. */}
+          <StaggerList style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {(posts.data ?? []).map((p) => (
+              <StaggerItem key={p.id} layout>
+                <PostCard post={p} seenRef={seen(p.id)} />
+              </StaggerItem>
+            ))}
+          </StaggerList>
         </div>
 
         <div className="col rail">
