@@ -689,21 +689,25 @@ img, svg, video { max-width: 100%; }
 
 :where(input, textarea)::placeholder { color: var(--ink-4); }
 
-:where(input:not([type='checkbox']):not([type='radio']), textarea, select):hover {
-  border-color: var(--ink-4);
-}
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):hover,
+textarea:hover,
+select:hover { border-color: var(--ink-4); }
 
 /* One focus treatment for every control in the app. The browser's own ring —
    which is what the wizard was showing — is a different shape and colour on
    every platform, and on the name field it rendered as a doubled maroon
    outline that reads as an error. */
-:where(input:not([type='checkbox']):not([type='radio']), textarea, select):focus {
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):focus,
+textarea:focus,
+select:focus {
   outline: none;
   border-color: var(--pink);
   box-shadow: 0 0 0 3px rgba(239, 110, 163, 0.16), var(--sh-sm);
 }
 
-:where(input, textarea, select):disabled {
+input:disabled,
+textarea:disabled,
+select:disabled {
   background-color: var(--soft);
   color: var(--ink-3);
   cursor: not-allowed;
