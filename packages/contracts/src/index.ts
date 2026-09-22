@@ -1138,3 +1138,66 @@ export const CohortDetail = Cohort.extend({
   ),
 });
 export type CohortDetail = z.infer<typeof CohortDetail>;
+
+/* ── Journeys ────────────────────────────────────────────────────────────
+   Eighteen courses in a grid asks the newest member to design their own
+   syllabus. A journey names an outcome and puts courses behind it in order.
+   It recommends; it never locks — drip does the locking, and a sequence that
+   refuses somebody who is already ahead teaches them the platform is in the
+   way. */
+
+export const JourneyStep = z.object({
+  id: z.uuid(),
+  courseId: z.uuid(),
+  courseSlug: z.string(),
+  courseTitle: z.string(),
+  /** Why this course, here. The line that makes a list into a path. */
+  note: z.string().nullable(),
+  lessonCount: z.int().nonnegative(),
+  durationMinutes: z.int().nonnegative(),
+  /** This member's completion of that course, 0–100. */
+  progress: z.int().min(0).max(100),
+  completed: z.boolean(),
+  /** False when the member's tier does not reach the course. */
+  reachable: z.boolean(),
+});
+export type JourneyStep = z.infer<typeof JourneyStep>;
+
+export const Journey = z.object({
+  id: z.uuid(),
+  slug: z.string(),
+  title: z.string(),
+  promise: z.string(),
+  descriptionMd: z.string().nullable(),
+  minTier: Tier,
+  isPublished: z.boolean(),
+  stepCount: z.int().nonnegative(),
+  stepsDone: z.int().nonnegative(),
+  /** Whole-journey completion, weighted by lessons rather than by step. */
+  progress: z.int().min(0).max(100),
+  /** The step to open next: the first unfinished one, or null when done. */
+  nextCourseSlug: z.string().nullable(),
+  nextCourseTitle: z.string().nullable(),
+});
+export type Journey = z.infer<typeof Journey>;
+
+export const JourneyDetail = Journey.extend({
+  steps: z.array(JourneyStep),
+});
+export type JourneyDetail = z.infer<typeof JourneyDetail>;
+
+export const JourneyInput = z.object({
+  slug,
+  title: z.string().trim().min(3).max(140),
+  promise: z.string().trim().min(8, 'Say the outcome, not the topic').max(200),
+  descriptionMd: z.string().max(8000).nullable().default(null),
+  minTier: Tier.default('free'),
+  isPublished: z.boolean().default(false),
+});
+export type JourneyInput = z.infer<typeof JourneyInput>;
+
+export const JourneyStepInput = z.object({
+  courseId: z.uuid(),
+  note: z.string().trim().max(300).nullable().default(null),
+});
+export type JourneyStepInput = z.infer<typeof JourneyStepInput>;

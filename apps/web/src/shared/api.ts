@@ -13,6 +13,8 @@ import {
   DirectoryMember,
   EventInput,
   Insight,
+  Journey,
+  JourneyDetail,
   InsightDetail,
   LessonNote,
   LessonQuestion,
@@ -121,6 +123,10 @@ export const api = {
   stats: () => get('/v1/me/stats', DashboardStats),
   dashboard: () => get('/v1/me/dashboard', Dashboard),
   search: (q: string) => get(`/v1/search?q=${encodeURIComponent(q)}`, SearchResults),
+
+  /* Journeys — the ordered answer to "what do I do first?" */
+  journeys: () => get('/v1/journeys', list(Journey)).then((r) => r.items),
+  journey: (slug: string) => get(`/v1/journeys/${slug}`, JourneyDetail),
 
   createPost: (input: CreatePost) => send('POST', '/v1/community/posts', input, Post),
   markChannelRead: (slug: string) => send<void>('POST', `/v1/community/channels/${slug}/read`),

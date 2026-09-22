@@ -478,3 +478,37 @@ export const impersonationSessions = pgTable(
   },
   (t) => [index('impersonation_target_idx').on(t.targetUserId)],
 );
+
+/**
+ * Journeys: an ordered answer to "what do I do first?"
+ *
+ * Eighteen courses in a grid asks the newest member to design their own
+ * syllabus. A journey names an outcome and puts courses behind it in order —
+ * as a recommendation, never a lock. Drip gates content; this only suggests.
+ */
+export const journeys = pgTable('journeys', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: text('slug').notNull().unique(),
+  title: text('title').notNull(),
+  /** The outcome in the member's words. This is the product. */
+  promise: text('promise').notNull(),
+  descriptionMd: text('description_md'),
+  minTier: tierEnum('min_tier').notNull().default('free'),
+  isPublished: boolean('is_published').notNull().default(false),
+  rank: numeric('rank').notNull().default('1000'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const journeySteps = pgTable(
+  'journey_steps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    journeyId: uuid('journey_id').notNull().references(() => journeys.id, { onDelete: 'cascade' }),
+    courseId: uuid('course_id').notNull(),
+    /** Why this course, here — the line that makes a list into a path. */
+    note: text('note'),
+    rank: numeric('rank').notNull().default('1000'),
+  },
+  (t) => [uniqueIndex('journey_steps_unique_idx').on(t.journeyId, t.courseId)],
+);

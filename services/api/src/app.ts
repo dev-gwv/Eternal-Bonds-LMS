@@ -5,6 +5,7 @@ import { corsFor } from './lib/cors.ts';
 import { HttpError, problem } from './lib/problem.ts';
 import { idempotency } from './middleware/idempotency.ts';
 import { session } from './middleware/auth.ts';
+import { journeyRoutes } from './modules/journeys.ts';
 import { adminRoutes } from './modules/admin.ts';
 import { billingRoutes } from './modules/billing.ts';
 import { webhookRoutes } from './modules/webhooks.ts';
@@ -97,6 +98,7 @@ const v1 = new Hono<AppEnv>()
   .route('/analytics', analyticsRoutes)
   .route('/directory', directoryRoutes)
   .route('/learning', learningRoutes)
+  .route('/journeys', journeyRoutes)
   .route('/admin', adminRoutes)
   .route('/billing', billingRoutes);
 

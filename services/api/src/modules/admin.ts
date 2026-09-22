@@ -16,6 +16,7 @@ import * as studio from '../admin.ts';
 import { problem } from '../lib/problem.ts';
 import { requireAdmin } from '../middleware/auth.ts';
 import { cohortRoutes } from './cohorts.ts';
+import { adminJourneyRoutes } from './journeys.ts';
 import { membersRoutes } from './members.ts';
 import { attachVideo, createUploadTicket, detachVideo } from '../video.ts';
 
@@ -56,6 +57,10 @@ export const adminRoutes = new Hono<AppEnv>()
   // Scheduling. Its own module again: a cohort is about *when*, which is a
   // third job alongside content and people.
   .route('/cohorts', cohortRoutes)
+
+  // Sequencing. What to do first, which is the question eighteen courses in a
+  // grid cannot answer.
+  .route('/journeys', adminJourneyRoutes)
 
   .get('/overview', async (c) => c.json(await studio.overview(c.env, who(c))))
 

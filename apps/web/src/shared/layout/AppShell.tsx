@@ -50,10 +50,22 @@ const SECTIONS: { to: string; label: string; icon: string; owns: string[]; sub: 
       { to: '/events', label: 'Events', icon: 'workshops' },
     ],
   },
-  // No rail yet: Courses is a single page, and the Library's categories are
-  // in-page rather than routes. Both get one when they gain sub-pages — the
-  // alternative is inventing links that go nowhere.
-  { to: '/courses', label: 'Courses', icon: 'courses', owns: ['/learn'], sub: [] },
+  {
+    to: '/courses',
+    label: 'Courses',
+    icon: 'courses',
+    owns: ['/learn', '/journeys'],
+    sub: [
+      // Journeys first: it is the answer to "where do I start", and a member
+      // who needs that question answered should not have to find it behind
+      // the grid of eighteen tiles that prompted it.
+      { to: '/journeys', label: 'Journeys', icon: 'chart' },
+      { to: '/courses', label: 'All courses', icon: 'courses' },
+    ],
+  },
+  // No rail on the Library yet: its categories are in-page rather than routes.
+  // It gets one when it gains sub-pages — the alternative is inventing links
+  // that go nowhere.
   { to: '/library', label: 'Library', icon: 'library', owns: [], sub: [] },
   { to: '/photolancer', label: 'Photolancer', icon: 'search', owns: [], sub: [] },
 ];

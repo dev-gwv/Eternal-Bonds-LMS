@@ -40,6 +40,10 @@ const AccountPage = lazyPage(() => import('../routes/Account.tsx'), 'AccountPage
 const CourseBuilderPage = lazyPage(() => import('../routes/admin/CourseBuilder.tsx'), 'CourseBuilderPage');
 const StudioPage = lazyPage(() => import('../routes/admin/Studio.tsx'), 'StudioPage');
 const MembersPage = lazyPage(() => import('../routes/admin/Members.tsx'), 'MembersPage');
+const JourneysPage = lazyPage(() => import('../routes/Journeys.tsx'), 'JourneysPage');
+const JourneyDetailPage = lazyPage(() => import('../routes/Journeys.tsx'), 'JourneyDetailPage');
+const AdminJourneysPage = lazyPage(() => import('../routes/admin/Journeys.tsx'), 'AdminJourneysPage');
+const AdminJourneyBuilderPage = lazyPage(() => import('../routes/admin/Journeys.tsx'), 'AdminJourneyBuilderPage');
 const CohortsPage = lazyPage(() => import('../routes/admin/Cohorts.tsx'), 'CohortsPage');
 const CohortDetailPage = lazyPage(() => import('../routes/admin/CohortDetail.tsx'), 'CohortDetailPage');
 const MemberDetailPage = lazyPage(() => import('../routes/admin/MemberDetail.tsx'), 'MemberDetailPage');
@@ -131,6 +135,26 @@ const memberDetailRoute = createRoute({
   path: '/admin/members/$id',
   component: MemberDetailPage,
 });
+const journeysRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/journeys',
+  component: JourneysPage,
+});
+const journeyDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/journeys/$slug',
+  component: JourneyDetailPage,
+});
+const adminJourneysRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/journeys',
+  component: AdminJourneysPage,
+});
+const adminJourneyBuilderRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/journeys/$slug',
+  component: AdminJourneyBuilderPage,
+});
 const cohortsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/cohorts',
@@ -178,6 +202,10 @@ const routeTree = rootRoute.addChildren([
   studioRoute,
   membersRoute,
   memberDetailRoute,
+  journeysRoute,
+  journeyDetailRoute,
+  adminJourneysRoute,
+  adminJourneyBuilderRoute,
   cohortsRoute,
   cohortDetailRoute,
   courseBuilderRoute,

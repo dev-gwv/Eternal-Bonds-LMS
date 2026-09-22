@@ -9,10 +9,14 @@ import {
   AdminWorkshop,
   Cohort,
   CohortDetail,
+  Journey,
+  JourneyDetail,
   UploadTicket,
   Viewer,
   type CourseInput,
   type CohortInput,
+  type JourneyInput,
+  type JourneyStepInput,
   type CoursePatch,
   type LessonInput,
   type LessonPatch,
@@ -132,6 +136,20 @@ export const adminApi = {
     }),
   removeCohortMember: (id: string, userId: string) =>
     call<void>('DELETE', `/v1/admin/cohorts/${id}/members/${userId}`),
+
+  /* Journeys — sequencing, which is what eighteen courses in a grid lack. */
+  journeys: () =>
+    call('GET', '/v1/admin/journeys', { schema: z.object({ items: z.array(Journey) }) }).then((r) => r.items),
+  journey: (slug: string) => call('GET', `/v1/admin/journeys/${slug}`, { schema: JourneyDetail }),
+  createJourney: (body: JourneyInput) => call('POST', '/v1/admin/journeys', { body, schema: Journey }),
+  updateJourney: (id: string, body: JourneyInput) =>
+    call('PATCH', `/v1/admin/journeys/${id}`, { body, schema: Journey }),
+  deleteJourney: (id: string) => call<void>('DELETE', `/v1/admin/journeys/${id}`),
+  addJourneyStep: (id: string, body: JourneyStepInput) =>
+    call<void>('POST', `/v1/admin/journeys/${id}/steps`, { body }),
+  reorderJourneySteps: (id: string, ids: string[]) =>
+    call<void>('POST', `/v1/admin/journeys/${id}/steps/order`, { body: { ids } }),
+  removeJourneyStep: (stepId: string) => call<void>('DELETE', `/v1/admin/journeys/steps/${stepId}`),
 };
 
 /** Anonymous is a normal answer here, not an error — the shell asks on load. */
