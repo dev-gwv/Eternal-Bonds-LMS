@@ -338,6 +338,34 @@ Everything else — `SUPABASE_SERVICE_ROLE_KEY`, `RAZORPAY_KEY_SECRET`,
 `wrangler secret put`, not in GitHub. CI never needs them, and a credential that only exists in one
 place is a credential with one place to leak from.
 
+### The Cloudflare token
+
+Made from the **Edit Cloudflare Workers** template at
+`dash.cloudflare.com/profile/api-tokens`. Two things about it are worth writing
+down, because both are surprises later rather than at the time.
+
+**It cannot be scoped to individual Workers.** Cloudflare's Account Resources
+picker chooses an *account*; `Workers Scripts Write` is account-wide. So this
+token can overwrite every Worker in the account, and once already has — a
+deploy under a name that was already taken replaced a live CRM frontend, with
+no warning, because `wrangler deploy` is an upsert. The protection is the name
+check in `services/api/wrangler.jsonc` and `apps/web/wrangler.jsonc`, not the
+token. Before any *first* deploy under a new name:
+
+```bash
+bun x wrangler deployments list --name <the-name>   # must 404
+```
+
+**Set an expiry of about a year, not "No expiration".** A permanent credential
+in GitHub is a permanent credential. Cloudflare emails before it lapses; when
+it does, deploys fail with a 403 that reads like a permissions bug rather than
+an expiry. If you are reading this because of exactly that, the fix is a new
+token in the same secret.
+
+Leave **Client IP address filtering** empty. GitHub Actions runners come from a
+large and changing pool, so any value there breaks the first deploy that lands
+on a different address.
+
 ### The `production` environment
 
 Every deploy job targets a GitHub environment called `production`. Creating it
