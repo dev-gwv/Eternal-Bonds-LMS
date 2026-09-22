@@ -45,6 +45,7 @@ const JourneysPage = lazyPage(() => import('../routes/Journeys.tsx'), 'JourneysP
 const JourneyDetailPage = lazyPage(() => import('../routes/Journeys.tsx'), 'JourneyDetailPage');
 const AdminJourneysPage = lazyPage(() => import('../routes/admin/Journeys.tsx'), 'AdminJourneysPage');
 const AdminJourneyBuilderPage = lazyPage(() => import('../routes/admin/Journeys.tsx'), 'AdminJourneyBuilderPage');
+const RevenuePage = lazyPage(() => import('../routes/admin/Revenue.tsx'), 'RevenuePage');
 const CohortsPage = lazyPage(() => import('../routes/admin/Cohorts.tsx'), 'CohortsPage');
 const CohortDetailPage = lazyPage(() => import('../routes/admin/CohortDetail.tsx'), 'CohortDetailPage');
 const MemberDetailPage = lazyPage(() => import('../routes/admin/MemberDetail.tsx'), 'MemberDetailPage');
@@ -161,6 +162,11 @@ const adminJourneyBuilderRoute = createRoute({
   path: '/admin/journeys/$slug',
   component: AdminJourneyBuilderPage,
 });
+const revenueRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/revenue',
+  component: RevenuePage,
+});
 const cohortsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/cohorts',
@@ -213,6 +219,7 @@ const routeTree = rootRoute.addChildren([
   journeyDetailRoute,
   adminJourneysRoute,
   adminJourneyBuilderRoute,
+  revenueRoute,
   cohortsRoute,
   cohortDetailRoute,
   courseBuilderRoute,

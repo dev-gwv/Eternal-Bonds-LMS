@@ -32,6 +32,7 @@ const ADMIN: Item[] = [
   { to: '/admin', label: 'Studio', icon: 'edit', hint: 'Courses and workshops' },
   { to: '/admin/members', label: 'Members', icon: 'people', hint: 'Roster and progress' },
   { to: '/admin/cohorts', label: 'Cohorts', icon: 'calendar', hint: 'Start dates and drip' },
+  { to: '/admin/revenue', label: 'Revenue', icon: 'chart', hint: 'What came in' },
   { to: '/admin/moderation', label: 'Moderation', icon: 'bell', hint: 'Reports and reviews' },
 ];
 
