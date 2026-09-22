@@ -179,6 +179,45 @@ memberCount > 0
 // single unknown value makes every notification fail to parse and the bell go
 // dark. This drifted once already, and the contract suite only caught it
 // because a row of the new kind happened to exist to parse.
+/*
+ * Tables an admin screen writes to, which therefore need an is_admin() policy.
+ *
+ * This check exists because the same bug happened seven times: a table gets a
+ * policy for the member case, an admin endpoint is written against it, and
+ * nothing verifies the admin can actually reach the table. The endpoint
+ * compiles, typechecks, and returns 500 the first time somebody presses the
+ * button — which is only ever discovered by pressing it.
+ *
+ * A member policy is not an admin policy: `*_select_own` and `using (true)`
+ * are both member policies.
+ */
+console.log('\nAdmin write access');
+{
+  const ADMIN_WRITES = [
+    'courses', 'modules', 'lessons', 'lesson_resources', 'workshops',
+    'cohorts', 'cohort_members', 'journeys', 'journey_steps',
+    'events', 'event_insights', 'feature_flags', 'channel_moderators',
+    'memberships', 'audit_log', 'reports',
+  ];
+  const rows = await db.execute<{ tablename: string; has_admin: boolean }>(sql`
+    select p.tablename,
+           bool_or(coalesce(p.qual, '') like '%is_admin%'
+                or coalesce(p.with_check, '') like '%is_admin%') as has_admin
+    from pg_policies p
+    where p.schemaname = 'public'
+    group by p.tablename
+  `);
+  const byTable = new Map(rows.map((r) => [r.tablename, r.has_admin]));
+  const gaps = ADMIN_WRITES.filter((t) => present.has(t) && byTable.has(t) && !byTable.get(t));
+
+  gaps.length === 0
+    ? pass(`${ADMIN_WRITES.filter((t) => present.has(t)).length} admin-written tables all reachable`)
+    : fail(
+        `no is_admin() policy on ${gaps.join(', ')}`,
+        'the admin endpoint against it will 500 the first time it is used',
+      );
+}
+
 console.log('\nNotification kinds');
 {
   const rows = await db.execute<{ label: string }>(sql`
