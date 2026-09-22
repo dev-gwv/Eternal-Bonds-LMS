@@ -54,8 +54,8 @@ export function NotificationsPage() {
     <Page>
       <PageHeader
         title="Notifications"
-        back="/account"
-        crumbs={[{ label: 'Account', to: '/account' }, { label: 'Notifications' }]}
+        back="/"
+        crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Notifications' }]}
         actions={
           (feed.data?.unread ?? 0) > 0 ? (
             <button type="button" className="btn btn-soft" onClick={() => markRead.mutate(undefined)}>
@@ -122,56 +122,18 @@ export function NotificationsPage() {
         </div>
 
         <div className="col rail">
-          <Card title="What you get told about">
-            {prefs.error && <div className="alert">{(prefs.error as Error).message}</div>}
-            {prefs.data &&
-              SWITCHES.map(({ key, label, hint }) => (
-                <label
-                  key={key}
-                  style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '7px 0', cursor: 'pointer' }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={Boolean(prefs.data[key])}
-                    disabled={save.isPending}
-                    onChange={(e) => save.mutate({ [key]: e.target.checked })}
-                    style={{ width: 14, height: 14, marginTop: 2, accentColor: 'var(--pink-ink)' }}
-                  />
-                  <span>
-                    <span style={{ display: 'block', fontSize: 12, fontWeight: 500 }}>{label}</span>
-                    <span style={{ display: 'block', fontSize: 10.5, lineHeight: 1.5, marginTop: 1 }} className="dim">
-                      {hint}
-                    </span>
-                  </span>
-                </label>
-              ))}
+          {/* The switches moved to Settings. Two places to change the same
+              preference is how one of them ends up stale — and the version a
+              member remembers is whichever they saw last. */}
+          <Card title="Too much, or not enough?">
+            <span style={{ fontSize: 11.5, lineHeight: 1.6 }} className="muted">
+              Choose what reaches you by email and push, and set the hours when nothing should buzz
+              your phone.
+            </span>
+            <Link to="/settings/notifications" className="btn btn-soft" style={{ alignSelf: 'flex-start' }}>
+              Notification settings
+            </Link>
           </Card>
-
-          {prefs.data && (
-            <Card title="Quiet hours">
-              <span style={{ fontSize: 11, lineHeight: 1.55 }} className="muted">
-                No push between these times. A notification held back is sent afterwards, not dropped.
-              </span>
-              <div className="field-row">
-                <label className="field">
-                  <span>From</span>
-                  <input
-                    type="time"
-                    value={prefs.data.quietFrom}
-                    onChange={(e) => save.mutate({ quietFrom: e.target.value })}
-                  />
-                </label>
-                <label className="field">
-                  <span>To</span>
-                  <input
-                    type="time"
-                    value={prefs.data.quietTo}
-                    onChange={(e) => save.mutate({ quietTo: e.target.value })}
-                  />
-                </label>
-              </div>
-            </Card>
-          )}
         </div>
       </div>
     </Page>

@@ -134,7 +134,7 @@ export function MemberPage() {
             ))}
           </div>
 
-          <Link to="/account" className="btn btn-soft btn-sq" style={{ marginTop: 'auto', padding: 11, fontSize: 12, color: 'inherit' }}>
+          <Link to="/settings" className="btn btn-soft btn-sq" style={{ marginTop: 'auto', padding: 11, fontSize: 12, color: 'inherit' }}>
             <Icon name="edit" size={14} strokeWidth={1.9} />
             Account settings
           </Link>

@@ -23,9 +23,9 @@ type Item = { to: string; label: string; icon: string; hint?: string };
 
 const MEMBER: Item[] = [
   { to: '/members/me', label: 'My profile', icon: 'people' },
-  { to: '/membership', label: 'Membership', icon: 'courses', hint: 'Plan and invoices' },
-  { to: '/notifications', label: 'Notifications', icon: 'bell', hint: 'What reaches you' },
-  { to: '/account', label: 'Account settings', icon: 'settings' },
+  // Notifications is the inbox, not the switches — those live in Settings.
+  { to: '/notifications', label: 'Notifications', icon: 'bell', hint: 'What has happened' },
+  { to: '/settings', label: 'Settings', icon: 'settings', hint: 'Profile, alerts, plan, privacy' },
 ];
 
 const ADMIN: Item[] = [

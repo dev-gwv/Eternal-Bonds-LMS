@@ -221,7 +221,10 @@ export function PageHeader({
           ))}
         </div>
       </div>
-      {actions}
+      {/* Wrapped, so the actions are a bounded flex child rather than however
+          many loose elements a page happened to pass. Unwrapped, a single
+          full-width control could take the whole row and crush the title. */}
+      {actions && <div className="pagehead-actions">{actions}</div>}
     </div>
   );
 }

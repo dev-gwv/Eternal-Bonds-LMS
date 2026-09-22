@@ -10,14 +10,14 @@ export function LegalPage() {
   const [accepted, setAccepted] = useState(false);
   return (
     <Page>
-      <PageHeader title="Privacy & Terms" crumbs={[{ label: 'Account', to: '/account' }, { label: 'Legal' }]} />
+      <PageHeader title="Privacy & Terms" crumbs={[{ label: 'Settings', to: '/settings' }, { label: 'Legal' }]} />
       <Card>
         <h3 style={{ marginTop: 0 }}>Privacy policy (summary)</h3>
         <p style={{ fontSize: 12, lineHeight: 1.7 }} className="muted">
           We store your profile, course progress, posts and messages to run the club.
           Videos stream from our provider; payments go through Razorpay, Google Play or the
           App Store — we keep the entitlement (which tier, until when), never card numbers.
-          You can export everything (<Link to="/account">Account → Export</Link>) and delete
+          You can export everything (<Link to="/settings/privacy">Settings → Privacy &amp; data</Link>) and delete
           your account in-app at any time; authored posts are anonymised, not erased, so
           threads others replied to keep making sense.
         </p>

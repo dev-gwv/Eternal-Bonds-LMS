@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
+import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router';
 import { AppShell } from '../shared/layout/AppShell.tsx';
 import { DashboardPage } from '../routes/Dashboard.tsx';
 
@@ -36,10 +36,12 @@ const LegalPage = lazyPage(() => import('../routes/Legal.tsx'), 'LegalPage');
 const ModerationPage = lazyPage(() => import('../routes/admin/Moderation.tsx'), 'ModerationPage');
 const PhotolancerPage = lazyPage(() => import('../routes/Photolancer.tsx'), 'PhotolancerPage');
 const WorkshopsPage = lazyPage(() => import('../routes/Workshops.tsx'), 'WorkshopsPage');
-const AccountPage = lazyPage(() => import('../routes/Account.tsx'), 'AccountPage');
 const CourseBuilderPage = lazyPage(() => import('../routes/admin/CourseBuilder.tsx'), 'CourseBuilderPage');
 const StudioPage = lazyPage(() => import('../routes/admin/Studio.tsx'), 'StudioPage');
 const MembersPage = lazyPage(() => import('../routes/admin/Members.tsx'), 'MembersPage');
+const SettingsProfilePage = lazyPage(() => import('../routes/Settings.tsx'), 'SettingsProfilePage');
+const SettingsNotificationsPage = lazyPage(() => import('../routes/Settings.tsx'), 'SettingsNotificationsPage');
+const SettingsPrivacyPage = lazyPage(() => import('../routes/Settings.tsx'), 'SettingsPrivacyPage');
 const WelcomePage = lazyPage(() => import('../routes/Welcome.tsx'), 'WelcomePage');
 const JourneysPage = lazyPage(() => import('../routes/Journeys.tsx'), 'JourneysPage');
 const JourneyDetailPage = lazyPage(() => import('../routes/Journeys.tsx'), 'JourneyDetailPage');
@@ -69,11 +71,43 @@ const lessonRoute = createRoute({
 });
 const libraryRoute = createRoute({ getParentRoute: () => rootRoute, path: '/library', component: LibraryPage });
 const memberRoute = createRoute({ getParentRoute: () => rootRoute, path: '/members/me', component: MemberPage });
-const accountRoute = createRoute({ getParentRoute: () => rootRoute, path: '/account', component: AccountPage });
-const membershipRoute = createRoute({
+/* Settings, as four real routes rather than local tab state — each is
+   linkable, the back button works between them, and support can say "it is at
+   /settings/notifications" and have that be true. */
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  component: SettingsProfilePage,
+});
+const settingsNotificationsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/notifications',
+  component: SettingsNotificationsPage,
+});
+const settingsMembershipRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/membership',
+  component: MembershipPage,
+});
+const settingsPrivacyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/privacy',
+  component: SettingsPrivacyPage,
+});
+
+/* The old addresses still work. They are in the wild — in the user menu
+   somebody has bookmarked, in old notification links, and in
+   `SWITCHES`-shaped emails already sent — and a dead link is a worse outcome
+   than a redirect nobody notices. */
+const accountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/account',
+  beforeLoad: () => { throw redirect({ to: '/settings', replace: true }); },
+});
+const membershipRedirectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/membership',
-  component: MembershipPage,
+  beforeLoad: () => { throw redirect({ to: '/settings/membership', replace: true }); },
 });
 const notificationsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -197,8 +231,12 @@ const routeTree = rootRoute.addChildren([
   lessonRoute,
   libraryRoute,
   memberRoute,
+  settingsRoute,
+  settingsNotificationsRoute,
+  settingsMembershipRoute,
+  settingsPrivacyRoute,
   accountRoute,
-  membershipRoute,
+  membershipRedirectRoute,
   notificationsRoute,
   photolancerRoute,
   thinkTankRoute,

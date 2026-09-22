@@ -4,6 +4,7 @@ import type { OrderTicket, Plan } from '@ipc/contracts';
 import { api } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Card, Chip, Icon } from '../shared/ui/primitives.tsx';
+import { SettingsShell } from './Settings.tsx';
 
 /**
  * Membership and checkout.
@@ -170,13 +171,7 @@ export function MembershipPage() {
   const webOnly = data?.billingMode === 'web_only';
 
   return (
-    <Page>
-      <PageHeader
-        title="Membership"
-        crumbs={[{ label: 'Account', to: '/account' }, { label: 'Membership' }]}
-        back="/account"
-      />
-
+    <SettingsShell>
       {error && <div className="alert">{error}</div>}
       {status && <div className="callout">{status}</div>}
 
@@ -260,6 +255,6 @@ export function MembershipPage() {
           </Card>
         </>
       )}
-    </Page>
+    </SettingsShell>
   );
 }
