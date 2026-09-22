@@ -18,6 +18,7 @@
 
 begin;
 
+drop policy if exists lesson_progress_admin_read on public.lesson_progress;
 create policy lesson_progress_admin_read on public.lesson_progress
   for select to authenticated
   using (public.is_admin());

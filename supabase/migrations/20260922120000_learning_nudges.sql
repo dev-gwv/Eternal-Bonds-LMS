@@ -46,6 +46,7 @@ alter table public.learning_nudges enable row level security;
 -- A member may see what was sent to them; nothing writes through the API. The
 -- job runs as the service role, which bypasses this entirely — deliberately,
 -- so no policy can be tricked into forging a nudge.
+drop policy if exists learning_nudges_select_own on public.learning_nudges;
 create policy learning_nudges_select_own on public.learning_nudges
   for select to authenticated
   using (user_id = auth.uid() or public.is_admin());

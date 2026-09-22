@@ -14,6 +14,7 @@
 
 begin;
 
+drop policy if exists audit_log_insert_self on public.audit_log;
 create policy audit_log_insert_self on public.audit_log
   for insert to authenticated
   with check (public.is_admin() and actor_id = auth.uid());

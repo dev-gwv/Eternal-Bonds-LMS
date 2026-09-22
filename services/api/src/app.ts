@@ -32,7 +32,7 @@ import { usingDatabase } from './repo.ts';
  * Conventions here exist so a native client can be added later without
  * reopening the API — see docs/api-conventions.md.
  */
-export const API_VERSION = '2026-09-20';
+export const API_VERSION = '2026-09-22';
 
 export const app = new Hono<AppEnv>();
 

@@ -13,10 +13,12 @@
 
 begin;
 
+drop policy if exists enrollments_admin_read on public.enrollments;
 create policy enrollments_admin_read on public.enrollments
   for select to authenticated
   using (public.is_admin());
 
+drop policy if exists enrollments_admin_enrol on public.enrollments;
 create policy enrollments_admin_enrol on public.enrollments
   for insert to authenticated
   with check (public.is_admin());

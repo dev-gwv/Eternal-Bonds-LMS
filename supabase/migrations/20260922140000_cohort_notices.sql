@@ -36,9 +36,11 @@ alter table public.cohort_deadline_notices  enable row level security;
 -- Readable by the person it concerns, writable only by the service role that
 -- the job runs as. No insert policy exists deliberately: a member who could
 -- write here could silence their own reminders, or forge somebody else's.
+drop policy if exists module_unlock_notices_select_own on public.module_unlock_notices;
 create policy module_unlock_notices_select_own on public.module_unlock_notices
   for select to authenticated using (user_id = auth.uid() or public.is_admin());
 
+drop policy if exists cohort_deadline_notices_select_own on public.cohort_deadline_notices;
 create policy cohort_deadline_notices_select_own on public.cohort_deadline_notices
   for select to authenticated using (user_id = auth.uid() or public.is_admin());
 

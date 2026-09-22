@@ -142,18 +142,22 @@ alter table public.cohort_members enable row level security;
 
 -- Members see cohorts at all — a schedule is not a secret, and seeing that a
 -- January group exists is how somebody asks to be in it.
+drop policy if exists cohorts_select on public.cohorts;
 create policy cohorts_select on public.cohorts
   for select to authenticated using (true);
 
+drop policy if exists cohorts_admin_write on public.cohorts;
 create policy cohorts_admin_write on public.cohorts
   for all to authenticated
   using (public.is_admin()) with check (public.is_admin());
 
 -- Membership is narrower: your own, or an admin's view of everyone's.
+drop policy if exists cohort_members_select on public.cohort_members;
 create policy cohort_members_select on public.cohort_members
   for select to authenticated
   using (user_id = auth.uid() or public.is_admin());
 
+drop policy if exists cohort_members_admin_write on public.cohort_members;
 create policy cohort_members_admin_write on public.cohort_members
   for all to authenticated
   using (public.is_admin()) with check (public.is_admin());
