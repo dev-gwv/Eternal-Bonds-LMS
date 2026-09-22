@@ -68,7 +68,7 @@ function PostCard({ post, seenRef }: { post: Post; seenRef?: (node: HTMLElement 
         </div>
       </div>
 
-      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: '#4a4a57' }}>{post.bodyMd}</p>
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: 'var(--ink-2)' }}>{post.bodyMd}</p>
 
       {/* Was a row of pink gradient rectangles standing in for photographs
           that the app could not upload. Both halves are real now. */}
@@ -79,7 +79,7 @@ function PostCard({ post, seenRef }: { post: Post; seenRef?: (node: HTMLElement 
           <span className="avatar" style={{ width: 24, height: 24, fontSize: 9, background: 'var(--yellow)', color: 'var(--yellow-deep)' }}>
             IPC
           </span>
-          <span style={{ fontSize: 11, color: '#8a6a0e', flex: 1 }}>
+          <span style={{ fontSize: 11, color: 'var(--yellow-deep)', flex: 1 }}>
             <strong style={{ color: 'var(--yellow-deep)' }}>Team replied</strong> — {post.teamReply}
           </span>
         </div>
@@ -290,13 +290,13 @@ export function CommunityPage() {
 
           <div className="promo">
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--yellow-deep)' }}>Post your first win</span>
-            <span style={{ fontSize: 10, lineHeight: 1.5, color: '#7a5a00' }}>
+            <span style={{ fontSize: 10, lineHeight: 1.5, color: 'var(--yellow-deep)' }}>
               Members who post a win in week one stay twice as long.
             </span>
             <button
               type="button"
               className="btn"
-              style={{ alignSelf: 'flex-start', background: '#fff', color: 'var(--yellow-deep)', fontSize: 10 }}
+              style={{ alignSelf: 'flex-start', background: 'var(--panel)', color: 'var(--yellow-deep)', fontSize: 10 }}
               onClick={() => {
                 openChannel('wins');
                 focusComposer();

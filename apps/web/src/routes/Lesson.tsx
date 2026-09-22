@@ -128,7 +128,7 @@ export function LessonPage() {
           />
 
           {playback.isError && (
-            <div className="callout" style={{ background: '#fdeaea', color: '#8a1f1f' }}>
+            <div className="callout" style={{ background: 'var(--soft)', color: 'var(--red)' }}>
               {playback.error.message}
             </div>
           )}

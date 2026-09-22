@@ -96,7 +96,7 @@ export function NotificationBell() {
             position: 'absolute',
             top: 'calc(100% + 8px)',
             right: 0,
-            width: 340,
+            width: 'min(340px, calc(100vw - 28px))',
             maxHeight: 420,
             overflowY: 'auto',
             background: 'var(--panel)',

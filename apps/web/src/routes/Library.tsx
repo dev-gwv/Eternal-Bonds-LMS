@@ -160,11 +160,11 @@ export function LibraryPage() {
           gap: 13,
         }}
       >
-        <span className="avatar" style={{ width: 34, height: 34, background: '#fff' }}>
+        <span className="avatar" style={{ width: 34, height: 34, background: 'var(--panel)' }}>
           <span style={{ width: 12, height: 12, borderRadius: 999, background: 'var(--pink)' }} />
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-          <span style={{ fontSize: 10, letterSpacing: '0.2em', color: '#b07a94', fontWeight: 500 }}>
+          <span style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--pink-strong)', fontWeight: 500 }}>
             ETERNAL BONDS
           </span>
           <span style={{ fontSize: 26, fontWeight: 600, letterSpacing: '0.02em' }}>Your Library</span>
@@ -175,7 +175,7 @@ export function LibraryPage() {
           style={{ display: 'flex', gap: 9, width: 'min(520px, 100%)' }}
           onSubmit={(e) => e.preventDefault()}
         >
-          <div className="search" style={{ flex: 1, width: 'auto', background: '#fff', padding: '12px 16px' }}>
+          <div className="search" style={{ flex: 1, width: 'auto', background: 'var(--panel)', padding: '12px 16px' }}>
             <Icon name="search" size={15} strokeWidth={2} color="var(--ink-3)" />
             <label htmlFor="library-search" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
               Search the library

@@ -152,7 +152,7 @@ function CommentRow({ comment, postId, depth }: { comment: Comment; postId: stri
                 margin: '3px 0 0',
                 fontSize: 12,
                 lineHeight: 1.6,
-                color: comment.deleted ? 'var(--ink-3)' : '#4a4a57',
+                color: comment.deleted ? 'var(--ink-3)' : 'var(--ink-2)',
                 fontStyle: comment.deleted ? 'italic' : 'normal',
               }}
             >

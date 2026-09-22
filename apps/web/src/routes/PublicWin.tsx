@@ -51,7 +51,7 @@ export function PublicWinPage({ slug }: { slug: string }) {
   if (win.isPending) {
     return (
       <main style={shell}>
-        <span style={{ fontSize: 12, color: '#6b6b76' }}>Loading…</span>
+        <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>Loading…</span>
       </main>
     );
   }
@@ -61,7 +61,7 @@ export function PublicWinPage({ slug }: { slug: string }) {
     return (
       <main style={shell}>
         <h1 style={{ fontSize: 20, margin: 0 }}>{missing ? 'Not here' : 'Something went wrong'}</h1>
-        <p style={{ fontSize: 13, lineHeight: 1.7, color: '#6b6b76' }}>
+        <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--ink-2)' }}>
           {missing
             ? 'This story is not shared publicly, or the link is wrong.'
             : 'Try again in a moment.'}
@@ -83,11 +83,11 @@ export function PublicWinPage({ slug }: { slug: string }) {
       </a>
 
       <header style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <span style={{ fontSize: 11, color: '#9a9aa4' }}>
+        <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>
           {w.category} · {when}
         </span>
         <h1 style={{ fontSize: 'clamp(22px, 4vw, 32px)', lineHeight: 1.25, margin: 0 }}>{w.title}</h1>
-        <span style={{ fontSize: 13, color: '#6b6b76' }}>by {w.authorName}, a club member</span>
+        <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>by {w.authorName}, a club member</span>
       </header>
 
       {w.media.length > 0 && <Gallery media={w.media} />}
@@ -111,8 +111,8 @@ export function PublicWinPage({ slug }: { slug: string }) {
                 fontSize: 11,
                 padding: '4px 10px',
                 borderRadius: 999,
-                background: '#f4f4f6',
-                color: '#6b6b76',
+                background: 'var(--soft)',
+                color: 'var(--ink-2)',
               }}
             >
               {t}
@@ -135,7 +135,7 @@ export function PublicWinPage({ slug }: { slug: string }) {
         }}
       >
         <strong style={{ fontSize: 15 }}>This is what members share here.</strong>
-        <span style={{ fontSize: 13, lineHeight: 1.65, color: '#7a4258' }}>
+        <span style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--pink-strong)' }}>
           Photographers in the club post exactly how a booking happened, so the next person can copy
           it. Courses, weekly live sessions, and a few hundred people doing the same work.
         </span>
@@ -144,7 +144,7 @@ export function PublicWinPage({ slug }: { slug: string }) {
           style={{
             alignSelf: 'flex-start',
             marginTop: 4,
-            background: '#e0457b',
+            background: 'var(--pink-ink)',
             color: '#fff',
             fontSize: 13,
             fontWeight: 500,
@@ -157,15 +157,17 @@ export function PublicWinPage({ slug }: { slug: string }) {
         </a>
       </aside>
 
-      <footer style={{ fontSize: 11, color: '#9a9aa4', paddingTop: 8 }}>
+      <footer style={{ fontSize: 11, color: 'var(--ink-3)', paddingTop: 8 }}>
         Shared by its author. India Photographers Club.
       </footer>
     </main>
   );
 }
 
-/* Plain objects rather than the app's CSS variables: this page renders without
-   the shell, so it cannot rely on anything the shell sets up. */
+/* Plain style objects, but real tokens. The page renders outside the auth
+   shell, not outside the stylesheet — styles.css is global, so `var(--ink)`
+   resolves here exactly as it does anywhere else, and using it means the
+   public page follows dark mode along with everything else. */
 const shell: React.CSSProperties = {
   maxWidth: 680,
   margin: '0 auto',
@@ -174,9 +176,9 @@ const shell: React.CSSProperties = {
   flexDirection: 'column',
   gap: 20,
   fontFamily: 'inherit',
-  color: '#26262e',
+  color: 'var(--ink)',
 };
 
 const heading: React.CSSProperties = { fontSize: 13, margin: 0, letterSpacing: '0.02em' };
 const body: React.CSSProperties = { fontSize: 14, lineHeight: 1.75, margin: 0, whiteSpace: 'pre-wrap' };
-const link: React.CSSProperties = { color: '#e0457b', textDecoration: 'none', fontSize: 13 };
+const link: React.CSSProperties = { color: 'var(--pink-ink)', textDecoration: 'none', fontSize: 13 };

@@ -152,7 +152,7 @@ export function DateBadge({
 }) {
   const tones = {
     pink: { bg: 'var(--pink-tint)', top: 'var(--pink-ink)', big: 'var(--pink-strong)' },
-    yellow: { bg: 'var(--yellow-tint)', top: 'var(--yellow-ink)', big: '#8a6a0e' },
+    yellow: { bg: 'var(--yellow-tint)', top: 'var(--yellow-ink)', big: 'var(--yellow-deep)' },
     blue: { bg: 'var(--blue-tint)', top: 'var(--blue-ink)', big: 'var(--blue-strong)' },
     green: { bg: 'var(--green-tint)', top: 'var(--green-ink)', big: '#1f6340' },
   } as const;

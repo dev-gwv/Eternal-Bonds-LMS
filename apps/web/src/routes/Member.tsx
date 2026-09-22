@@ -35,7 +35,7 @@ export function MemberPage() {
 
       <div className="content">
         {/* Profile column */}
-        <div className="card" style={{ width: 286, flexShrink: 0, padding: 14, gap: 14 }}>
+        <div className="card" style={{ width: 'min(286px, 100%)', flexShrink: 0, padding: 14, gap: 14 }}>
           <div style={{ position: 'relative', height: 128 }}>
             <div
               style={{
@@ -56,7 +56,7 @@ export function MemberPage() {
                 background: 'var(--yellow)',
                 border: '4px solid #fff',
                 fontSize: 22,
-                color: '#7a5a00',
+                color: 'var(--yellow-deep)',
               }}
             >
               {member?.initials ?? '··'}
@@ -84,7 +84,7 @@ export function MemberPage() {
               aria-label={member?.email ? `Email ${member.fullName}` : 'No email on file'}
               aria-disabled={!member?.email}
               style={{
-                width: 38, height: 38, background: '#fff', border: '1px solid #ececf1',
+                width: 38, height: 38, background: 'var(--panel)', border: '1px solid #ececf1',
                 color: 'inherit', opacity: member?.email ? 1 : 0.4,
                 pointerEvents: member?.email ? 'auto' : 'none',
               }}
@@ -97,7 +97,7 @@ export function MemberPage() {
               aria-label={member?.phone ? `Call ${member.fullName}` : 'No phone on file'}
               aria-disabled={!member?.phone}
               style={{
-                width: 38, height: 38, background: '#fff', border: '1px solid #ececf1',
+                width: 38, height: 38, background: 'var(--panel)', border: '1px solid #ececf1',
                 color: 'inherit', opacity: member?.phone ? 1 : 0.4,
                 pointerEvents: member?.phone ? 'auto' : 'none',
               }}
@@ -125,7 +125,7 @@ export function MemberPage() {
             <span className="card-title">Social media</span>
             {(member?.socials ?? []).map((s) => (
               <div key={s.network} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span className="tile" style={{ width: 24, height: 24, borderRadius: 7, background: '#f3f3f7', color: 'var(--ink-2)', fontSize: 10, fontWeight: 600 }}>
+                <span className="tile" style={{ width: 24, height: 24, borderRadius: 7, background: 'var(--soft)', color: 'var(--ink-2)', fontSize: 10, fontWeight: 600 }}>
                   {s.network.slice(0, 2).toLowerCase()}
                 </span>
                 <span style={{ flex: 1, fontSize: 11 }}>{s.network}</span>
@@ -157,7 +157,7 @@ export function MemberPage() {
               {activity.data && <ActivityChart days={activity.data} />}
             </Card>
 
-            <Card title="Momentum" action={<Dropdown label="Last 6 Months" />} style={{ width: 396, minHeight: 286 }}>
+            <Card title="Momentum" action={<Dropdown label="Last 6 Months" />} style={{ width: 'min(396px, 100%)', minHeight: 286 }}>
               {performance.data && (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

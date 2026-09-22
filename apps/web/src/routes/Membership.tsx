@@ -136,7 +136,7 @@ export function MembershipPage() {
         name: 'Eternal Bonds',
         description: ticket.planName,
         order_id: ticket.providerOrderId,
-        theme: { color: '#f48fb1' },
+        theme: { color: 'var(--pink)' },
         handler: () => {
           // Razorpay says it worked. We wait for the webhook to say so too,
           // which usually lands within seconds — hence the re-check rather

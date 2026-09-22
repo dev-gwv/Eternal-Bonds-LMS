@@ -85,7 +85,7 @@ export function ReportButton({
           borderRadius: 'var(--r-ctl)',
           padding: '6px 10px',
           color: 'var(--ink)',
-          width: 190,
+          width: 'min(190px, calc(100vw - 120px))',
         }}
       />
       <button

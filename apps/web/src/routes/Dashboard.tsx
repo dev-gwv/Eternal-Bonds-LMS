@@ -231,12 +231,12 @@ export function DashboardPage() {
                     ? `You are rank ${stats.rank} — climb into the top 50`
                     : `${xpLabel(gapToNext)} XP to rank ${(stats.rank ?? 2) - 1}`}
               </span>
-              <span style={{ fontSize: 11, lineHeight: 1.5, color: '#7a5a00' }}>
+              <span style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--yellow-deep)' }}>
                 {gapToNext === 0
                   ? 'Hold it by keeping the streak going.'
                   : 'Finishing a lesson earns XP. So does posting a win.'}
               </span>
-              <Link to="/courses" className="btn" style={{ alignSelf: 'flex-start', background: '#fff', color: 'var(--yellow-deep)' }}>
+              <Link to="/courses" className="btn" style={{ alignSelf: 'flex-start', background: 'var(--panel)', color: 'var(--yellow-deep)' }}>
                 Continue learning
               </Link>
             </div>
@@ -245,10 +245,10 @@ export function DashboardPage() {
           {stats && stats.xp === 0 && (
             <div className="promo">
               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--yellow-deep)' }}>Start earning XP</span>
-              <span style={{ fontSize: 11, lineHeight: 1.5, color: '#7a5a00' }}>
+              <span style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--yellow-deep)' }}>
                 Finish your first lesson to get on the leaderboard.
               </span>
-              <Link to="/courses" className="btn" style={{ alignSelf: 'flex-start', background: '#fff', color: 'var(--yellow-deep)' }}>
+              <Link to="/courses" className="btn" style={{ alignSelf: 'flex-start', background: 'var(--panel)', color: 'var(--yellow-deep)' }}>
                 Browse courses
               </Link>
             </div>

@@ -186,7 +186,7 @@ export function AccountPage() {
           </Card>
           <div className="promo">
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--yellow-deep)' }}>Need help instead?</span>
-            <span style={{ fontSize: 10, lineHeight: 1.5, color: '#7a5a00' }}>
+            <span style={{ fontSize: 10, lineHeight: 1.5, color: 'var(--yellow-deep)' }}>
               Most things members want to delete can be fixed by muting a channel or changing
               notification settings.
             </span>
