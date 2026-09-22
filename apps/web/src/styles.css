@@ -888,7 +888,7 @@ textarea.input { resize: vertical; line-height: 1.6; }
 }
 
 .sidebar {
-  width: 186px;
+  width: 168px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -937,8 +937,13 @@ textarea.input { resize: vertical; line-height: 1.6; }
   gap: 16px;
 }
 
-/* The hamburger only exists below the breakpoint. */
+/* The hamburger only exists below the breakpoint, and only where the current
+   section actually has a rail to open. */
 .nav-toggle { display: none; }
+
+/* Six pills plus a wordmark plus search is a full bar; let the nav take the
+   slack and wrap rather than pushing the actions off the edge. */
+.nav { flex: 1; justify-content: center; }
 
 .sidebar-scrim { display: none; }
 

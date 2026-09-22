@@ -48,22 +48,4 @@ export function DirectoryPage() {
   );
 }
 
-export function ReportButton({ targetType, targetId }: { targetType: string; targetId: string }) {
-  const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState('');
-  const [sent, setSent] = useState(false);
-  const qc = useQueryClient();
-  const report = useMutation({
-    mutationFn: () => api.report({ targetType, targetId, reason }),
-    onSuccess: () => { setSent(true); setOpen(false); qc.invalidateQueries({ queryKey: ['reports'] }); },
-  });
-  if (sent) return <span className="muted" style={{ fontSize: 11 }}>Reported — thanks.</span>;
-  if (!open) return <button className="btn btn-soft" onClick={() => setOpen(true)} aria-label="Report">⚑</button>;
-  return (
-    <span style={{ display: 'inline-flex', gap: 6 }}>
-      <input className="input" placeholder="Why?" value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Report reason" />
-      <button className="btn btn-pink" disabled={reason.trim().length < 4 || report.isPending}
-        onClick={() => report.mutate()}>Send</button>
-    </span>
-  );
-}
+export { ReportButton } from '../shared/ui/ReportButton.tsx';

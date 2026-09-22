@@ -6,6 +6,7 @@ import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Avatar, Card, Chip, EmptyState, Icon, Tile } from '../shared/ui/primitives.tsx';
 import { CommentThread } from '../shared/ui/Comments.tsx';
 import { NextUp } from '../shared/ui/NextUp.tsx';
+import { ReportButton } from '../shared/ui/ReportButton.tsx';
 import { useSeen } from '../shared/ui/useSeen.tsx';
 import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 
@@ -148,6 +149,9 @@ function PostCard({ post, seenRef }: { post: Post; seenRef?: (node: HTMLElement 
           <Icon name={shared ? 'check' : 'share'} size={14} strokeWidth={1.9} />
           {shared ? 'Link copied' : 'Share'}
         </button>
+        {/* Quiet on purpose: a prominent flag on every post becomes a disagree
+            button. Small and grey is enough for the person who needs it. */}
+        <ReportButton targetType="post" targetId={post.id} />
       </div>
 
       {showComments && <CommentThread postId={post.id} />}

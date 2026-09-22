@@ -240,6 +240,13 @@ const paths: Record<string, ReactNode> = {
     </>
   ),
   chevron: <path d="m6 9 6 6 6-6" />,
+  bulb: (
+    <>
+      <path d="M9 18h6" />
+      <path d="M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-3.5 10.9c.3.2.5.6.5 1V15h6v-.1c0-.4.2-.8.5-1A6 6 0 0 0 12 3z" />
+    </>
+  ),
   eye: (
     <>
       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />

@@ -10,66 +10,84 @@ import { devLoginEnabled } from '../supabase.ts';
 import { SignInPage } from '../../routes/SignIn.tsx';
 
 /**
- * Navigation, grouped by what a member came for.
+ * Two levels of navigation, which is one more than we had and one fewer than
+ * two parallel menus.
  *
- * Ten sections in a horizontal bar had stopped being scannable. Grouped by the
- * club's own thesis — join to learn, stay for peers, pay again for outcomes —
- * they become four short lists, and the structure itself tells a new member
- * what the club is for.
+ * The top bar carries the six destinations members already know from the old
+ * app, so nobody has to relearn where things are. The sidebar carries what is
+ * *inside* the section they are in. The rule that keeps this from becoming two
+ * competing menus: nothing appears in both.
+ *
+ * Sections without sub-navigation render no rail at all. An empty sidebar is
+ * worse than none, and a rail that appears and disappears is honest about
+ * whether there is anywhere else to go.
  */
-const GROUPS = [
+type NavItem = { to: string; label: string; icon: string };
+
+const SECTIONS: { to: string; label: string; icon: string; owns: string[]; sub: NavItem[] }[] = [
+  { to: '/', label: 'Dashboard', icon: 'dashboard', owns: [], sub: [] },
   {
-    label: 'Learn',
-    items: [
-      { to: '/', label: 'Dashboard', icon: 'dashboard' },
-      { to: '/courses', label: 'Courses', icon: 'courses' },
-      { to: '/library', label: 'Library', icon: 'library' },
-    ],
-  },
-  {
-    label: 'Belong',
-    items: [
-      { to: '/community', label: 'Community', icon: 'community' },
-      { to: '/think-tank', label: 'Think Tank', icon: 'comment' },
+    to: '/community',
+    label: 'Community',
+    icon: 'community',
+    // Think Tank, Wins and the directory are all "the community" — it is where
+    // a member would look for them, and they were orphans at the top level.
+    owns: ['/think-tank', '/wins', '/members'],
+    sub: [
+      { to: '/community', label: 'Feed', icon: 'comment' },
+      { to: '/think-tank', label: 'Think Tank', icon: 'bulb' },
       { to: '/wins', label: 'Wins', icon: 'heart' },
       { to: '/members', label: 'Members', icon: 'people' },
     ],
   },
   {
-    label: 'Live',
-    items: [
+    to: '/workshops',
+    label: 'Workshops',
+    icon: 'workshops',
+    owns: ['/events'],
+    sub: [
+      { to: '/workshops', label: 'Live calls', icon: 'play' },
       { to: '/events', label: 'Events', icon: 'workshops' },
-      { to: '/workshops', label: 'Workshops', icon: 'play' },
     ],
   },
-  {
-    label: 'Earn',
-    items: [{ to: '/photolancer', label: 'Photolancer', icon: 'search' }],
-  },
-] as const;
+  // No rail yet: Courses is a single page, and the Library's categories are
+  // in-page rather than routes. Both get one when they gain sub-pages — the
+  // alternative is inventing links that go nowhere.
+  { to: '/courses', label: 'Courses', icon: 'courses', owns: ['/learn'], sub: [] },
+  { to: '/library', label: 'Library', icon: 'library', owns: [], sub: [] },
+  { to: '/photolancer', label: 'Photolancer', icon: 'search', owns: [], sub: [] },
+];
 
-/** Active-section matching, in one place rather than a nested ternary. */
-function isActive(to: string, pathname: string): boolean {
-  if (to === '/') return pathname === '/';
-  if (to === '/courses') return pathname.startsWith('/courses') || pathname.startsWith('/learn');
-  // /members must not match /members/me, which belongs to the profile.
-  if (to === '/members') return pathname === '/members' || pathname.startsWith('/members/');
-  return pathname.startsWith(to);
+/** Which top-level section a path belongs to, including the paths it owns. */
+function sectionFor(pathname: string) {
+  return (
+    SECTIONS.find(
+      (sec) =>
+        sec.to !== '/' &&
+        (pathname === sec.to || pathname.startsWith(`${sec.to}/`) ||
+          sec.owns.some((o) => pathname === o || pathname.startsWith(`${o}/`))),
+    ) ?? SECTIONS[0]!
+  );
 }
 
 /**
- * The header: identity, search, notifications, you.
+ * The header: the six destinations, plus search, notifications and you.
  *
- * Everything else moved to the sidebar. It carried ten nav pills, a Studio
- * pill, a settings gear, a bell and a name chip; the first thing a member saw
- * on every page was a wall of controls.
+ * Six because that is what the club's existing platform has and what members
+ * already know — the sections we added since are one level down, where they
+ * belong, rather than competing for room up here.
  */
-function TopBar({ onMenu }: { onMenu: () => void }) {
+function TopBar({ onMenu, hasSub }: { onMenu: () => void; hasSub: boolean }) {
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
+  const current = sectionFor(pathname);
+
   return (
     <header className="topbar">
-      <button type="button" className="icon-btn nav-toggle" aria-label="Open navigation" onClick={onMenu}>
-        <Icon name="grid" />
-      </button>
+      {hasSub && (
+        <button type="button" className="icon-btn nav-toggle" aria-label="Open section menu" onClick={onMenu}>
+          <Icon name="grid" />
+        </button>
+      )}
 
       <Link to="/" className="wordmark" style={{ color: 'inherit' }}>
         <span className="wordmark-dot" />
@@ -79,7 +97,22 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
         </div>
       </Link>
 
-      <div style={{ flex: 1 }} />
+      <nav className="nav" aria-label="Sections">
+        {SECTIONS.map((sec) => {
+          const active = sec.to === '/' ? pathname === '/' : current.to === sec.to;
+          return (
+            <Link
+              key={sec.to}
+              to={sec.to}
+              aria-current={active ? 'page' : undefined}
+              className={active ? 'nav-pill is-active' : 'nav-pill'}
+            >
+              <Icon name={sec.icon} strokeWidth={active ? 1.9 : 1.7} />
+              <span>{sec.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
 
       <div className="topbar-actions">
         <GlobalSearch />
@@ -91,38 +124,45 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
 }
 
 /**
- * Primary navigation.
+ * What is inside the section you are in.
  *
- * A sidebar rather than a top bar because ten sections do not fit across a
- * header and will only grow. Vertical space is cheap, the labels stay
- * readable, and the groups give a new member a map of what the club offers
- * rather than a row of equally-weighted words.
+ * Never duplicates the top bar: a link appears in one or the other, never
+ * both, which is what stops two menus becoming two answers to the same
+ * question.
  */
-function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+function Sidebar({
+  items,
+  open,
+  onNavigate,
+}: {
+  items: NavItem[];
+  open: boolean;
+  onNavigate: () => void;
+}) {
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
+  if (items.length === 0) return null;
 
   return (
-    <nav className={open ? 'sidebar is-open' : 'sidebar'} aria-label="Sections">
-      {GROUPS.map((group) => (
-        <div key={group.label} className="sidebar-group">
-          <span className="sidebar-label">{group.label}</span>
-          {group.items.map((item) => {
-            const active = isActive(item.to, pathname);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={onNavigate}
-                aria-current={active ? 'page' : undefined}
-                className={active ? 'side-link is-active' : 'side-link'}
-              >
-                <Icon name={item.icon} size={16} strokeWidth={active ? 2 : 1.7} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      ))}
+    <nav className={open ? 'sidebar is-open' : 'sidebar'} aria-label="In this section">
+      <div className="sidebar-group">
+        {items.map((item) => {
+          // Exact match, or a child of it — /wins is active on /wins/some-slug
+          // but /community must not light up for /community-anything.
+          const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              onClick={onNavigate}
+              aria-current={active ? 'page' : undefined}
+              className={active ? 'side-link is-active' : 'side-link'}
+            >
+              <Icon name={item.icon} size={16} strokeWidth={active ? 2 : 1.7} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
     </nav>
   );
 }
@@ -202,6 +242,8 @@ export function AppShell() {
   // leaves the overlay covering the page you just asked for.
   useEffect(() => setNavOpen(false), [pathname]);
 
+  const sub = sectionFor(pathname).sub;
+
   if (status === 'loading') {
     return (
       <div className="app" style={{ display: 'grid', placeItems: 'center' }}>
@@ -216,7 +258,7 @@ export function AppShell() {
     <div className="app">
       <a href="#main" className="skip-link">Skip to content</a>
       <div className="panel">
-        <TopBar onMenu={() => setNavOpen((o) => !o)} />
+        <TopBar onMenu={() => setNavOpen((o) => !o)} hasSub={sub.length > 0} />
         <OfflineBanner />
         {demo && (
           <div className="callout" role="status">
@@ -238,7 +280,7 @@ export function AppShell() {
           </div>
         )}
         <div className="shell">
-          <Sidebar open={navOpen} onNavigate={() => setNavOpen(false)} />
+          <Sidebar items={sub} open={navOpen} onNavigate={() => setNavOpen(false)} />
 
           {/* Only rendered while the drawer is open, so it cannot intercept
               clicks on a desktop where the sidebar is always visible. */}
