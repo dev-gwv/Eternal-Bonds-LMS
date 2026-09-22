@@ -596,7 +596,11 @@ img, svg, video { max-width: 100%; }
      stays visible, which a menu behind a button does not. */
   .nav {
     order: 5;
-    flex: 1 1 100%;
+    /* shrink 0, not 1. With `flex: 1 1 100%` the base rule's `min-width: 0`
+       let it shrink back onto the logo's row, and it settled at 159px — a
+       scroll box a third of the screen wide. It needs its own line. */
+    flex: 1 0 100%;
+    min-width: 100%;
     overflow-x: auto;
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
