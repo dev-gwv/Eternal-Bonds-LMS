@@ -590,6 +590,30 @@ img, svg, video { max-width: 100%; }
   .search { order: 4; width: 100%; }
   .topbar-actions { flex: 1; justify-content: flex-end; }
 
+  /* The six section pills had no mobile treatment at all. `flex: 1; min-width:
+     0; flex-wrap: nowrap` inside a topbar that wraps meant the nav was crushed
+     to about 19px while its content stayed 308px wide and, being
+     `overflow: visible`, rendered off the side of the screen — present in the
+     DOM, invisible, and impossible to tap. The whole top navigation was
+     unreachable on a phone.
+
+     A scrolling pill row is the fix rather than a second hamburger: six
+     destinations is few enough to swipe through, and the section you are in
+     stays visible, which a menu behind a button does not. */
+  .nav {
+    order: 5;
+    flex: 1 1 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    /* A hair of padding so the active pill's shadow is not clipped. */
+    padding: 2px 0;
+    margin: 0 -2px;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-pill { flex-shrink: 0; }
+
   .grid-4, .grid-2 { grid-template-columns: minmax(0, 1fr); }
 
 
