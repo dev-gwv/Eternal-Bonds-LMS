@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Eternal Bonds</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="theme-color" content="#e8578f" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#16131a" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="The club for photographers who want more — courses, weekly live sessions, and proof of what works." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -15,6 +16,16 @@
     />
   </head>
   <body>
+    <!-- Before anything renders. A stored dark preference applied by React
+         after hydration means a white flash on every cold load, which on a
+         dark-adapted eye at night is genuinely unpleasant — and it is the one
+         bug in a theme switcher that everybody ships and nobody tests. -->
+    <script>
+      try {
+        var t = localStorage.getItem('eb-theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
