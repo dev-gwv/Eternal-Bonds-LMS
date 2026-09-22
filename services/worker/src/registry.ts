@@ -4,7 +4,7 @@ import { readEnv, type Env } from './env.ts';
 import { expireMemberships, reprocessWebhooks } from './jobs/billing.ts';
 import { awardBadges, eventReminders } from './jobs/platform.ts';
 import { buildWeeklyDigest, creditWorkshopAttendance, purgeDeletedAccounts, sweepExpired } from './jobs/lifecycle.ts';
-import { sendLearningNudges } from './jobs/learning.ts';
+import { announceUnlocks, sendLearningNudges, warnCohortDeadlines } from './jobs/learning.ts';
 import { guardPublishedCourses, pollVideoStatus } from './jobs/media.ts';
 import { deliverNotifications, drainOutbox } from './jobs/notify.ts';
 import {
@@ -141,6 +141,21 @@ export const JOBS: JobDefinition[] = [
     description: 'Nudge members who started a course and stopped, four times and then never again',
     everySeconds: 3600,
     run: ({ db }) => sendLearningNudges(db),
+  },
+  {
+    kind: 'learning.unlocked',
+    // Every 15 minutes, because a module that opened at 09:00 should be
+    // announced at 09:00. This is the job that turns a drip from a lock into
+    // a rhythm — an unlock nobody hears about is just a closed door.
+    description: 'Tell members when the next module of their course has opened',
+    everySeconds: 900,
+    run: ({ db }) => announceUnlocks(db),
+  },
+  {
+    kind: 'cohort.deadline',
+    description: 'Warn cohort members who are behind, once, a week before it ends',
+    everySeconds: 86400,
+    run: ({ db }) => warnCohortDeadlines(db),
   },
   {
     kind: 'workshops.credit',

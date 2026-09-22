@@ -266,8 +266,18 @@ function ModuleCard({
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['admin', 'course', courseId] });
 
+  const [drip, setDrip] = useState(module.dripDays === null ? '' : String(module.dripDays));
+  useEffect(() => setDrip(module.dripDays === null ? '' : String(module.dripDays)), [module.dripDays]);
+
+  // Title and schedule save through the same call, because they are one row
+  // and a partial update here would clear whichever field was not sent.
   const rename = useMutation({
-    mutationFn: (next: string) => adminApi.updateModule(module.id, { title: next }),
+    mutationFn: (next: { title?: string; dripDays?: number | null }) =>
+      adminApi.updateModule(module.id, {
+        title: next.title ?? title,
+        dripDays: next.dripDays !== undefined ? next.dripDays : module.dripDays,
+        availableFrom: module.availableFrom,
+      }),
     onSuccess: refresh,
   });
   const remove = useMutation({ mutationFn: () => adminApi.deleteModule(module.id), onSuccess: refresh });
@@ -299,7 +309,9 @@ function ModuleCard({
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          onBlur={() => title.trim() !== module.title && title.trim().length >= 2 && rename.mutate(title.trim())}
+          onBlur={() =>
+            title.trim() !== module.title && title.trim().length >= 2 && rename.mutate({ title: title.trim() })
+          }
           style={{
             flex: 1,
             font: 'inherit',
@@ -310,6 +322,39 @@ function ModuleCard({
             color: 'var(--ink)',
           }}
         />
+        {/* The drip, in the one place an author is already thinking about this
+            module. A cohort's whole schedule is these numbers in a column. */}
+        <label
+          style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10 }}
+          className="dim"
+          title="Days after the member's cohort start (or enrolment) before this module opens. Blank opens it immediately."
+        >
+          Opens day
+          <input
+            type="number"
+            min={0}
+            max={365}
+            value={drip}
+            placeholder="—"
+            aria-label={`Drip day for ${module.title}`}
+            onChange={(e) => setDrip(e.target.value)}
+            onBlur={() => {
+              const next = drip.trim() === '' ? null : Math.max(0, Math.min(365, Number(drip)));
+              if (next !== module.dripDays && !Number.isNaN(next)) rename.mutate({ dripDays: next });
+            }}
+            style={{
+              width: 52,
+              font: 'inherit',
+              fontSize: 11,
+              textAlign: 'center',
+              background: 'var(--soft)',
+              border: '1px solid transparent',
+              borderRadius: 'var(--r-ctl)',
+              padding: '4px 6px',
+              color: 'var(--ink)',
+            }}
+          />
+        </label>
         <span style={{ fontSize: 10 }} className="dim">
           {module.lessons.length} lesson{module.lessons.length === 1 ? '' : 's'}
         </span>
@@ -469,7 +514,8 @@ export function CourseBuilderPage() {
   };
 
   const addModule = useMutation({
-    mutationFn: () => adminApi.createModule(id, { title: newModule.trim() }),
+    mutationFn: () =>
+      adminApi.createModule(id, { title: newModule.trim(), dripDays: null, availableFrom: null }),
     onSuccess: () => {
       setNewModule('');
       refresh();

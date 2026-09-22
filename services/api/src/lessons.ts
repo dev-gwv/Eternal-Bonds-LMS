@@ -28,6 +28,7 @@ export async function getCourseDetail(env: Env, userId: string | null, slug: str
     const modules: CourseModule[] = seed.modulesFor(slug).map(([title, rows]) => ({
       id: rows[0]!.moduleId,
       title,
+      unlocksAt: null,
       lessons: rows.map((l): Lesson => {
         const p = seed.progress.get(l.id);
         return {
@@ -67,6 +68,11 @@ export async function getCourseDetail(env: Env, userId: string | null, slug: str
         moduleId: modules.id,
         moduleTitle: modules.title,
         moduleRank: modules.rank,
+        // Drip is decided in the database, by the same function the playback
+        // gate calls — so the syllabus and the player can never disagree.
+        unlocksAt: userId
+          ? sql<string | null>`public.module_unlock_at(${modules.id}, ${userId}::uuid)`
+          : sql<string | null>`null`,
         lessonId: lessons.id,
         lessonSlug: lessons.slug,
         lessonTitle: lessons.title,
@@ -88,9 +94,22 @@ export async function getCourseDetail(env: Env, userId: string | null, slug: str
       .where(eq(coursesTable.slug, slug))
       .orderBy(asc(modules.rank), asc(lessons.rank));
 
+    const now = Date.now();
     const byModule = new Map<string, CourseModule>();
     for (const r of rows) {
-      if (!byModule.has(r.moduleId)) byModule.set(r.moduleId, { id: r.moduleId, title: r.moduleTitle, lessons: [] });
+      const unlocksAt = r.unlocksAt ? new Date(r.unlocksAt) : null;
+      // A future unlock is shown, not hidden: "opens Tuesday" is the whole
+      // point of a drip, and a module that simply vanishes teaches nothing.
+      const pending = unlocksAt !== null && unlocksAt.getTime() > now;
+
+      if (!byModule.has(r.moduleId)) {
+        byModule.set(r.moduleId, {
+          id: r.moduleId,
+          title: r.moduleTitle,
+          unlocksAt: pending ? unlocksAt.toISOString() : null,
+          lessons: [],
+        });
+      }
       if (!r.lessonId) continue;
       byModule.get(r.moduleId)!.lessons.push({
         id: r.lessonId,
@@ -98,9 +117,11 @@ export async function getCourseDetail(env: Env, userId: string | null, slug: str
         title: r.lessonTitle ?? '',
         durationSeconds: r.durationSeconds ?? 0,
         isPreview: r.isPreview ?? false,
-        // RLS already withheld anything this member may not see; a row that
-        // arrived here is playable.
-        locked: false,
+        // RLS already withheld anything above this member's tier; what is left
+        // to decide is whether their drip has reached it. A preview lesson
+        // stays open, which is how a member sees what a course is before the
+        // schedule starts.
+        locked: pending && !(r.isPreview ?? false),
         completed: r.completed ?? false,
         lastPositionSeconds: r.lastPositionSeconds ?? 0,
       });
@@ -125,9 +146,11 @@ export async function getPlaybackTicket(env: Env, userId: string | null, lessonI
     const [row] = await tx
       .select({
         id: lessons.id,
+        isPreview: lessons.isPreview,
         videoProvider: lessons.videoProvider,
         videoAssetId: lessons.videoAssetId,
         videoStatus: lessons.videoStatus,
+        unlocksAt: sql<string | null>`public.module_unlock_at(${lessons.moduleId}, ${userId}::uuid)`,
       })
       .from(lessons)
       .where(eq(lessons.id, lessonId))
@@ -136,6 +159,19 @@ export async function getPlaybackTicket(env: Env, userId: string | null, lessonI
     // RLS hides lessons above the member's tier, so "not found" is also the
     // answer for "not entitled" — deliberately indistinguishable.
     if (!row) throw new HttpError(404, 'Lesson not found');
+
+    // The drip gate. This, not the syllabus rendering, is what actually holds:
+    // the course page marks a lesson locked, and a member who guesses the URL
+    // or calls the API directly gets refused here. A 403 rather than a 404,
+    // because unlike tier the existence of the lesson is not a secret — the
+    // member can see it in their own syllabus with the date on it.
+    if (row.unlocksAt && !row.isPreview && new Date(row.unlocksAt).getTime() > Date.now()) {
+      throw new HttpError(
+        403,
+        'This lesson has not opened yet',
+        `It unlocks on ${new Date(row.unlocksAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}.`,
+      );
+    }
     if (row.videoStatus !== 'ready') throw new HttpError(409, 'Video is not ready', `Status: ${row.videoStatus}`);
     if (!row.videoAssetId) throw new HttpError(409, 'Lesson has no video');
 

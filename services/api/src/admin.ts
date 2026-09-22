@@ -141,6 +141,8 @@ export async function getAdminCourse(env: Env, userId: string, id: string): Prom
         moduleId: modules.id,
         moduleTitle: modules.title,
         moduleRank: modules.rank,
+        moduleDripDays: modules.dripDays,
+        moduleAvailableFrom: modules.availableFrom,
         lessonId: lessons.id,
         lessonSlug: lessons.slug,
         lessonTitle: lessons.title,
@@ -163,6 +165,8 @@ export async function getAdminCourse(env: Env, userId: string, id: string): Prom
           id: r.moduleId,
           title: r.moduleTitle,
           rank: Number(r.moduleRank),
+          dripDays: r.moduleDripDays ?? null,
+          availableFrom: r.moduleAvailableFrom ? r.moduleAvailableFrom.toISOString() : null,
           lessons: [],
         });
       }
@@ -307,9 +311,25 @@ export async function createModule(
       .where(eq(modules.courseId, courseId));
     const [row] = await tx
       .insert(modules)
-      .values({ courseId, title: input.title, rank: String(Number(top?.max ?? 0) + RANK_STEP) })
-      .returning({ id: modules.id, title: modules.title, rank: modules.rank });
-    return { id: row!.id, title: row!.title, rank: Number(row!.rank), lessons: [] };
+      .values({
+        courseId,
+        title: input.title,
+        dripDays: input.dripDays,
+        availableFrom: input.availableFrom ? new Date(input.availableFrom) : null,
+        rank: String(Number(top?.max ?? 0) + RANK_STEP),
+      })
+      .returning({
+        id: modules.id, title: modules.title, rank: modules.rank,
+        dripDays: modules.dripDays, availableFrom: modules.availableFrom,
+      });
+    return {
+      id: row!.id,
+      title: row!.title,
+      rank: Number(row!.rank),
+      dripDays: row!.dripDays ?? null,
+      availableFrom: row!.availableFrom ? row!.availableFrom.toISOString() : null,
+      lessons: [],
+    };
   });
 }
 
@@ -323,11 +343,25 @@ export async function updateModule(
   return withUser(db, userId, async (tx) => {
     const [row] = await tx
       .update(modules)
-      .set({ title: input.title })
+      .set({
+        title: input.title,
+        dripDays: input.dripDays,
+        availableFrom: input.availableFrom ? new Date(input.availableFrom) : null,
+      })
       .where(eq(modules.id, id))
-      .returning({ id: modules.id, title: modules.title, rank: modules.rank });
+      .returning({
+        id: modules.id, title: modules.title, rank: modules.rank,
+        dripDays: modules.dripDays, availableFrom: modules.availableFrom,
+      });
     if (!row) throw new HttpError(404, 'Module not found');
-    return { id: row.id, title: row.title, rank: Number(row.rank), lessons: [] };
+    return {
+      id: row.id,
+      title: row.title,
+      rank: Number(row.rank),
+      dripDays: row.dripDays ?? null,
+      availableFrom: row.availableFrom ? row.availableFrom.toISOString() : null,
+      lessons: [],
+    };
   });
 }
 

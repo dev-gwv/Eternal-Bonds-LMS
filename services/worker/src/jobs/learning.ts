@@ -154,3 +154,148 @@ export async function sendLearningNudges(db: Db) {
 
   return { sent };
 }
+
+/**
+ * Telling a cohort that the next module has opened.
+ *
+ * This is most of what makes a cohort work. A drip that nobody announces is
+ * just a lock: the member who was going to come back on Tuesday does not know
+ * Tuesday has arrived, and the schedule that was supposed to create rhythm
+ * instead creates a wall. One message per module per member, ever.
+ *
+ * It fires for evergreen learners too, because the drip mechanism does not
+ * care whether the clock came from a cohort start or an enrolment date — and
+ * a solo member hitting day 7 deserves the same nudge as a group does.
+ */
+export async function announceUnlocks(db: Db) {
+  const rows = await db.execute<{ id: string }>(sql`
+    with opened as (
+      select
+        e.user_id,
+        m.id as module_id,
+        m.title as module_title,
+        c.id as course_id,
+        c.title as course_title,
+        c.slug as course_slug,
+        public.module_unlock_at(m.id, e.user_id) as unlocked_at
+      from enrollments e
+      join courses c on c.id = e.course_id and c.is_published
+      join modules m on m.course_id = c.id
+      join users u on u.id = e.user_id
+      where e.completed_at is null
+        and not u.is_suspended
+        and m.drip_days is not null
+        and coalesce((select p.in_app from notification_prefs p where p.user_id = e.user_id), true)
+    ),
+    due as (
+      select * from opened
+      where unlocked_at is not null
+        and unlocked_at <= now()
+        -- A window, not "any time in the past". Without it, switching a live
+        -- course to a drip would announce every already-open module at once.
+        and unlocked_at > now() - interval '2 days'
+        and not exists (
+          select 1 from module_unlock_notices n
+          where n.user_id = opened.user_id and n.module_id = opened.module_id
+        )
+    ),
+    logged as (
+      insert into module_unlock_notices (user_id, module_id)
+      select user_id, module_id from due
+      on conflict (user_id, module_id) do nothing
+      returning user_id, module_id
+    )
+    insert into notifications (user_id, kind, title, body, link, subject_type, subject_id)
+    select
+      due.user_id,
+      'learning.unlocked',
+      due.module_title || ' is open',
+      'The next part of ' || due.course_title || ' is ready for you.',
+      '/courses/' || due.course_slug,
+      'module',
+      due.module_id
+    from due
+    join logged on logged.user_id = due.user_id and logged.module_id = due.module_id
+    on conflict do nothing
+    returning id
+  `);
+
+  return { announced: rows.length };
+}
+
+/**
+ * Warning a cohort that its end date is coming and their work is not done.
+ *
+ * Sent once, a week out, and only to people actually behind — a deadline
+ * warning to somebody who has finished is noise that teaches them to ignore
+ * the next one. "Behind" here means the schedule has opened materially more
+ * than they have completed, the same test the roster uses.
+ */
+export async function warnCohortDeadlines(db: Db) {
+  const rows = await db.execute<{ id: string }>(sql`
+    with standing as (
+      select
+        cm.user_id,
+        co.id as cohort_id,
+        co.ends_on,
+        c.title as course_title,
+        c.slug  as course_slug,
+        t.done,
+        (
+          select count(*)::int
+          from lessons l
+          join modules m on m.id = l.module_id
+          where m.course_id = co.course_id
+            and coalesce(public.module_unlock_at(m.id, cm.user_id), now()) <= now()
+        ) as expected
+      from cohort_members cm
+      join cohorts co on co.id = cm.cohort_id
+      join courses c on c.id = co.course_id
+      join users u on u.id = cm.user_id
+      cross join lateral (
+        select count(*) filter (where lp.is_completed)::int as done
+        from lessons l
+        join modules m on m.id = l.module_id
+        left join lesson_progress lp on lp.lesson_id = l.id and lp.user_id = cm.user_id
+        where m.course_id = co.course_id
+      ) t
+      where co.ends_on is not null
+        and co.ends_on between current_date and current_date + 7
+        and not u.is_suspended
+        and not exists (
+          select 1 from enrollments e
+          where e.user_id = cm.user_id and e.course_id = co.course_id and e.completed_at is not null
+        )
+        and coalesce((select p.in_app from notification_prefs p where p.user_id = cm.user_id), true)
+    ),
+    due as (
+      select * from standing
+      where expected - done > greatest(2, round(expected * 0.15))
+        and not exists (
+          select 1 from cohort_deadline_notices n
+          where n.user_id = standing.user_id and n.cohort_id = standing.cohort_id
+        )
+    ),
+    logged as (
+      insert into cohort_deadline_notices (user_id, cohort_id)
+      select user_id, cohort_id from due
+      on conflict (user_id, cohort_id) do nothing
+      returning user_id, cohort_id
+    )
+    insert into notifications (user_id, kind, title, body, link, subject_type, subject_id)
+    select
+      due.user_id,
+      'cohort.deadline',
+      due.course_title || ' wraps up on ' || to_char(due.ends_on, 'DD Mon'),
+      (due.expected - due.done) || ' lessons left of what is open. There is still time.',
+      '/courses/' || due.course_slug,
+      'cohort',
+      due.cohort_id
+    from due
+    join logged on logged.user_id = due.user_id and logged.cohort_id = due.cohort_id
+    on conflict do nothing
+    returning id
+  `);
+
+  return { warned: rows.length };
+}

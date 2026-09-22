@@ -4,6 +4,7 @@ import {
   uuid,
   text,
   integer,
+  smallint,
   boolean,
   timestamp,
   numeric,
@@ -95,7 +96,10 @@ export const modules = pgTable('modules', {
   id: uuid('id').primaryKey().defaultRandom(),
   courseId: uuid('course_id').notNull().references(() => courses.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
+  // A hard date nobody sees the module before.
   availableFrom: timestamp('available_from', { withTimezone: true }),
+  // Days after the member's own clock — cohort start, or enrolment.
+  dripDays: smallint('drip_days'),
   rank: numeric('rank').notNull().default('1000'),
 });
 

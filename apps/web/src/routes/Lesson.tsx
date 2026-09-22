@@ -215,7 +215,18 @@ export function LessonPage() {
                     fontWeight: 500,
                   }}
                 >
-                  {m.title}
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ flex: 1 }}>{m.title}</span>
+                    {/* A drip should read as a date, not a mystery. A member
+                        who can see that Week two opens on Tuesday comes back
+                        on Tuesday; one who sees a padlock does not. */}
+                    {m.unlocksAt && (
+                      <span style={{ textTransform: 'none', letterSpacing: 0, fontSize: 10 }}>
+                        Opens{' '}
+                        {new Date(m.unlocksAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </span>
+                    )}
+                  </span>
                 </div>
                 {m.lessons.map((l) => (
                   <LessonRow key={l.id} lesson={l} courseSlug={courseSlug} active={l.id === current.id} />
@@ -252,20 +263,20 @@ function LessonRow({
   courseSlug: string;
   active: boolean;
 }) {
-  return (
-    <Link
-      to="/learn/$courseSlug/$lessonSlug"
-      params={{ courseSlug, lessonSlug: lesson.slug }}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 11,
-        padding: '11px 16px',
-        borderTop: '1px solid var(--softer)',
-        background: active ? 'var(--pink-tint)' : 'transparent',
-        color: 'var(--ink)',
-      }}
-    >
+  const rowStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 11,
+    padding: '11px 16px',
+    borderTop: '1px solid var(--softer)',
+    background: active ? 'var(--pink-tint)' : 'transparent',
+    color: 'var(--ink)',
+    opacity: lesson.locked ? 0.5 : 1,
+    cursor: lesson.locked ? 'default' : 'pointer',
+  } as const;
+
+  const body = (
+    <>
       <span
         style={{
           width: 18,
@@ -298,6 +309,23 @@ function LessonRow({
       </span>
       {lesson.isPreview && !lesson.completed && <Chip tone="blue">Free</Chip>}
       <span style={{ fontSize: 10 }} className="dim">{clock(lesson.durationSeconds)}</span>
+    </>
+  );
+
+  // A locked row is a span, not a link. The API refuses playback anyway, but
+  // sending somebody to a page that will refuse them is a worse way to say
+  // "not yet" than simply not being clickable.
+  if (lesson.locked) {
+    return (
+      <span style={rowStyle} aria-disabled>
+        {body}
+      </span>
+    );
+  }
+
+  return (
+    <Link to="/learn/$courseSlug/$lessonSlug" params={{ courseSlug, lessonSlug: lesson.slug }} style={rowStyle}>
+      {body}
     </Link>
   );
 }

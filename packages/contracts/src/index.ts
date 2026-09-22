@@ -271,7 +271,7 @@ export const Lesson = z.object({
   title: z.string(),
   durationSeconds: z.int().nonnegative(),
   isPreview: z.boolean(),
-  /** False when the member's tier does not reach the course. */
+  /** True when the member's tier does not reach it, or its module has not dripped yet. */
   locked: z.boolean(),
   completed: z.boolean(),
   lastPositionSeconds: z.int().nonnegative(),
@@ -281,6 +281,12 @@ export type Lesson = z.infer<typeof Lesson>;
 export const CourseModule = z.object({
   id: z.uuid(),
   title: z.string(),
+  /**
+   * When this module opens for *this* member — their cohort start plus the
+   * module's drip, or its hard date, whichever is later. Null means open now,
+   * which is the common case and costs nothing to represent.
+   */
+  unlocksAt: z.iso.datetime().nullable().default(null),
   lessons: z.array(Lesson),
 });
 export type CourseModule = z.infer<typeof CourseModule>;
@@ -347,6 +353,14 @@ export type CoursePatch = z.infer<typeof CoursePatch>;
 
 export const ModuleInput = z.object({
   title: z.string().trim().min(2).max(140),
+  /**
+   * Days after the member's cohort start (or enrolment) before this module
+   * opens. Null unlocks it immediately, which is what every existing module
+   * does and what a course without a schedule should keep doing.
+   */
+  dripDays: z.int().min(0).max(365).nullable().default(null),
+  /** A hard date nobody sees the module before, whatever their drip says. */
+  availableFrom: z.iso.datetime().nullable().default(null),
 });
 export type ModuleInput = z.infer<typeof ModuleInput>;
 
@@ -406,6 +420,8 @@ export const AdminModule = z.object({
   id: z.uuid(),
   title: z.string(),
   rank: z.number(),
+  dripDays: z.int().nonnegative().nullable().default(null),
+  availableFrom: z.iso.datetime().nullable().default(null),
   lessons: z.array(AdminLesson),
 });
 export type AdminModule = z.infer<typeof AdminModule>;
@@ -1057,3 +1073,68 @@ export const AttachMedia = z.object({
   height: z.int().positive().max(20000).nullable().default(null),
 });
 export type AttachMedia = z.infer<typeof AttachMedia>;
+
+/* ── Cohorts ─────────────────────────────────────────────────────────────
+   A cohort is one start date shared by a group. Everything a schedule needs
+   — which module opens when, who is behind, when to warn them — derives from
+   that date, which is what makes it the highest-leverage thing one author can
+   run. */
+
+export const Cohort = z.object({
+  id: z.uuid(),
+  courseId: z.uuid(),
+  courseTitle: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  /** A plain date, not a timestamp: a cohort starts on a day, not at a moment. */
+  startsOn: z.string(),
+  endsOn: z.string().nullable(),
+  capacity: z.int().positive().nullable(),
+  isOpen: z.boolean(),
+  memberCount: z.int().nonnegative(),
+  /** Mean completion across its members, 0–100. */
+  averageProgress: z.int().min(0).max(100),
+  createdAt: z.iso.datetime(),
+});
+export type Cohort = z.infer<typeof Cohort>;
+
+export const CohortInput = z.object({
+  courseId: z.uuid(),
+  slug,
+  name: z.string().trim().min(3).max(120),
+  startsOn: z.string().min(8),
+  endsOn: z.string().nullable().default(null),
+  capacity: z.int().positive().max(10000).nullable().default(null),
+  isOpen: z.boolean().default(true),
+});
+export type CohortInput = z.infer<typeof CohortInput>;
+
+/** One member's standing inside a cohort, for the admin roster. */
+export const CohortMember = z.object({
+  userId: z.uuid(),
+  fullName: z.string(),
+  initials: z.string(),
+  email: z.string().nullable(),
+  joinedAt: z.iso.datetime(),
+  progress: z.int().min(0).max(100),
+  lessonsDone: z.int().nonnegative(),
+  lessonsTotal: z.int().nonnegative(),
+  lastActivityAt: z.iso.datetime().nullable(),
+  /** True when their progress is behind what the schedule expects by today. */
+  behind: z.boolean(),
+});
+export type CohortMember = z.infer<typeof CohortMember>;
+
+export const CohortDetail = Cohort.extend({
+  members: z.array(CohortMember),
+  /** The drip timetable: which module opens on which date. */
+  schedule: z.array(
+    z.object({
+      moduleId: z.uuid(),
+      title: z.string(),
+      opensOn: z.string().nullable(),
+      lessonCount: z.int().nonnegative(),
+    }),
+  ),
+});
+export type CohortDetail = z.infer<typeof CohortDetail>;

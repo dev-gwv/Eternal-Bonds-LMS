@@ -236,6 +236,10 @@ export function StudioPage() {
           <Icon name="people" size={13} />
           Members
         </Link>
+        <Link to="/admin/cohorts" className="btn btn-soft">
+          <Icon name="calendar" size={13} />
+          Cohorts
+        </Link>
         <Link to="/admin/workshops" className="btn btn-soft">
           <Icon name="workshops" size={13} />
           Workshops

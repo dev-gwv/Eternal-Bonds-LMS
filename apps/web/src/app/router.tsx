@@ -40,6 +40,8 @@ const AccountPage = lazyPage(() => import('../routes/Account.tsx'), 'AccountPage
 const CourseBuilderPage = lazyPage(() => import('../routes/admin/CourseBuilder.tsx'), 'CourseBuilderPage');
 const StudioPage = lazyPage(() => import('../routes/admin/Studio.tsx'), 'StudioPage');
 const MembersPage = lazyPage(() => import('../routes/admin/Members.tsx'), 'MembersPage');
+const CohortsPage = lazyPage(() => import('../routes/admin/Cohorts.tsx'), 'CohortsPage');
+const CohortDetailPage = lazyPage(() => import('../routes/admin/CohortDetail.tsx'), 'CohortDetailPage');
 const MemberDetailPage = lazyPage(() => import('../routes/admin/MemberDetail.tsx'), 'MemberDetailPage');
 const WorkshopStudioPage = lazyPage(() => import('../routes/admin/WorkshopStudio.tsx'), 'WorkshopStudioPage');
 
@@ -129,6 +131,16 @@ const memberDetailRoute = createRoute({
   path: '/admin/members/$id',
   component: MemberDetailPage,
 });
+const cohortsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/cohorts',
+  component: CohortsPage,
+});
+const cohortDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/cohorts/$id',
+  component: CohortDetailPage,
+});
 const courseBuilderRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/courses/$id',
@@ -166,6 +178,8 @@ const routeTree = rootRoute.addChildren([
   studioRoute,
   membersRoute,
   memberDetailRoute,
+  cohortsRoute,
+  cohortDetailRoute,
   courseBuilderRoute,
   workshopStudioRoute,
 ]);

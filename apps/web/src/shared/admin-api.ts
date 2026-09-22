@@ -7,9 +7,12 @@ import {
   AdminMemberDetail,
   AdminMemberPage,
   AdminWorkshop,
+  Cohort,
+  CohortDetail,
   UploadTicket,
   Viewer,
   type CourseInput,
+  type CohortInput,
   type CoursePatch,
   type LessonInput,
   type LessonPatch,
@@ -113,6 +116,22 @@ export const adminApi = {
     call('POST', `/v1/admin/members/${id}/tier`, { body, schema: AdminMemberDetail }),
   setSuspended: (id: string, body: SetSuspended) =>
     call('POST', `/v1/admin/members/${id}/suspension`, { body, schema: AdminMemberDetail }),
+
+  /* Cohorts. One start date, and the schedule falls out of it. */
+  cohorts: () =>
+    call('GET', '/v1/admin/cohorts', { schema: z.object({ items: z.array(Cohort) }) }).then((r) => r.items),
+  cohort: (id: string) => call('GET', `/v1/admin/cohorts/${id}`, { schema: CohortDetail }),
+  createCohort: (body: CohortInput) => call('POST', '/v1/admin/cohorts', { body, schema: Cohort }),
+  updateCohort: (id: string, body: CohortInput) =>
+    call('PATCH', `/v1/admin/cohorts/${id}`, { body, schema: Cohort }),
+  deleteCohort: (id: string) => call<void>('DELETE', `/v1/admin/cohorts/${id}`),
+  addCohortMembers: (id: string, userIds: string[]) =>
+    call('POST', `/v1/admin/cohorts/${id}/members`, {
+      body: { userIds },
+      schema: z.object({ added: z.number(), skipped: z.number() }),
+    }),
+  removeCohortMember: (id: string, userId: string) =>
+    call<void>('DELETE', `/v1/admin/cohorts/${id}/members/${userId}`),
 };
 
 /** Anonymous is a normal answer here, not an error — the shell asks on load. */

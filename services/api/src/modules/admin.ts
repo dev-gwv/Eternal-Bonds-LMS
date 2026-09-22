@@ -15,6 +15,7 @@ import type { AppEnv } from '../context.ts';
 import * as studio from '../admin.ts';
 import { problem } from '../lib/problem.ts';
 import { requireAdmin } from '../middleware/auth.ts';
+import { cohortRoutes } from './cohorts.ts';
 import { membersRoutes } from './members.ts';
 import { attachVideo, createUploadTicket, detachVideo } from '../video.ts';
 
@@ -51,6 +52,10 @@ export const adminRoutes = new Hono<AppEnv>()
   // The members console. Its own module because it is a different job from
   // authoring: this is about people, not content.
   .route('/members', membersRoutes)
+
+  // Scheduling. Its own module again: a cohort is about *when*, which is a
+  // third job alongside content and people.
+  .route('/cohorts', cohortRoutes)
 
   .get('/overview', async (c) => c.json(await studio.overview(c.env, who(c))))
 
