@@ -2,9 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api } from '../../shared/api.ts';
 import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
-import { Card, EmptyState } from '../../shared/ui/primitives.tsx';
+import { Card, Chip, EmptyState } from '../../shared/ui/primitives.tsx';
 import { useToast } from '../../shared/ui/Toast.tsx';
 import { Select } from '../../shared/ui/Select.tsx';
+import { adminApi } from '../../shared/admin-api.ts';
+import { ConfirmButton, Field } from './studio-ui.tsx';
 
 /** Studio → Moderation: reports queue, audit log, feature flags, event scheduler. */
 export function ModerationPage() {
@@ -191,6 +193,9 @@ export function ModerationPage() {
         )}
       </Card>
 
+      <span className="section-label">Channel moderators</span>
+      <Moderators />
+
       <span className="section-label">Feature flags</span>
       {(flags.data ?? []).length === 0 && (
         <Card>
@@ -229,5 +234,111 @@ export function ModerationPage() {
         </Card>
       ))}
     </Page>
+  );
+}
+
+/**
+ * Who moderates which channel.
+ *
+ * Granting has been possible since moderation shipped and nothing listed or
+ * revoked, so the obvious button — "make this person a moderator" — would have
+ * handed out a permission that nothing displayed and nobody could take back. A
+ * permission you cannot see is a permission you cannot audit, and the audit log
+ * two sections down is the whole argument for having one.
+ */
+function Moderators() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [channelId, setChannelId] = useState('');
+  const [memberId, setMemberId] = useState('');
+
+  const channels = useQuery({ queryKey: ['channels'], queryFn: api.channels });
+  const moderators = useQuery({ queryKey: ['moderators'], queryFn: api.moderators });
+  // The roster, so a moderator is chosen from a list rather than by pasting a
+  // uuid — which is what any "userId" field really asks for.
+  const members = useQuery({ queryKey: ['admin', 'members', 'all'], queryFn: () => adminApi.members() });
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['moderators'] });
+
+  const grant = useMutation({
+    mutationFn: () => api.addModerator(channelId, memberId),
+    onSuccess: () => {
+      refresh();
+      setMemberId('');
+      toast.show('Moderator added');
+    },
+    onError: toast.error,
+  });
+  const revoke = useMutation({
+    mutationFn: (v: { channelId: string; userId: string }) => api.removeModerator(v.channelId, v.userId),
+    onSuccess: () => {
+      refresh();
+      toast.show('Moderator removed');
+    },
+    onError: toast.error,
+  });
+
+  const roster = members.data?.items ?? [];
+  const rows = moderators.data ?? [];
+
+  return (
+    <Card>
+      <div className="field-row">
+        <Field label="Channel">
+          <Select
+            value={channelId}
+            options={[
+              { value: '', label: 'Pick a channel…' },
+              ...(channels.data ?? []).map((c) => ({ value: c.id, label: c.name })),
+            ]}
+            onChange={setChannelId}
+          />
+        </Field>
+        <Field label="Member">
+          <Select
+            value={memberId}
+            options={[
+              { value: '', label: 'Pick a member…' },
+              ...roster.map((m) => ({ value: m.id, label: `${m.fullName} · ${m.email}` })),
+            ]}
+            onChange={setMemberId}
+          />
+        </Field>
+        <button
+          className="btn btn-pink"
+          disabled={!channelId || !memberId || grant.isPending}
+          onClick={() => grant.mutate()}
+        >
+          Add moderator
+        </button>
+      </div>
+
+      {rows.length === 0 ? (
+        <span style={{ fontSize: 11.5 }} className="muted">
+          Nobody moderates a channel yet. Moderators can remove posts and comments in the channels they hold.
+        </span>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          {rows.map((m) => (
+            <div key={`${m.channelId}:${m.userId}`} className="card-row" style={{ gap: 10, alignItems: 'center' }}>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 12.5 }}>
+                {m.fullName}
+                <span className="dim" style={{ marginLeft: 8, fontSize: 10.5 }}>
+                  {m.email}
+                </span>
+              </span>
+              <Chip tone="blue">{m.channelName}</Chip>
+              <ConfirmButton
+                label="Remove"
+                confirmLabel="Remove them"
+                style={{ fontSize: 10, color: 'var(--red)' }}
+                disabled={revoke.isPending}
+                onConfirm={() => revoke.mutate({ channelId: m.channelId, userId: m.userId })}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }

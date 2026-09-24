@@ -7,6 +7,7 @@ import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { VideoPlayer } from '../shared/ui/VideoPlayer.tsx';
 import { YouTubePlayer } from '../shared/ui/YouTubePlayer.tsx';
 import { Card, Chip, Icon } from '../shared/ui/primitives.tsx';
+import { useToast } from '../shared/ui/Toast.tsx';
 
 type Tab = 'notes' | 'files' | 'qa';
 
@@ -273,6 +274,13 @@ export function LessonPage() {
             ))}
           </Card>
 
+          {/* The end of the course, which until now was silent: the last
+              lesson ticked over, "Up next" disappeared, and that was the whole
+              acknowledgement of finishing eighteen lectures. The certificate
+              endpoint and the list on the member profile both existed; nothing
+              ever issued one, so every profile showed an empty shelf. */}
+          {!next && done === all.length && all.length > 0 && <CourseFinished courseId={course.data!.id} />}
+
           {next && (
             <Card>
               <span className="section-label">Up next</span>
@@ -289,6 +297,59 @@ export function LessonPage() {
         </aside>
       </div>
     </Page>
+  );
+}
+
+/**
+ * Finishing the course.
+ *
+ * The certificate is claimed rather than minted automatically, because issuing
+ * one writes a permanent row with a public code and 50 XP, and doing that in
+ * the background of a lesson tick makes it something that happened to the
+ * member rather than something they did. One press is the difference.
+ *
+ * The server checks completion too. This component only renders when the
+ * course is done, but a client-side condition is a UI affordance, never a
+ * guarantee — the endpoint refuses an unfinished course whatever is pressed.
+ */
+function CourseFinished({ courseId }: { courseId: string }) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const certificates = useQuery({ queryKey: ['certificates'], queryFn: api.certificates, retry: false });
+  const mine = (certificates.data ?? []).find((c) => c.courseId === courseId);
+
+  const issue = useMutation({
+    mutationFn: () => api.issueCertificate(courseId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['certificates'] });
+      toast.show('Certificate issued — it is on your profile');
+    },
+    onError: toast.error,
+  });
+
+  return (
+    <Card>
+      <span className="section-label">Course finished</span>
+      <span style={{ fontSize: 12.5, lineHeight: 1.6 }} className="muted">
+        Every lesson done. There is a certificate with your name and a verification code on it.
+      </span>
+      {issue.isSuccess || mine ? (
+        <Link to="/members/me" className="btn btn-soft" style={{ alignSelf: 'flex-start' }}>
+          See it on your profile
+        </Link>
+      ) : (
+        <button
+          type="button"
+          className="btn btn-pink"
+          style={{ alignSelf: 'flex-start', color: '#fff' }}
+          disabled={issue.isPending}
+          onClick={() => issue.mutate()}
+        >
+          <Icon name="check" size={13} strokeWidth={3} />
+          {issue.isPending ? 'Issuing…' : 'Get your certificate'}
+        </button>
+      )}
+    </Card>
   );
 }
 

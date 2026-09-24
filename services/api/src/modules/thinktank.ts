@@ -50,10 +50,26 @@ export const thinktankRoutes = new Hono<AppEnv>()
     const userId = c.get('userId');
     const limit = Math.min(50, Math.max(1, Number(c.req.query('limit') ?? 20)));
     const cursor = c.req.query('cursor');
+    // Only the member's own saved insights. Cheap because `bookmarks` is
+    // already the table the `saved` flag below reads.
+    const onlySaved = c.req.query('saved') === 'true';
     return withUser(db, userId, async (tx) => {
       const conds = [eq(insights.status, 'published' as any)];
-      if (domain) conds.push(eq(insights.slug, insights.slug)); // placeholder, filtered below via join
-      let q = tx
+      /* Both filters belong in the WHERE clause, and `domain` used to be
+         applied to the rows *after* they came back — a post-filter on a page
+         the database had already cut to `limit`. Filtering by a domain with
+         three insights among the last twenty created returned three; filtering
+         by one with none returned an empty page while the cursor advanced, so
+         "no insights in Pricing" was indistinguishable from "none in the most
+         recent twenty". */
+      if (domain) conds.push(sql`${insightDomains.slug} = ${domain}`);
+      if (onlySaved && userId) {
+        conds.push(sql`exists (
+          select 1 from bookmarks b
+          where b.target_id = ${insights.id} and b.target_type = 'insight' and b.user_id = ${userId}::uuid
+        )`);
+      }
+      const q = tx
         .select({
           id: insights.id, slug: insights.slug, title: insights.title,
           situationMd: insights.situationMd, bigIdeaMd: insights.bigIdeaMd, howMd: insights.howMd,
@@ -73,8 +89,7 @@ export const thinktankRoutes = new Hono<AppEnv>()
           : and(...conds))
         .orderBy(desc(insights.createdAt))
         .limit(limit + 1);
-      let rows = await q;
-      if (domain) rows = rows.filter((r) => r.domainSlug === domain);
+      const rows = await q;
       const hasMore = rows.length > limit;
       const page = rows.slice(0, limit);
       return c.json({

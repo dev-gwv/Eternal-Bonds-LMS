@@ -1062,6 +1062,10 @@ export type LessonNote = z.infer<typeof LessonNote>;
 
 export const Certificate = z.object({
   id: z.uuid(),
+  /* Which course, not just its name. Without it nothing can ask "does this
+     member already have one for *this* course", which is the only question the
+     course-finished panel needs answered. */
+  courseId: z.uuid().nullable(),
   courseTitle: z.string(),
   code: z.string(),
   issuedAt: z.iso.datetime(),

@@ -195,7 +195,7 @@ export const learningRoutes = new Hono<AppEnv>()
       const storage = createStorage(c.env);
       return c.json({
         items: await Promise.all(rows.map(async (r) => ({
-          id: r.cert.id, courseTitle: r.title ?? 'Course', code: r.cert.code,
+          id: r.cert.id, courseId: r.cert.courseId, courseTitle: r.title ?? 'Course', code: r.cert.code,
           issuedAt: r.cert.issuedAt.toISOString(),
           url: r.cert.pdfKey ? await storage.signedDownloadUrl(r.cert.pdfKey) : null,
         }))),
@@ -210,6 +210,34 @@ export const learningRoutes = new Hono<AppEnv>()
       const [existing] = await tx.select().from(certificates)
         .where(and(eq(certificates.userId, userId), eq(certificates.courseId, c.req.param('id')))).limit(1);
       if (existing) return c.json({ id: existing.id, code: existing.code });
+
+      /* Finished, or no certificate.
+         This used to mint one for anybody who asked. Nothing checked that the
+         member had opened the course, so the endpoint would issue a
+         certificate for a course they had never started — and certificates
+         carry a code, appear on a public profile, and are the one thing here
+         somebody might show a client. A credential that cannot be earned
+         wrongly is the whole point of having one.
+         An empty course counts as unfinished; otherwise a course with no
+         lessons yet would certify everybody. */
+      const [progress] = await tx.execute<{ total: number; done: number }>(sql`
+        select
+          count(*)::int as total,
+          count(*) filter (where lp.is_completed)::int as done
+        from lessons l
+        join modules m on m.id = l.module_id
+        left join lesson_progress lp on lp.lesson_id = l.id and lp.user_id = ${userId}::uuid
+        where m.course_id = ${c.req.param('id')}::uuid
+      `);
+      const total = Number(progress?.total ?? 0);
+      const done = Number(progress?.done ?? 0);
+      if (total === 0 || done < total) {
+        throw new HttpError(
+          409,
+          'Finish the course first',
+          `${done} of ${total} lessons are done. The certificate is issued when the last one is.`,
+        );
+      }
       const code = `EB-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
       const row = (await tx.insert(certificates).values({ userId, courseId: c.req.param('id'), code }).returning())[0]!;
       await tx.insert(activityEvents).values({ userId, kind: 'certificate.issued', payload: { courseId: c.req.param('id') }, xp: 50 });

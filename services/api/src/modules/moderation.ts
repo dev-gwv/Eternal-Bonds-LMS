@@ -111,6 +111,48 @@ export const moderationRoutes = new Hono<AppEnv>()
       });
     });
   })
+  /* Who currently moderates what.
+     Granting existed and neither listing nor revoking did, so the one button
+     anybody could have built would have added moderators that nothing showed
+     and nothing could take away. A permission you cannot see is a permission
+     you cannot audit. */
+  .get('/moderators', requireAdmin, async (c) => {
+    const db = needDb(c.env);
+    return withUser(db, c.get('userId'), async (tx) => {
+      const rows = await tx.execute<{
+        channel_id: string; channel_name: string; user_id: string; full_name: string; email: string;
+      }>(sql`
+        select cm.channel_id, ch.name as channel_name, cm.user_id, u.full_name, u.email
+        from channel_moderators cm
+        join channels ch on ch.id = cm.channel_id
+        join users u on u.id = cm.user_id
+        order by ch.name asc, u.full_name asc
+      `);
+      return c.json({
+        items: rows.map((r) => ({
+          channelId: r.channel_id,
+          channelName: r.channel_name,
+          userId: r.user_id,
+          fullName: r.full_name,
+          email: r.email,
+        })),
+      });
+    });
+  })
+  .delete('/moderators/:channelId/:userId', requireAdmin, async (c) => {
+    const db = needDb(c.env);
+    return withUser(db, c.get('userId'), async (tx) => {
+      await tx.execute(sql`
+        delete from channel_moderators
+        where channel_id = ${c.req.param('channelId')}::uuid and user_id = ${c.req.param('userId')}::uuid
+      `);
+      await tx.insert(auditLog).values({
+        actorId: c.get('userId'), action: 'moderator.revoke',
+        targetType: 'user', targetId: c.req.param('userId'),
+      });
+      return c.body(null, 204);
+    });
+  })
   .post('/moderators', requireAdmin,
     zValidator('json', z.object({ channelId: z.uuid(), userId: z.uuid() }), invalid), async (c) => {
       const db = needDb(c.env);

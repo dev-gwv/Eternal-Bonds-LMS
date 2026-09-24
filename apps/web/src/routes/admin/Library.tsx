@@ -360,6 +360,115 @@ function ItemRow({ item, categories }: { item: LibraryItem; categories: LibraryC
   );
 }
 
+/**
+ * A shelf, renameable in place.
+ *
+ * Renaming matters more here than it looks: the name is the heading members
+ * browse by, and the first version of a shelf is always called something like
+ * "Docs" before anybody knows what will end up on it. The address is not
+ * editable — changing a slug breaks every link anybody saved to it, and a
+ * library whose URLs move is a library people stop linking to.
+ */
+function CategoryCard({
+  category,
+  showing,
+  onToggleFilter,
+  onDelete,
+  deleting,
+}: {
+  category: LibraryCategory;
+  showing: boolean;
+  onToggleFilter: () => void;
+  onDelete: () => void;
+  deleting: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(category.name);
+  const [blurb, setBlurb] = useState(category.blurb);
+
+  const save = useMutation({
+    mutationFn: () =>
+      adminApi.updateLibraryCategory(category.id, {
+        slug: category.slug,
+        name: name.trim(),
+        blurb: blurb.trim() || null,
+        unit: category.unit,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'library'] });
+      setEditing(false);
+      toast.show('Shelf updated');
+    },
+    onError: toast.error,
+  });
+
+  if (editing) {
+    return (
+      <Card>
+        <Field label="Name">
+          <input value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="One line about this shelf">
+          <input value={blurb} onChange={(e) => setBlurb(e.target.value)} />
+        </Field>
+        <span style={{ fontSize: 10 }} className="dim">
+          The address stays /library/{category.slug} — changing it would break every link saved to it.
+        </span>
+        <Toolbar>
+          <button
+            type="button"
+            className="btn btn-pink"
+            disabled={save.isPending || name.trim().length < 2}
+            onClick={() => save.mutate()}
+          >
+            Save
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+        </Toolbar>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600 }}>{category.name}</span>
+        <Chip>{category.itemCount}</Chip>
+      </div>
+      {category.blurb && (
+        <span style={{ fontSize: 11, lineHeight: 1.5 }} className="muted">
+          {category.blurb}
+        </span>
+      )}
+      <Toolbar>
+        <button
+          type="button"
+          className={showing ? 'btn btn-pink' : 'btn btn-ghost'}
+          style={showing ? { color: '#fff' } : { fontSize: 10 }}
+          onClick={onToggleFilter}
+        >
+          {showing ? 'Showing this shelf' : 'Show only this'}
+        </button>
+        <button type="button" className="btn btn-ghost" style={{ fontSize: 10 }} onClick={() => setEditing(true)}>
+          Edit
+        </button>
+        <span style={{ flex: 1 }} />
+        <ConfirmButton
+          label="Delete"
+          confirmLabel="Delete shelf"
+          style={{ fontSize: 10, color: 'var(--red)' }}
+          disabled={deleting}
+          onConfirm={onDelete}
+        />
+      </Toolbar>
+    </Card>
+  );
+}
+
 export function AdminLibraryPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -434,35 +543,14 @@ export function AdminLibraryPage() {
       ) : (
         <div className="grid grid-3">
           {cats.map((c) => (
-            <Card key={c.id}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600 }}>{c.name}</span>
-                <Chip>{c.itemCount}</Chip>
-              </div>
-              {c.blurb && (
-                <span style={{ fontSize: 11, lineHeight: 1.5 }} className="muted">
-                  {c.blurb}
-                </span>
-              )}
-              <Toolbar>
-                <button
-                  type="button"
-                  className={filter === c.id ? 'btn btn-pink' : 'btn btn-ghost'}
-                  style={filter === c.id ? { color: '#fff' } : { fontSize: 10 }}
-                  onClick={() => setFilter(filter === c.id ? '' : c.id)}
-                >
-                  {filter === c.id ? 'Showing this shelf' : 'Show only this'}
-                </button>
-                <span style={{ flex: 1 }} />
-                <ConfirmButton
-                  label="Delete"
-                  confirmLabel="Delete shelf"
-                  style={{ fontSize: 10, color: 'var(--red)' }}
-                  disabled={removeCategory.isPending}
-                  onConfirm={() => removeCategory.mutate(c.id)}
-                />
-              </Toolbar>
-            </Card>
+            <CategoryCard
+              key={c.id}
+              category={c}
+              showing={filter === c.id}
+              onToggleFilter={() => setFilter(filter === c.id ? '' : c.id)}
+              onDelete={() => removeCategory.mutate(c.id)}
+              deleting={removeCategory.isPending}
+            />
           ))}
         </div>
       )}

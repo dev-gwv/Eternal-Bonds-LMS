@@ -241,9 +241,12 @@ export const api = {
       }),
     ).then((r) => r.cycle),
 
-  insights: (opts?: { cursor?: string; domain?: string }) =>
-    get(`/v1/think-tank/insights?limit=20${opts?.cursor ? `&cursor=${opts.cursor}` : ''}${opts?.domain ? `&domain=${opts.domain}` : ''}`,
-      z.object({ items: z.array(Insight), nextCursor: z.string().nullable() })),
+  insights: (opts?: { cursor?: string; domain?: string; saved?: boolean }) =>
+    get(
+      `/v1/think-tank/insights?limit=20${opts?.cursor ? `&cursor=${opts.cursor}` : ''}` +
+        `${opts?.domain ? `&domain=${opts.domain}` : ''}${opts?.saved ? '&saved=true' : ''}`,
+      z.object({ items: z.array(Insight), nextCursor: z.string().nullable() }),
+    ),
   insight: (slug: string) => get(`/v1/think-tank/insights/${slug}`, InsightDetail),
   shareInsight: (input: ShareInsight) => send('POST', '/v1/think-tank/insights', input, z.object({ id: z.string(), slug: z.string() })),
   voteInsight: (id: string, voted: boolean) =>
@@ -315,8 +318,25 @@ export const api = {
   // existed; nothing in the app could call it.
   setFlag: (key: string, enabled: boolean) =>
     send<{ ok: boolean }>('PUT', `/v1/moderation/flags/${key}`, { enabled }),
+  moderators: () =>
+    get(
+      '/v1/moderation/moderators',
+      z.object({
+        items: z.array(
+          z.object({
+            channelId: z.uuid(),
+            channelName: z.string(),
+            userId: z.uuid(),
+            fullName: z.string(),
+            email: z.string(),
+          }),
+        ),
+      }),
+    ).then((r) => r.items),
   addModerator: (channelId: string, userId: string) =>
     send<{ ok: boolean }>('POST', '/v1/moderation/moderators', { channelId, userId }),
+  removeModerator: (channelId: string, userId: string) =>
+    send<void>('DELETE', `/v1/moderation/moderators/${channelId}/${userId}`),
   // The last leg of the Think Tank loop: the session's recording becomes a
   // lesson, so the hour that happened stays watchable.
   promoteRecording: (eventId: string, lessonId: string) =>

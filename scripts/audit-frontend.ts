@@ -75,11 +75,39 @@ const dangling = [...linkTargets].filter((entry) => {
 const clientSrc =
   (sources.get('apps/web/src/shared/api.ts') ?? '') + (sources.get('apps/web/src/shared/admin-api.ts') ?? '');
 
-const clientMethods = [...clientSrc.matchAll(/^\s{2}([a-zA-Z][\w]*):\s*(?:\(|async)/gm)].map((m) => m[1]!);
+/* Only entries of the exported `api` / `adminApi` objects, which are the two
+   places a call site can reach. A two-space-indented `name: (` also describes
+   a function *parameter* — `onProgress: (fraction: number) => void` in an
+   upload helper's signature — and reporting those as dead weight is noise that
+   trains you to skim the list. */
+const clientMethods = [...clientSrc.matchAll(/^\s{2}([a-zA-Z][\w]*):\s*(?:\(|async)/gm)]
+  .map((m) => ({ name: m[1]!, at: m.index ?? 0 }))
+  .filter(({ at }) => {
+    // Inside an object literal the line before is a property, a comment, or the
+    // object's own opening brace — never a `function`/`export` signature.
+    const head = clientSrc.slice(0, at);
+    const openedObject = head.lastIndexOf('= {');
+    const openedFunction = Math.max(head.lastIndexOf('function '), head.lastIndexOf('export async function'));
+    return openedObject > openedFunction;
+  })
+  .map(({ name }) => name);
 const usedElsewhere = everything
   .filter(([f]) => !/shared\/(admin-)?api\.ts$/.test(f))
   .map(([, s]) => s)
   .join('\n');
+
+/**
+ * Not dead — waiting on something outside the codebase.
+ *
+ * Kept as a named list with a reason rather than deleted, because deleting a
+ * working client for a working endpoint means rebuilding both when the
+ * blocker clears, and kept out of the report because a finding that can never
+ * be actioned is how a report stops being read.
+ */
+const BLOCKED: Record<string, string> = {
+  registerPushToken:
+    'Web push needs FCM credentials and a service worker. PUSH_PROVIDER is `console`, so there is nothing to register a token with yet.',
+};
 
 const unusedMethods = [...new Set(clientMethods)].filter(
   (name) => !new RegExp(`\\b(api|adminApi)\\.${name}\\b`).test(usedElsewhere),
@@ -100,6 +128,16 @@ const section = (title: string, rows: string[], note: string) => {
 let n = 0;
 n += section('Routes nothing links to', unlinked, 'a page no member can navigate to');
 n += section('Links with no matching route', dangling, 'these 404 or fall through to the catch-all');
-n += section('API client methods nobody calls', unusedMethods, 'built and never wired up, or dead weight');
+n += section(
+  'API client methods nobody calls',
+  unusedMethods.filter((m) => !(m in BLOCKED)),
+  'built and never wired up, or dead weight',
+);
+
+const blocked = unusedMethods.filter((m) => m in BLOCKED);
+if (blocked.length > 0) {
+  console.log('\nUnused on purpose');
+  for (const m of blocked) console.log(`  ${m} — ${BLOCKED[m]}`);
+}
 
 console.log(`\n${n} finding(s).`);

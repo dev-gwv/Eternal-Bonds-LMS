@@ -14,6 +14,11 @@ function InsightCard({ insight }: { insight: Insight }) {
     mutationFn: (v: boolean) => api.voteInsight(insight.id, v),
     onSettled: () => qc.invalidateQueries({ queryKey: ['insights'] }),
   });
+  const save = useMutation({
+    mutationFn: (next: boolean) =>
+      next ? api.saveBookmark('insight', insight.id) : api.removeBookmark('insight', insight.id),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['insights'] }),
+  });
   return (
     <article className="card lift" style={{ padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -34,6 +39,23 @@ function InsightCard({ insight }: { insight: Insight }) {
           ▲ {insight.votes}{insight.votedByMe ? ' · voted' : ' · vote'}
         </button>
         <Link to="/think-tank/$slug" params={{ slug: insight.slug }} className="btn btn-soft">Read</Link>
+        <span style={{ flex: 1 }} />
+        {/* The bookmark. The endpoints, the table and the `savedByMe` flag on
+            every row have existed since the Think Tank shipped; there has never
+            been a button, so nothing could ever be saved and the flag was false
+            for everybody forever. An insight is the one thing in this app worth
+            coming back to a fortnight later. */}
+        <button
+          className="btn btn-ghost"
+          disabled={save.isPending}
+          aria-pressed={insight.savedByMe}
+          title={insight.savedByMe ? 'Saved — press to remove' : 'Save for later'}
+          style={{ color: insight.savedByMe ? 'var(--pink-ink)' : 'var(--ink-3)' }}
+          onClick={() => save.mutate(!insight.savedByMe)}
+        >
+          <Icon name="bookmark" size={14} strokeWidth={insight.savedByMe ? 2.6 : 1.8} />
+          {insight.savedByMe ? 'Saved' : 'Save'}
+        </button>
       </div>
     </article>
   );
@@ -85,8 +107,12 @@ function ThisWeek() {
 
 export function ThinkTankPage() {
   const [domain, setDomain] = useState<string | undefined>(undefined);
+  const [savedOnly, setSavedOnly] = useState(false);
   const [dilemma, setDilemma] = useState('');
-  const insights = useQuery({ queryKey: ['insights', domain], queryFn: () => api.insights({ domain }) });
+  const insights = useQuery({
+    queryKey: ['insights', domain, savedOnly],
+    queryFn: () => api.insights({ domain, saved: savedOnly }),
+  });
   const solutions = useQuery({
     queryKey: ['solutions', dilemma], queryFn: () => api.solutions(dilemma),
     enabled: dilemma.trim().length >= 3,
@@ -103,12 +129,25 @@ export function ThinkTankPage() {
       />
 
       <ThisWeek />
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         {['business', 'marketing', 'mindset', 'sales', 'operations'].map((d) => (
           <button key={d} className={`btn ${domain === d ? 'btn-pink' : 'btn-soft'}`}
             style={domain === d ? { color: '#fff' } : undefined}
             onClick={() => setDomain(domain === d ? undefined : d)}>{d}</button>
         ))}
+        <span style={{ flex: 1 }} />
+        {/* Somewhere for saved insights to go. A save button with no way to
+            see what you saved is half a feature, and the half that gets built
+            is usually the button. */}
+        <button
+          className={`btn ${savedOnly ? 'btn-pink' : 'btn-soft'}`}
+          style={savedOnly ? { color: '#fff' } : undefined}
+          aria-pressed={savedOnly}
+          onClick={() => setSavedOnly((v) => !v)}
+        >
+          <Icon name="bookmark" size={13} strokeWidth={savedOnly ? 2.6 : 1.8} />
+          Saved
+        </button>
       </div>
 
       <span className="section-label">Solution Finder</span>
@@ -132,7 +171,22 @@ export function ThinkTankPage() {
       <span className="section-label">This week's insights</span>
       {insights.isPending ? <><SkeletonCard /><SkeletonCard /></> :
         insights.isError ? <LoadingLabel>Something went wrong</LoadingLabel> :
-        insights.data.items.length === 0 ? <EmptyState title="No insights yet" hint="Be the first to share one." /> :
+        insights.data.items.length === 0 ? (
+          // The empty state has to know why it is empty. "No insights yet"
+          // under an active Saved filter reads as "the club has written
+          // nothing", which is both wrong and discouraging.
+          savedOnly ? (
+            <EmptyState
+              icon="bookmark"
+              title="Nothing saved yet"
+              hint="Press Save on an insight and it waits here — the ones worth coming back to in a fortnight."
+            />
+          ) : domain ? (
+            <EmptyState title={`Nothing in ${domain} yet`} hint="Clear the filter to see everything else." />
+          ) : (
+            <EmptyState title="No insights yet" hint="Be the first to share one." />
+          )
+        ) :
         insights.data.items.map((i) => <InsightCard key={i.id} insight={i} />)}
     </Page>
   );
