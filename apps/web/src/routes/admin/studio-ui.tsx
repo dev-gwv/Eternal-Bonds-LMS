@@ -81,6 +81,79 @@ export function Empty({ children }: PropsWithChildren) {
  */
 export { ConfirmButton } from '../../shared/ui/ConfirmButton.tsx';
 
+/**
+ * "Type a name, press the button" — as one control instead of two hopeful ones.
+ *
+ * Adding a module was an unbordered grey box floated to the far right of the
+ * Curriculum heading, fifteen hundred pixels from it on a wide screen, beside
+ * a greyed-out button. The box read as a label rather than a field, and the
+ * button was disabled because the box was empty and said nothing about why. So
+ * you pressed Add module, nothing happened, and the honest conclusion was that
+ * the studio could not add modules. It could; it just never said what it
+ * wanted first.
+ *
+ * Three things fix it and all three are small: the field looks like a field,
+ * the pair is visibly one unit, and the button explains its own disabled
+ * state rather than leaving you to guess.
+ */
+export function InlineAdd({
+  value,
+  onChange,
+  onSubmit,
+  placeholder,
+  label,
+  valid,
+  busy,
+  hint = 'Type a name first',
+  grow,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: () => void;
+  placeholder: string;
+  label: string;
+  valid: boolean;
+  busy?: boolean;
+  /** Shown on the disabled button, and under the field while it is empty. */
+  hint?: string;
+  grow?: boolean;
+}) {
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: grow ? 1 : undefined, minWidth: 0 }}>
+      <span className="inline-add">
+        <input
+          value={value}
+          placeholder={placeholder}
+          aria-label={label}
+          onChange={(e) => onChange(e.target.value)}
+          // Enter submits, because typing a name and reaching for the mouse is
+          // the slow way to add eleven modules.
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && valid && !busy) onSubmit();
+          }}
+        />
+        <button
+          type="button"
+          className="btn btn-soft"
+          disabled={!valid || busy}
+          title={valid ? undefined : hint}
+          onClick={onSubmit}
+        >
+          <Icon name="plus" size={13} />
+          {busy ? 'Adding…' : label}
+        </button>
+      </span>
+      {/* Only once they have started typing something too short — a hint under
+          an untouched empty field is noise on every page load. */}
+      {value.trim().length > 0 && !valid && (
+        <span style={{ fontSize: 10 }} className="dim">
+          {hint}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export function Toolbar({ children }: { children: ReactNode }) {
   return <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>{children}</div>;
 }

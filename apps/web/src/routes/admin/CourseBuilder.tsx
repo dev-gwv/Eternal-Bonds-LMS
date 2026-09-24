@@ -6,7 +6,7 @@ import { adminApi, fetchViewer, uploadLessonVideo } from '../../shared/admin-api
 import { clock } from '../../shared/api.ts';
 import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
 import { Card, Chip, Icon } from '../../shared/ui/primitives.tsx';
-import { ConfirmButton, Empty, ErrorNote, Field, IconButton, Select, Toolbar, slugify } from './studio-ui.tsx';
+import { ConfirmButton, Empty, ErrorNote, Field, IconButton, InlineAdd, Select, Toolbar, slugify } from './studio-ui.tsx';
 import { useToast } from '../../shared/ui/Toast.tsx';
 
 /**
@@ -425,27 +425,18 @@ function AddLesson({ moduleId, courseId }: { moduleId: string; courseId: string 
   const valid = title.trim().length >= 2 && slugify(title).length >= 3;
 
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <input
+    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+      <InlineAdd
         value={title}
+        onChange={setTitle}
+        onSubmit={() => create.mutate()}
         placeholder="Add a lesson…"
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && valid && create.mutate()}
-        style={{
-          flex: 1,
-          font: 'inherit',
-          fontSize: 12,
-          background: 'var(--soft)',
-          border: '1px solid transparent',
-          borderRadius: 'var(--r-ctl)',
-          padding: '9px 11px',
-          color: 'var(--ink)',
-        }}
+        label="Add"
+        hint="A lesson needs a name of two characters or more"
+        valid={valid}
+        busy={create.isPending}
+        grow
       />
-      <button type="button" className="btn btn-soft" disabled={!valid || create.isPending} onClick={() => create.mutate()}>
-        <Icon name="plus" size={13} />
-        Add
-      </button>
       <ErrorNote error={create.error} />
     </div>
   );
@@ -807,31 +798,19 @@ export function CourseBuilderPage() {
       <Toolbar>
         <span className="section-label">Curriculum</span>
         <span style={{ flex: 1 }} />
-        <input
-          value={newModule}
-          placeholder="New module title"
-          onChange={(e) => setNewModule(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && newModule.trim().length >= 2 && addModule.mutate()}
-          style={{
-            font: 'inherit',
-            fontSize: 12,
-            background: 'var(--soft)',
-            border: '1px solid transparent',
-            borderRadius: 'var(--r-ctl)',
-            padding: '9px 11px',
-            color: 'var(--ink)',
-            width: 220,
-          }}
-        />
-        <button
-          type="button"
-          className="btn btn-soft"
-          disabled={newModule.trim().length < 2 || addModule.isPending}
-          onClick={() => addModule.mutate()}
-        >
-          <Icon name="plus" size={13} />
-          Add module
-        </button>
+        <span style={{ width: 'min(340px, 100%)' }}>
+          <InlineAdd
+            value={newModule}
+            onChange={setNewModule}
+            onSubmit={() => addModule.mutate()}
+            placeholder="Week one, Getting started…"
+            label="Add module"
+            hint="Give the module a name — two characters or more"
+            valid={newModule.trim().length >= 2}
+            busy={addModule.isPending}
+            grow
+          />
+        </span>
       </Toolbar>
 
       <ErrorNote error={addModule.error} />
