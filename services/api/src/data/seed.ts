@@ -58,6 +58,8 @@ export const courses: Course[] = [
     status: 'ongoing',
     score: 78,
     certificateUrl: null,
+    coverUrl: null,
+    instructorName: 'Abdullah',
   },
   {
     id: id(11),
@@ -73,6 +75,8 @@ export const courses: Course[] = [
     status: 'ongoing',
     score: 72,
     certificateUrl: null,
+    coverUrl: null,
+    instructorName: 'Abdullah',
   },
   {
     id: id(12),
@@ -88,6 +92,8 @@ export const courses: Course[] = [
     status: 'completed',
     score: 90,
     certificateUrl: '/certificates/mindset-mastery.pdf',
+    coverUrl: null,
+    instructorName: 'Abdullah',
   },
   {
     id: id(13),
@@ -103,6 +109,8 @@ export const courses: Course[] = [
     status: 'ongoing',
     score: 64,
     certificateUrl: null,
+    coverUrl: null,
+    instructorName: 'Abdullah',
   },
   {
     id: id(14),
@@ -118,6 +126,8 @@ export const courses: Course[] = [
     status: 'ongoing',
     score: 66,
     certificateUrl: null,
+    coverUrl: null,
+    instructorName: 'Abdullah',
   },
   {
     id: id(15),
@@ -133,6 +143,8 @@ export const courses: Course[] = [
     status: 'not_started',
     score: null,
     certificateUrl: null,
+    coverUrl: null,
+    instructorName: 'Abdullah',
   },
   {
     id: id(16),
@@ -148,6 +160,8 @@ export const courses: Course[] = [
     status: 'completed',
     score: 84,
     certificateUrl: '/certificates/law-of-attraction.pdf',
+    coverUrl: null,
+    instructorName: 'Abdullah',
   },
   {
     id: id(17),
@@ -163,6 +177,8 @@ export const courses: Course[] = [
     status: 'ongoing',
     score: null,
     certificateUrl: null,
+    coverUrl: null,
+    instructorName: 'Abdullah',
   },
 ];
 

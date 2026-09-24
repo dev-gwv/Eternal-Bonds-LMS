@@ -104,6 +104,18 @@ export const adminApi = {
     call('PATCH', `/v1/admin/workshops/${id}`, { body, schema: AdminWorkshop }),
   deleteWorkshop: (id: string) => call<void>('DELETE', `/v1/admin/workshops/${id}`),
 
+  /* The course cover. Ticket, direct upload, record — the same shape as every
+     other image, so the browser never sends a file through the API. */
+  coverTicket: (courseId: string, mime: 'image/jpeg' | 'image/png' | 'image/webp') =>
+    call('POST', `/v1/admin/courses/${courseId}/cover-ticket`, {
+      body: { mime },
+      schema: z.object({ key: z.string(), url: z.string(), token: z.string(), method: z.literal('PUT') }),
+    }),
+  setCover: (courseId: string, key: string) =>
+    call('POST', `/v1/admin/courses/${courseId}/cover`, { body: { key }, schema: AdminCourse }),
+  clearCover: (courseId: string) =>
+    call('DELETE', `/v1/admin/courses/${courseId}/cover`, { schema: AdminCourse }),
+
   detachVideo: (lessonId: string) => call<void>('DELETE', `/v1/admin/lessons/${lessonId}/video`),
   /**
    * Attach a video that was not uploaded through us — today that means a

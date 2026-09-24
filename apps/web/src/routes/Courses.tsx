@@ -44,28 +44,46 @@ function CourseCard({ course }: { course: Course }) {
       className="card"
       style={{ padding: 12, gap: 10, color: 'inherit' }}
     >
-      <div
-        style={{
-          height: 104,
-          borderRadius: 11,
-          background: tone.gradient,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '0 12px',
-          textAlign: 'center',
-        }}
-      >
-        <span style={{ fontSize: 12, fontWeight: 600, color: tone.on, letterSpacing: '0.04em' }}>
-          {course.title.split('—')[0]!.trim().toUpperCase()}
-        </span>
-      </div>
+      {/* The gradient is now the fallback rather than the design. It stays
+          because a library where half the courses have covers and half are
+          blank looks worse than one that is consistently coloured. */}
+      {course.coverUrl ? (
+        <img
+          src={course.coverUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          style={{ height: 104, width: '100%', objectFit: 'cover', borderRadius: 11, display: 'block' }}
+        />
+      ) : (
+        <div
+          style={{
+            height: 104,
+            borderRadius: 11,
+            background: tone.gradient,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '0 12px',
+            textAlign: 'center',
+          }}
+        >
+          <span style={{ fontSize: 12, fontWeight: 600, color: tone.on, letterSpacing: '0.04em' }}>
+            {course.title.split('—')[0]!.trim().toUpperCase()}
+          </span>
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <span style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.35 }}>{course.title}</span>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 10, color: tone.text, textTransform: 'capitalize' }}>{course.category}</span>
           <span style={{ fontSize: 10, textTransform: 'capitalize' }} className="dim">{course.level}</span>
+          {course.instructorName && (
+            <span style={{ fontSize: 10 }} className="dim">
+              · {course.instructorName}
+            </span>
+          )}
         </div>
       </div>
 

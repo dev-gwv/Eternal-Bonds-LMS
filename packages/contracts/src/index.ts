@@ -36,6 +36,10 @@ export const Course = z.object({
   status: CourseStatus,
   score: z.int().min(0).max(100).nullable(),
   certificateUrl: z.string().nullable(),
+  /** Signed cover image, or null — the card falls back to a gradient. */
+  coverUrl: z.string().nullable().default(null),
+  /** Free text. A guest teaching one course is a name, not an account. */
+  instructorName: z.string().nullable().default(null),
 });
 export type Course = z.infer<typeof Course>;
 
@@ -386,6 +390,7 @@ export const CourseInput = z.object({
   language: Course.shape.language,
   minTier: Tier,
   summaryMd: z.string().max(8000).nullable().default(null),
+  instructorName: z.string().trim().max(120).nullable().default(null),
   isPublished: z.boolean().default(false),
 });
 export type CourseInput = z.infer<typeof CourseInput>;
@@ -473,6 +478,8 @@ export const AdminCourse = z.object({
   id: z.uuid(),
   slug: z.string(),
   title: z.string(),
+  coverUrl: z.string().nullable().default(null),
+  instructorName: z.string().nullable().default(null),
   category: Course.shape.category,
   level: Course.shape.level,
   language: Course.shape.language,

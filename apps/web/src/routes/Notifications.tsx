@@ -4,6 +4,7 @@ import type { NotificationPrefs } from '@ipc/contracts';
 import { api, relativeTime } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Card, Chip, Icon } from '../shared/ui/primitives.tsx';
+import { splitLink } from '../shared/links.ts';
 
 /**
  * The full notification history, and the switches that control it.
@@ -109,7 +110,12 @@ export function NotificationsPage() {
               // A notification with nowhere to go is not a link. Rendering one
               // anyway gives a pointer cursor that lies about what a click does.
               return n.link ? (
-                <Link key={n.id} to={n.link} style={style} onClick={() => !n.read && markRead.mutate(n.id)}>
+                <Link
+                  key={n.id}
+                  {...splitLink(n.link)}
+                  style={style}
+                  onClick={() => !n.read && markRead.mutate(n.id)}
+                >
                   {row}
                 </Link>
               ) : (

@@ -28,7 +28,9 @@ const ThinkTankPage = lazyPage(() => import('../routes/ThinkTank.tsx'), 'ThinkTa
 const ShareInsightPage = lazyPage(() => import('../routes/ThinkTank.tsx'), 'ShareInsightPage');
 const WinsPage = lazyPage(() => import('../routes/Wins.tsx'), 'WinsPage');
 const SubmitWinPage = lazyPage(() => import('../routes/Wins.tsx'), 'SubmitWinPage');
+const NotFoundPage = lazyPage(() => import('../routes/NotFound.tsx'), 'NotFoundPage');
 const EventsPage = lazyPage(() => import('../routes/Events.tsx'), 'EventsPage');
+const EventDetailPage = lazyPage(() => import('../routes/Events.tsx'), 'EventDetailPage');
 const WinDetailPage = lazyPage(() => import('../routes/Events.tsx'), 'WinDetailPage');
 const InsightDetailPage = lazyPage(() => import('../routes/Events.tsx'), 'InsightDetailPage');
 const DirectoryPage = lazyPage(() => import('../routes/Directory.tsx'), 'DirectoryPage');
@@ -55,7 +57,24 @@ const WorkshopStudioPage = lazyPage(() => import('../routes/admin/WorkshopStudio
 const rootRoute = createRootRoute({ component: AppShell });
 
 const dashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: DashboardPage });
-const communityRoute = createRoute({ getParentRoute: () => rootRoute, path: '/community', component: CommunityPage });
+/**
+ * Community reads its own query string.
+ *
+ * `?channel=` and `?post=` are produced all over the app — reply
+ * notifications, search hits, the onboarding checklist, and the feed's own
+ * copy-link — and nothing on this route ever read them, so every one of those
+ * links dropped the member on the generic feed. It is the most-clicked link in
+ * the product and it went nowhere in particular.
+ */
+const communityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/community',
+  component: CommunityPage,
+  validateSearch: (search: Record<string, unknown>): { channel?: string; post?: string } => ({
+    channel: typeof search.channel === 'string' ? search.channel : undefined,
+    post: typeof search.post === 'string' ? search.post : undefined,
+  }),
+});
 const workshopsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/workshops', component: WorkshopsPage });
 const coursesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/courses', component: CoursesPage });
 const courseResumeRoute = createRoute({
@@ -138,6 +157,11 @@ const winDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/wins/$slug',
   component: WinDetailPage,
+});
+const eventDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/events/$slug',
+  component: EventDetailPage,
 });
 const eventsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/events', component: EventsPage });
 const directoryRoute = createRoute({
@@ -239,6 +263,7 @@ const routeTree = rootRoute.addChildren([
   submitWinRoute,
   winDetailRoute,
   eventsRoute,
+  eventDetailRoute,
   directoryRoute,
   legalRoute,
   moderationRoute,
@@ -257,7 +282,10 @@ const routeTree = rootRoute.addChildren([
   workshopStudioRoute,
 ]);
 
-export const router = createRouter({ routeTree, defaultPreload: 'intent' });
+export const router = createRouter({
+  // Without this an unknown path renders the shell around an empty outlet:
+  // full navigation above nothing, which reads as the app being broken.
+  defaultNotFoundComponent: NotFoundPage, routeTree, defaultPreload: 'intent' });
 
 declare module '@tanstack/react-router' {
   interface Register {

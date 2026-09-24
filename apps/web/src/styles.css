@@ -1459,3 +1459,18 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
      competing for a row that is already too narrow. */
   .pagehead-actions { max-width: 100%; width: 100%; justify-content: flex-start; }
 }
+
+/* A post arrived at from a notification or a shared link. The ring fades after
+   a couple of seconds: long enough to find it on the page, short enough not to
+   look like a permanent state the member has to dismiss. */
+.is-linked {
+  animation: linked-pulse 2.4s ease-out;
+  border-radius: var(--r-card);
+}
+@keyframes linked-pulse {
+  0%, 55% { box-shadow: 0 0 0 3px var(--pink-tint), 0 0 0 4px var(--pink); }
+  100% { box-shadow: 0 0 0 3px transparent, 0 0 0 4px transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-linked { animation: none; box-shadow: 0 0 0 3px var(--pink-tint); }
+}

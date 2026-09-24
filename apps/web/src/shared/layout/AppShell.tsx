@@ -392,5 +392,8 @@ function Shell({
 
 /** Wraps a page's body so every route gets the same vertical rhythm. */
 export function Page({ children }: PropsWithChildren) {
-  return <main id="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>{children}</main>;
+  // A <div>, not a second <main>. The shell already renders `main#main`, and
+  // two of them — with the same id — meant the skip link pointed at whichever
+  // the browser found first and a screen reader offered two main landmarks.
+  return <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>{children}</div>;
 }

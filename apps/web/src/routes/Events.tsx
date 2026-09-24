@@ -212,3 +212,109 @@ export function InsightDetailPage() {
     </Page>
   );
 }
+
+const eventRoute = getRouteApi('/events/$slug');
+
+/**
+ * One session.
+ *
+ * The reminder job has been linking `/events/<slug>` since it was written and
+ * no such route existed, so every "your session starts in 24 hours"
+ * notification landed on navigation above a blank page — the SPA fallback
+ * serves the shell for any path, so it did not even 404 visibly.
+ *
+ * A detail page rather than redirecting to the list, because a reminder about
+ * a specific session should open that session. Finding it again in a list is
+ * work the notification was supposed to save.
+ */
+export function EventDetailPage() {
+  const { slug } = eventRoute.useParams();
+  const qc = useQueryClient();
+  const event = useQuery({ queryKey: ['event', slug], queryFn: () => api.event(slug) });
+
+  const rsvp = useMutation({
+    mutationFn: (going: boolean) => api.rsvpEvent(event.data!.id, going),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['event', slug] });
+      qc.invalidateQueries({ queryKey: ['events'] });
+    },
+  });
+
+  if (event.isPending) {
+    return (
+      <Page>
+        <SkeletonCard />
+      </Page>
+    );
+  }
+  if (event.isError || !event.data) {
+    return (
+      <Page>
+        <PageHeader title="Session" back="/events" crumbs={[{ label: 'Events', to: '/events' }, { label: slug }]} />
+        <Card>
+          <EmptyState
+            icon="calendar"
+            title="That session is not here"
+            hint="It may have been removed, or the link may be out of date."
+          />
+          <Link to="/events" className="btn btn-soft" style={{ alignSelf: 'flex-start' }}>
+            All sessions
+          </Link>
+        </Card>
+      </Page>
+    );
+  }
+
+  const e = event.data;
+  const past = new Date(e.endsAt).getTime() < Date.now();
+
+  return (
+    <Page>
+      <PageHeader
+        title={e.title}
+        back="/events"
+        crumbs={[{ label: 'Events', to: '/events' }, { label: e.title }]}
+      />
+      <Card>
+        <span style={{ fontSize: 11 }} className="muted">
+          {timeRange(e.startsAt, e.endsAt)} · {e.rsvpCount} going
+        </span>
+        {e.isFeaturedSession && <span className="nav-soon">Featured session</span>}
+        {e.descriptionMd && (
+          <p style={{ fontSize: 13, lineHeight: 1.7, margin: 0 }}>{e.descriptionMd}</p>
+        )}
+
+        {e.featuredInsights.length > 0 && (
+          <span style={{ fontSize: 12 }} className="muted">
+            Featuring: {e.featuredInsights.map((i) => i.title).join(' · ')}
+          </span>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 4 }}>
+          {e.recordingCourseSlug && e.recordingLessonSlug ? (
+            <Link
+              className="btn btn-pink"
+              to="/learn/$courseSlug/$lessonSlug"
+              params={{ courseSlug: e.recordingCourseSlug, lessonSlug: e.recordingLessonSlug }}
+              style={{ color: '#fff' }}
+            >
+              Watch the recording
+            </Link>
+          ) : e.rsvpd && e.joinUrl ? (
+            <a className="btn btn-pink" href={e.joinUrl} target="_blank" rel="noreferrer">
+              Join
+            </a>
+          ) : past ? (
+            <span style={{ fontSize: 12 }} className="dim">
+              Finished — recording not posted yet
+            </span>
+          ) : (
+            <button className="btn btn-soft" disabled={rsvp.isPending} onClick={() => rsvp.mutate(!e.rsvpd)}>
+              {e.rsvpd ? 'Cancel RSVP' : 'RSVP'}
+            </button>
+          )}
+        </div>
+      </Card>
+    </Page>
+  );
+}

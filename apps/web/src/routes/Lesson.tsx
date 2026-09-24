@@ -26,10 +26,27 @@ export function LessonPage() {
   const index = current ? all.findIndex((l) => l.id === current.id) : -1;
   const next = index >= 0 ? all[index + 1] : undefined;
 
+  // The module this lesson belongs to, for the drip date.
+  const currentModule = course.data?.modules.find((m) => m.lessons.some((l) => l.slug === lessonSlug));
+
+  /**
+   * Whether to show the gate instead of the player.
+   *
+   * The server already refuses playback — this is not the security boundary,
+   * and the comment on getPlaybackTicket says so. What this decides is whether
+   * the member sees a designed explanation or a red box containing an API
+   * error, which is what they got before: the paywall moment had no design at
+   * all.
+   */
+  const locked = Boolean(current?.locked);
+  const lockReason: 'drip' | 'tier' = currentModule?.unlocksAt ? 'drip' : 'tier';
+
   const playback = useQuery({
     queryKey: ['playback', current?.id],
     queryFn: () => api.playback(current!.id),
-    enabled: Boolean(current),
+    // Not requested at all for a locked lesson: a 403 the UI already knows
+    // about is a wasted round trip and an error in the console.
+    enabled: Boolean(current) && !locked,
     // Tickets expire; do not let the cache serve a stale one.
     staleTime: 10 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -120,6 +137,10 @@ export function LessonPage() {
 
       <div className="content">
         <div className="col col-main">
+          {locked ? (
+            <LockedLesson reason={lockReason} unlocksAt={currentModule?.unlocksAt ?? null} />
+          ) : (
+          <>
           {/* Two players, one progress contract. A YouTube lesson still
               resumes, still reports watch time and still completes — see
               YouTubePlayer for why that is worth the extra component rather
@@ -146,6 +167,8 @@ export function LessonPage() {
             <div className="callout" style={{ background: 'var(--soft)', color: 'var(--red)' }}>
               {playback.error.message}
             </div>
+          )}
+          </>
           )}
 
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18 }}>
@@ -416,5 +439,88 @@ function LessonQaPanel({ lessonId }: { lessonId: string }) {
         </div>
       ))}
     </Card>
+  );
+}
+
+/**
+ * The gate, where there used to be a red box with an API error in it.
+ *
+ * Two reasons a lesson is shut, and they deserve different sentences. A drip
+ * has a date, and saying it turns "you cannot watch this" into "come back on
+ * Tuesday" — which is the entire point of a schedule. A tier lock is a sales
+ * moment, and the one thing it must not do is make somebody feel they did
+ * something wrong.
+ */
+function LockedLesson({ reason, unlocksAt }: { reason: 'drip' | 'tier'; unlocksAt: string | null }) {
+  const opens = unlocksAt ? new Date(unlocksAt) : null;
+  const days = opens ? Math.max(0, Math.ceil((opens.getTime() - Date.now()) / 86_400_000)) : null;
+
+  return (
+    <div
+      style={{
+        aspectRatio: '16 / 9',
+        borderRadius: 14,
+        background: 'linear-gradient(135deg, var(--pink-tint), var(--soft))',
+        display: 'grid',
+        placeItems: 'center',
+        padding: 28,
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 10,
+          textAlign: 'center',
+          maxWidth: 420,
+        }}
+      >
+        <span
+          style={{
+            width: 46,
+            height: 46,
+            borderRadius: 999,
+            display: 'grid',
+            placeItems: 'center',
+            background: 'var(--panel)',
+            boxShadow: 'var(--sh-sm)',
+          }}
+        >
+          <Icon name={reason === 'drip' ? 'clock' : 'courses'} size={20} color="var(--pink-ink)" />
+        </span>
+
+        {reason === 'drip' ? (
+          <>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>
+              {days === 0 ? 'This opens later today' : `This opens in ${days} day${days === 1 ? '' : 's'}`}
+            </span>
+            <span style={{ fontSize: 12.5, lineHeight: 1.6 }} className="muted">
+              {opens
+                ? `Your group reaches it on ${opens.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}. Everything before it is open now.`
+                : 'Your group has not reached this part of the course yet.'}
+            </span>
+            <Link to="/courses" className="btn btn-soft" style={{ marginTop: 4 }}>
+              Back to your courses
+            </Link>
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>This course is part of a higher plan</span>
+            <span style={{ fontSize: 12.5, lineHeight: 1.6 }} className="muted">
+              Your membership does not include this one yet. Everything you already have access to stays
+              exactly as it is.
+            </span>
+            <Link
+              to="/settings/membership"
+              className="btn btn-pink"
+              style={{ color: '#fff', marginTop: 4 }}
+            >
+              See the plans
+            </Link>
+          </>
+        )}
+      </div>
+    </div>
   );
 }

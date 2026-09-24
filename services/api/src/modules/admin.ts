@@ -138,6 +138,28 @@ export const adminRoutes = new Hono<AppEnv>()
     return c.body(null, 204);
   })
 
+  /* ── Course cover ─────────────────────────────────────────────────────────
+     Same two-step as every other image in the app: ticket, direct upload,
+     then record. The card falls back to a gradient when there is none, so a
+     failed upload degrades rather than breaks. */
+  .post(
+    '/courses/:id/cover-ticket',
+    body(z.object({ mime: z.enum(['image/jpeg', 'image/png', 'image/webp']) })),
+    async (c) => {
+      const { createStorage } = await import('../lib/storage.ts');
+      const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[c.req.valid('json').mime];
+      const key = `covers/${c.req.param('id')}/${crypto.randomUUID()}.${ext}`;
+      const { url, token } = await createStorage(c.env).signedUploadUrl(key);
+      return c.json({ key, url, token, method: 'PUT' as const });
+    },
+  )
+  .post('/courses/:id/cover', body(z.object({ key: z.string().min(1).max(500) })), async (c) =>
+    c.json(await studio.setCourseCover(c.env, who(c), c.req.param('id'), c.req.valid('json').key)),
+  )
+  .delete('/courses/:id/cover', async (c) =>
+    c.json(await studio.setCourseCover(c.env, who(c), c.req.param('id'), null)),
+  )
+
   /* ── Workshops ────────────────────────────────────────────────────────── */
   .get('/workshops', async (c) => c.json({ items: await studio.listAdminWorkshops(c.env, who(c)) }))
   .post('/workshops', body(WorkshopInput), async (c) =>

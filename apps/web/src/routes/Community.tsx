@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { CreatePost, type Post } from '@ipc/contracts';
 import { api, relativeTime, xpLabel } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
@@ -14,6 +15,8 @@ import { useSeen } from '../shared/ui/useSeen.tsx';
 import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 import { StaggerItem, StaggerList } from '../shared/ui/motion.tsx';
 import { useToast } from '../shared/ui/Toast.tsx';
+
+const route = getRouteApi('/community');
 
 const CHANNEL_ICON: Record<string, { icon: string; tone: 'pink' | 'yellow' | 'blue' | 'green' }> = {
   wins: { icon: 'heart', tone: 'pink' },
@@ -155,8 +158,19 @@ export function CommunityPage() {
     composer.current?.focus();
     composer.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
-  const [channel, setChannel] = useState<string | undefined>(undefined);
+  // The URL is the source of truth for which channel is open, so a deep link
+  // from a notification, a search hit or the onboarding checklist lands where
+  // it said it would — and so the back button works between channels.
+  const search = route.useSearch();
+  const [channel, setChannel] = useState<string | undefined>(search.channel);
   const [draft, setDraft] = useState('');
+
+  // A link may arrive while the page is already mounted — tapping a second
+  // notification, for instance — so the URL is followed on change, not only
+  // on first render.
+  useEffect(() => {
+    setChannel(search.channel);
+  }, [search.channel]);
   const me = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: 5 * 60_000, retry: false });
   const stats = useQuery({ queryKey: ['stats'], queryFn: api.stats });
 
@@ -178,14 +192,35 @@ export function CommunityPage() {
 
   const openChannel = (slug: string | undefined) => {
     setChannel(slug);
+    // Written to the URL as well as to state, so the channel a member is
+    // reading is something they can bookmark, share, or come back to.
+    void navigate({ to: '/community', search: slug ? { channel: slug } : {}, replace: true });
     if (slug) markRead.mutate(slug);
   };
 
   const posts = useQuery({ queryKey: ['posts', channel ?? 'all'], queryFn: () => api.posts(channel) });
+
+  /**
+   * Scroll a deep-linked post into view and mark it, once it has rendered.
+   *
+   * A reply notification says "somebody replied to your post"; landing on a
+   * feed of twenty posts with no indication which is the one being discussed
+   * makes the notification almost useless.
+   */
+  useEffect(() => {
+    if (!search.post || posts.isPending) return;
+    const node = document.getElementById(`post-${search.post}`);
+    if (!node) return;
+    node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    node.classList.add('is-linked');
+    const timer = setTimeout(() => node.classList.remove('is-linked'), 2400);
+    return () => clearTimeout(timer);
+  }, [search.post, posts.isPending, posts.data]);
   const leaderboard = useQuery({ queryKey: ['leaderboard'], queryFn: api.leaderboard });
 
   const picker = usePicker();
   const toast = useToast();
+  const navigate = useNavigate();
 
   // Post first, then photographs. A media ticket is scoped to a post id, so
   // the row has to exist before anything can be uploaded against it — and it
@@ -389,7 +424,9 @@ export function CommunityPage() {
           <StaggerList style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {(posts.data ?? []).map((p) => (
               <StaggerItem key={p.id} layout>
-                <PostCard post={p} seenRef={seen(p.id)} />
+                <div id={`post-${p.id}`}>
+                  <PostCard post={p} seenRef={seen(p.id)} />
+                </div>
               </StaggerItem>
             ))}
           </StaggerList>

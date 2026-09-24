@@ -143,6 +143,8 @@ export async function listCourses(env: Env, userId: string | null, status?: stri
         )`,
         score: enrollments.score,
         certificateKey: enrollments.certificateKey,
+        coverKey: coursesTable.coverKey,
+        instructorName: coursesTable.instructorName,
 
       })
       .from(coursesTable)
@@ -159,14 +161,29 @@ export async function listCourses(env: Env, userId: string | null, status?: stri
     // handed the key — it needs a signed URL. Signed only for the rows that
     // actually have one, which in practice is a handful per member.
     const certificates = new Map<string, string>();
+    const covers = new Map<string, string>();
     if (supabaseConfigured(env)) {
+      const storage = createStorage(env);
       const withCert = rows.filter((r) => r.certificateKey);
       await Promise.all(
         withCert.map(async (r) => {
           try {
-            certificates.set(r.id, await createStorage(env).signedDownloadUrl(r.certificateKey!, 900));
+            certificates.set(r.id, await storage.signedDownloadUrl(r.certificateKey!, 900));
           } catch {
             // A missing object must not take the whole course list down.
+          }
+        }),
+      );
+      // Covers get an hour rather than fifteen minutes: the course list sits
+      // open, and a cover that 404s halfway through browsing looks broken in a
+      // way a certificate link never does.
+      const withCover = rows.filter((r) => r.coverKey);
+      await Promise.all(
+        withCover.map(async (r) => {
+          try {
+            covers.set(r.id, await storage.signedDownloadUrl(r.coverKey!, 3600));
+          } catch {
+            // Same: fall back to the gradient rather than failing the page.
           }
         }),
       );
@@ -194,6 +211,8 @@ export async function listCourses(env: Env, userId: string | null, status?: stri
         // Courses page retried forever behind its skeletons. The double cast
         // that used to be here is what hid it from the compiler.
         certificateUrl: certificates.get(r.id) ?? null,
+        coverUrl: covers.get(r.id) ?? null,
+        instructorName: r.instructorName ?? null,
       } satisfies Course;
     });
 

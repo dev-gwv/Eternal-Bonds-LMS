@@ -261,6 +261,7 @@ export const api = {
 
   /* Events. */
   events: () => get('/v1/events', z.object({ items: z.array(ClubEvent) })).then((r) => r.items),
+  event: (slug: string) => get(`/v1/events/${slug}`, ClubEvent),
   rsvpEvent: (id: string, rsvpd: boolean) => send(rsvpd ? 'POST' : 'DELETE', `/v1/events/${id}/rsvp`),
 
   /* Photolancer. */

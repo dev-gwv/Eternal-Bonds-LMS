@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { SearchHit } from '@ipc/contracts';
 import { api } from '../api.ts';
 import { Icon } from './primitives.tsx';
+import { splitLink } from '../links.ts';
 
 /**
  * The search box in the header, which until now was an input that did nothing.
@@ -78,7 +79,8 @@ export function GlobalSearch() {
   const go = (hit: SearchHit) => {
     setOpen(false);
     setQuery('');
-    navigate({ to: hit.href });
+    const { to, search } = splitLink(hit.href);
+    void navigate({ to, search });
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {

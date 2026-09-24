@@ -78,6 +78,10 @@ export const courses = pgTable(
     slug: text('slug').notNull(),
     title: text('title').notNull(),
     summaryMd: text('summary_md'),
+    // A storage key, signed on read — the bucket is private like the rest.
+    coverKey: text('cover_key'),
+    // Free text: a guest teaching one course is a name, not an account.
+    instructorName: text('instructor_name'),
     category: text('category').notNull(),
     level: text('level').notNull().default('beginner'),
     language: text('language').notNull().default('hindi'),

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Notification } from '@ipc/contracts';
 import { api, relativeTime } from '../api.ts';
 import { Icon } from './primitives.tsx';
+import { splitLink } from '../links.ts';
 
 /**
  * The bell in the header.
@@ -72,7 +73,10 @@ export function NotificationBell() {
     setOpen(false);
     // The link is an in-app path, so it is routed rather than navigated —
     // the same row has to work in a native build with a different origin.
-    if (n.link) navigate({ to: n.link });
+    if (n.link) {
+      const { to, search } = splitLink(n.link);
+      void navigate({ to, search });
+    }
   };
 
   return (

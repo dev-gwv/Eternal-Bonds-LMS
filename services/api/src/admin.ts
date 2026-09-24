@@ -74,6 +74,8 @@ const courseColumns = {
   language: coursesTable.language,
   minTier: coursesTable.minTier,
   summaryMd: coursesTable.summaryMd,
+  coverKey: coursesTable.coverKey,
+  instructorName: coursesTable.instructorName,
   isPublished: coursesTable.isPublished,
   updatedAt: coursesTable.updatedAt,
   // Written with explicit qualified names: Drizzle does not prefix columns it
@@ -100,6 +102,8 @@ type CourseRow = {
   language: string;
   minTier: AdminCourse['minTier'];
   summaryMd: string | null;
+  coverKey: string | null;
+  instructorName: string | null;
   isPublished: boolean;
   updatedAt: Date;
   lessonCount: number;
@@ -115,6 +119,11 @@ const toAdminCourse = (r: CourseRow): AdminCourse => ({
   language: r.language as AdminCourse['language'],
   minTier: r.minTier,
   summaryMd: r.summaryMd ?? null,
+  // The studio shows the key rather than a signed link: the cover is uploaded
+  // and replaced from here, and a link that expires mid-edit is worse than a
+  // name. The member-facing list signs it.
+  coverUrl: r.coverKey ?? null,
+  instructorName: r.instructorName ?? null,
   isPublished: r.isPublished,
   lessonCount: Number(r.lessonCount) || 0,
   durationMinutes: Math.round((Number(r.durationSeconds) || 0) / 60),
@@ -205,6 +214,7 @@ export async function createCourse(env: Env, userId: string, input: CourseInput)
           language: input.language,
           minTier: input.minTier,
           summaryMd: input.summaryMd,
+          instructorName: input.instructorName,
           isPublished: input.isPublished,
           rank: String(Number(top?.max ?? 0) + RANK_STEP),
         })
@@ -652,4 +662,50 @@ function slugConflict(error: unknown, slug: string): unknown {
     return new HttpError(409, 'That URL is taken', `Another item already uses "${slug}".`);
   }
   return error;
+}
+
+/**
+ * Sets or clears a course cover.
+ *
+ * The key is checked against the course's own prefix for the same reason post
+ * media is: it arrives from the browser, and without the check an admin could
+ * point one course at another's object — or at any file in the bucket.
+ *
+ * Replacing removes the previous image rather than orphaning it. Covers get
+ * changed more than anything else in the studio, and each abandoned one is a
+ * file somebody pays to store forever.
+ */
+export async function setCourseCover(
+  env: Env,
+  userId: string,
+  id: string,
+  key: string | null,
+): Promise<AdminCourse> {
+  const db = requireDb(env);
+  const { createStorage } = await import('./lib/storage.ts');
+
+  if (key && !key.startsWith(`covers/${id}/`)) {
+    throw new HttpError(422, 'That file does not belong to this course');
+  }
+
+  return withUser(db, userId, async (tx) => {
+    const [before] = await tx
+      .select({ coverKey: coursesTable.coverKey })
+      .from(coursesTable)
+      .where(eq(coursesTable.id, id));
+    if (!before) throw new HttpError(404, 'Course not found');
+
+    await tx.update(coursesTable).set({ coverKey: key }).where(eq(coursesTable.id, id));
+
+    if (before.coverKey && before.coverKey !== key) {
+      try {
+        await createStorage(env).remove([before.coverKey]);
+      } catch {
+        // A leftover file is not worth failing the save over.
+      }
+    }
+
+    const [row] = await tx.select(courseColumns).from(coursesTable).where(eq(coursesTable.id, id));
+    return toAdminCourse(row as CourseRow);
+  });
 }
