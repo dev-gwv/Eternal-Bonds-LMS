@@ -83,8 +83,12 @@ export async function search(env: Env, userId: string | null, raw: string): Prom
       (
         select 'member', u.id::text, u.full_name,
                initcap(public.current_tier(u.id)::text) || ' · ' || coalesce(u.city, 'India'),
-               '/members/me'
+               -- Was '/members/me', so searching for a colleague opened your
+               -- own profile. Only listed members are reachable, so only
+               -- listed members are offered.
+               '/members/' || u.id::text
         from users u
+        join member_profiles mp on mp.user_id = u.id and mp.show_in_directory
         where not u.is_suspended and u.full_name ilike ${pattern}
         limit ${PER_GROUP}
       )

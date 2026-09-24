@@ -61,6 +61,13 @@ export const directoryRoutes = new Hono<AppEnv>()
       });
     });
   })
+  /* Another member's profile. Only members who opted into the directory are
+     visible — that is the consent they gave, and honouring it on one page but
+     not another would be a bait-and-switch. */
+  .get('/:id', requireAuth, async (c) => {
+    const { getPublicMember } = await import('../profiles.ts');
+    return c.json(await getPublicMember(c.env, c.get('userId'), c.req.param('id')));
+  })
   .put('/me', requireAuth, zValidator('json', z.object({
     bioMd: z.string().max(2000).nullable().optional(),
     expertise: z.array(z.string().max(40)).max(10).optional(),

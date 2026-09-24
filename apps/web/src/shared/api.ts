@@ -36,6 +36,9 @@ import {
   LibraryCategory,
   LibraryItem,
   Member,
+  MyCohort,
+  MySubmission,
+  PublicMember,
   Performance,
   PlaybackTicket,
   Post,
@@ -143,6 +146,11 @@ export const api = {
   setAvatar: (key: string) =>
     send('POST', '/v1/me/avatar', { key }, z.object({ avatarUrl: z.string().nullable() })),
   clearAvatar: () => send<void>('DELETE', '/v1/me/avatar'),
+
+  /* Three views that existed as data and not as pages. */
+  publicMember: (id: string) => get(`/v1/directory/${id}`, PublicMember),
+  myCohorts: () => get('/v1/me/cohorts', list(MyCohort)).then((r) => r.items),
+  mySubmissions: () => get('/v1/me/submissions', list(MySubmission)).then((r) => r.items),
 
   /* Your public profile — the directory entry. The PUT existed with no caller,
      which meant a member could not write a bio, and the Account page showed

@@ -88,6 +88,17 @@ export const meRoutes = new Hono<AppEnv>()
     return c.body(null, 204);
   })
 
+  /* Cohorts and submissions: two things the app has been acting on with no
+     way for the member to see them. */
+  .get('/cohorts', requireAuth, async (c) => {
+    const { getMyCohorts } = await import('../profiles.ts');
+    return c.json({ items: await getMyCohorts(c.env, c.get('userId')) });
+  })
+  .get('/submissions', requireAuth, async (c) => {
+    const { getMySubmissions } = await import('../profiles.ts');
+    return c.json({ items: await getMySubmissions(c.env, c.get('userId')) });
+  })
+
   // The first week. Derived on read rather than tracked — see onboarding.ts.
   .get('/onboarding', async (c) => {
     const { getOnboarding } = await import('../onboarding.ts');

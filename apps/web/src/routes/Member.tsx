@@ -4,6 +4,8 @@ import { api, durationLabel, hoursMinutes } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { ActivityChart, ProgressRing, ScoreGauge, TrendLine } from '../shared/ui/charts.tsx';
 import { Card, Chip, Dropdown, Icon, Tile } from '../shared/ui/primitives.tsx';
+import { MyCohorts } from '../shared/ui/MyCohorts.tsx';
+import { MySubmissions } from '../shared/ui/MySubmissions.tsx';
 
 const SERIES_LABELS = [
   { key: 'consistency', label: 'Consistency · active days', color: 'var(--s1)' },
@@ -259,6 +261,9 @@ export function MemberPage() {
           </Card>
         </div>
       </div>
+
+      <MyCohorts />
+      <MySubmissions />
     </Page>
   );
 }

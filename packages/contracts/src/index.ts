@@ -1385,3 +1385,66 @@ export const Revenue = z.object({
   recent: z.array(RevenueOrder),
 });
 export type Revenue = z.infer<typeof Revenue>;
+
+/* ── A member, seen by another member ─────────────────────────────────────
+   Deliberately thinner than the admin view and thinner than your own profile.
+   No email, no phone, no member code, no XP, no risk band: those are either
+   contact details somebody did not consent to publish, or operational numbers
+   that would turn a directory into a leaderboard of who is falling behind. */
+
+export const PublicMember = z.object({
+  id: z.uuid(),
+  fullName: z.string(),
+  initials: z.string(),
+  avatarUrl: z.string().nullable(),
+  tier: Tier,
+  city: z.string().nullable(),
+  bioMd: z.string().nullable(),
+  expertise: z.array(z.string()),
+  joinedAt: z.iso.datetime(),
+  /** Published wins only — the member's own proof, as the club sees it. */
+  wins: z.array(z.object({ slug: z.string(), title: z.string(), createdAt: z.iso.datetime() })),
+  /** True when this is you, so the page can offer Edit instead of Report. */
+  isMe: z.boolean(),
+});
+export type PublicMember = z.infer<typeof PublicMember>;
+
+/* ── My cohorts ───────────────────────────────────────────────────────────
+   Cohorts have been gating the drip since they were built, and members had no
+   way to see one: unlock notifications arrived for a schedule that existed
+   nowhere in their interface. */
+
+export const MyCohort = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  courseSlug: z.string(),
+  courseTitle: z.string(),
+  startsOn: z.string(),
+  endsOn: z.string().nullable(),
+  /** Which day of the cohort today is. Negative before it starts. */
+  dayNumber: z.int(),
+  memberCount: z.int().nonnegative(),
+  progress: z.int().min(0).max(100),
+  lessonsDone: z.int().nonnegative(),
+  lessonsTotal: z.int().nonnegative(),
+  /** The timetable, as the whole group sees it. */
+  schedule: z.array(
+    z.object({
+      title: z.string(),
+      opensOn: z.string().nullable(),
+      lessonCount: z.int().nonnegative(),
+      open: z.boolean(),
+    }),
+  ),
+});
+export type MyCohort = z.infer<typeof MyCohort>;
+
+/** A win the member submitted, including the ones still in review. */
+export const MySubmission = z.object({
+  id: z.uuid(),
+  slug: z.string(),
+  title: z.string(),
+  status: z.enum(['pending', 'published', 'hidden']),
+  createdAt: z.iso.datetime(),
+});
+export type MySubmission = z.infer<typeof MySubmission>;

@@ -6,6 +6,7 @@ import { api, relativeTime } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Avatar, Card, Chip, EmptyState, Hero, Icon } from '../shared/ui/primitives.tsx';
 import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
+import { useDraft } from '../shared/ui/useDraft.ts';
 
 function InsightCard({ insight }: { insight: Insight }) {
   const qc = useQueryClient();
@@ -138,16 +139,25 @@ export function ThinkTankPage() {
 }
 
 export function ShareInsightPage() {
-  const [form, setForm] = useState({ title: '', situationMd: '', bigIdeaMd: '', domainSlug: 'business', impactSlug: 'growth' });
+  // Autosaved. Three paragraphs of real thought lived only in React state,
+  // so a phone call lost them — and nobody writes it a second time.
+  const [form, setForm, clearDraft] = useDraft('insight', {
+    title: '', situationMd: '', bigIdeaMd: '', domainSlug: 'business', impactSlug: 'growth',
+  });
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const save = async () => {
     setError(null);
+    setBusy(true);
     try {
       const r = await api.shareInsight({ ...form, howMd: '', steps: [] });
+      clearDraft();
       setDone(r.slug);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save');
+    } finally {
+      setBusy(false);
     }
   };
   if (done) return (

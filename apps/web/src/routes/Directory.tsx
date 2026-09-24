@@ -2,8 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api } from '../shared/api.ts';
 import { Page } from '../shared/layout/AppShell.tsx';
-import { Avatar, Card, EmptyState, Hero } from '../shared/ui/primitives.tsx';
+import { Avatar, Card, EmptyState, Hero, Icon } from '../shared/ui/primitives.tsx';
 import { SkeletonCard, LoadingLabel } from '../shared/ui/Skeleton.tsx';
+import { Link } from '@tanstack/react-router';
 
 export function DirectoryPage() {
   const [q, setQ] = useState('');
@@ -32,17 +33,26 @@ export function DirectoryPage() {
       {members.isPending ? <SkeletonCard /> : members.isError ? <LoadingLabel>Something went wrong</LoadingLabel> :
         members.data.length === 0 ? <EmptyState title="No members found" hint="Try a different search." /> :
         members.data.map((m) => (
-          <Card key={m.id}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <Avatar initials={m.initials} size={36} tone="blue" />
-              <span style={{ flex: 1 }}>
-                <strong style={{ fontSize: 12 }}>{m.fullName}</strong>
-                <span style={{ display: 'block', fontSize: 11 }} className="muted">
-                  {[m.city, ...m.expertise].filter(Boolean).join(' · ') || 'Member'}
-                </span>
+          // The directory listed people it could not take you to. Each row is
+          // a link now, which is what everybody expected it already was.
+          <Link
+            key={m.id}
+            to="/members/$id"
+            params={{ id: m.id }}
+            className="card-row lift"
+            style={{ color: 'inherit', gap: 10 }}
+          >
+            <Avatar initials={m.initials} size={36} tone="blue" />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <strong style={{ fontSize: 12 }}>{m.fullName}</strong>
+              <span style={{ display: 'block', fontSize: 11 }} className="muted">
+                {[m.city, ...m.expertise].filter(Boolean).join(' · ') || 'Member'}
               </span>
-            </div>
-          </Card>
+            </span>
+            <span style={{ display: 'inline-flex', transform: 'rotate(-90deg)' }}>
+              <Icon name="chevron" size={14} color="var(--ink-3)" />
+            </span>
+          </Link>
         ))}
     </Page>
   );

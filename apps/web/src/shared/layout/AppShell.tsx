@@ -103,6 +103,50 @@ function sectionFor(pathname: string) {
  * already know — the sections we added since are one level down, where they
  * belong, rather than competing for room up here.
  */
+
+/**
+ * Bottom navigation, on phones only.
+ *
+ * The top bar works on a laptop and is wrong on a phone for a physical reason:
+ * the top of a large screen is the hardest place to reach one-handed, and this
+ * app's audience uses it standing at a shoot, not sitting at a desk. Every
+ * native app puts primary navigation at the bottom, and the Capacitor build
+ * will be judged against those rather than against websites.
+ *
+ * Four destinations, not six. A bottom bar with six items gives each one a
+ * target narrower than a thumb; the two that come out are Library and Think
+ * Tank, which are both still one tap away inside Courses and Community.
+ */
+const BOTTOM: NavItem[] = [
+  { to: '/', label: 'Home', icon: 'dashboard' },
+  { to: '/courses', label: 'Learn', icon: 'courses' },
+  { to: '/community', label: 'Community', icon: 'community' },
+  { to: '/think-tank', label: 'Think Tank', icon: 'bulb' },
+];
+
+function BottomNav() {
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
+  return (
+    <nav className="bottomnav" aria-label="Primary">
+      {BOTTOM.map((item) => {
+        const active =
+          item.to === '/' ? pathname === '/' : sectionFor(pathname).to === item.to || pathname.startsWith(item.to);
+        return (
+          <Link
+            key={item.to}
+            to={item.to}
+            aria-current={active ? 'page' : undefined}
+            className={active ? 'bottomnav-item is-on' : 'bottomnav-item'}
+          >
+            <Icon name={item.icon} size={19} strokeWidth={active ? 2.1 : 1.7} />
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 function TopBar({ onMenu, hasSub }: { onMenu: () => void; hasSub: boolean }) {
   const pathname = useRouterState({ select: (st) => st.location.pathname });
   const current = sectionFor(pathname);
@@ -386,6 +430,7 @@ function Shell({
           </main>
         </div>
       </div>
+      <BottomNav />
     </div>
   );
 }

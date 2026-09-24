@@ -28,6 +28,7 @@ const ThinkTankPage = lazyPage(() => import('../routes/ThinkTank.tsx'), 'ThinkTa
 const ShareInsightPage = lazyPage(() => import('../routes/ThinkTank.tsx'), 'ShareInsightPage');
 const WinsPage = lazyPage(() => import('../routes/Wins.tsx'), 'WinsPage');
 const SubmitWinPage = lazyPage(() => import('../routes/Wins.tsx'), 'SubmitWinPage');
+const MemberProfilePage = lazyPage(() => import('../routes/MemberProfile.tsx'), 'MemberProfilePage');
 const NotFoundPage = lazyPage(() => import('../routes/NotFound.tsx'), 'NotFoundPage');
 const EventsPage = lazyPage(() => import('../routes/Events.tsx'), 'EventsPage');
 const EventDetailPage = lazyPage(() => import('../routes/Events.tsx'), 'EventDetailPage');
@@ -89,6 +90,13 @@ const lessonRoute = createRoute({
 });
 const libraryRoute = createRoute({ getParentRoute: () => rootRoute, path: '/library', component: LibraryPage });
 const memberRoute = createRoute({ getParentRoute: () => rootRoute, path: '/members/me', component: MemberPage });
+/* Another member. Registered after /members/me so the literal path wins over
+   the parameter — otherwise "me" would be read as an id and 404. */
+const memberProfileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/members/$id',
+  component: MemberProfilePage,
+});
 /* Settings, as four real routes rather than local tab state — each is
    linkable, the back button works between them, and support can say "it is at
    /settings/notifications" and have that be true. */
@@ -249,6 +257,7 @@ const routeTree = rootRoute.addChildren([
   lessonRoute,
   libraryRoute,
   memberRoute,
+  memberProfileRoute,
   settingsRoute,
   settingsNotificationsRoute,
   settingsMembershipRoute,

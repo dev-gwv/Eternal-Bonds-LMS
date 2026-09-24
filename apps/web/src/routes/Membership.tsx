@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { OrderTicket, Plan } from '@ipc/contracts';
 import { api } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
@@ -113,8 +113,42 @@ export function MembershipPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
+  // Set the moment Razorpay says it worked, cleared when the webhook lands.
+  const [confirming, setConfirming] = useState(false);
 
-  const membership = useQuery({ queryKey: ['membership'], queryFn: api.membership });
+  const membership = useQuery({
+    queryKey: ['membership'],
+    queryFn: api.membership,
+    // While confirming, poll. A single re-check after four seconds assumed the
+    // webhook is always faster than that; when it is not, the member sees
+    // their old tier with no explanation and has just paid for something.
+    refetchInterval: confirming ? 2000 : false,
+  });
+
+  /**
+   * Stop polling once the tier actually moves, or after ninety seconds.
+   *
+   * The timeout matters as much as the success: a webhook that never arrives
+   * must not leave a spinner running forever. Ninety seconds is well past a
+   * normal Razorpay round trip, and at that point the honest thing is to say
+   * it is taking longer than usual rather than to keep pretending.
+   */
+  const paidTier = membership.data?.tier;
+  useEffect(() => {
+    if (!confirming) return;
+    if (paidTier && paidTier !== 'free') {
+      setConfirming(false);
+      setStatus(null);
+      return;
+    }
+    const giveUp = setTimeout(() => {
+      setConfirming(false);
+      setStatus(
+        'Your payment went through, but the confirmation is taking longer than usual. It usually lands within a few minutes — refresh, or contact us if it does not.',
+      );
+    }, 90_000);
+    return () => clearTimeout(giveUp);
+  }, [confirming, paidTier]);
 
   const checkout = useMutation({
     mutationFn: async (planId: string) => {
@@ -143,8 +177,7 @@ export function MembershipPage() {
           // which usually lands within seconds — hence the re-check rather
           // than a confident "you're upgraded".
           setBusyPlan(null);
-          setStatus('Payment received. Your membership updates as soon as the bank confirms it.');
-          setTimeout(() => queryClient.invalidateQueries({ queryKey: ['membership'] }), 4000);
+          setConfirming(true);
         },
         modal: {
           ondismiss: () => {
@@ -174,6 +207,16 @@ export function MembershipPage() {
     <SettingsShell>
       {error && <div className="alert">{error}</div>}
       {status && <div className="callout">{status}</div>}
+
+      {confirming && (
+        <div className="callout" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span className="spinner" aria-hidden />
+          <span>
+            <strong>Confirming with your bank.</strong> Your payment went through — we are waiting for the
+            confirmation, which usually takes a few seconds. You can stay on this page.
+          </span>
+        </div>
+      )}
 
       {data && (
         <Card>

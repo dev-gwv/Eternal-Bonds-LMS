@@ -1474,3 +1474,77 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
 @media (prefers-reduced-motion: reduce) {
   .is-linked { animation: none; box-shadow: 0 0 0 3px var(--pink-tint); }
 }
+
+/* Used where something is genuinely pending on a third party — a bank
+   confirmation, a transcode. Not for page loads, which get skeletons: a
+   spinner says "wait", a skeleton says "here is the shape of what is coming". */
+.spinner {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 2px solid var(--hair);
+  border-top-color: var(--pink);
+  animation: spin 720ms linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Still moving, just not spinning — a frozen spinner reads as a hung page. */
+  .spinner { animation: pulse-fade 1.4s ease-in-out infinite; }
+  @keyframes pulse-fade { 50% { opacity: 0.4; } }
+}
+
+/* --- bottom navigation ----------------------------------------------------
+   Phones only. The top of a large screen is the hardest place to reach
+   one-handed, and this audience uses the app standing at a shoot rather than
+   sitting at a desk. Hidden above the phone breakpoint, where the top bar is
+   both reachable and roomier. */
+
+.bottomnav { display: none; }
+
+@media (max-width: 720px) {
+  .bottomnav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 90;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 2px;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--panel) 92%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid var(--hair);
+  }
+
+  .bottomnav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 7px 4px 5px;
+    border-radius: 12px;
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: var(--ink-3);
+    /* 48px is the smallest target most guidance accepts, and a bottom bar is
+       where mis-taps are most likely — the thumb arrives at an angle. */
+    min-height: 48px;
+    justify-content: center;
+    transition: color 0.14s ease, background 0.14s ease;
+  }
+  .bottomnav-item.is-on { color: var(--pink-ink); background: var(--pink-tint); }
+  .bottomnav-item:active { background: var(--soft); }
+
+  /* Room for the bar, so the last card in a page is not sitting under it. */
+  .panel { padding-bottom: calc(74px + env(safe-area-inset-bottom)); }
+
+  /* And the toast stack rides above it rather than behind. */
+  .toast-stack { bottom: calc(80px + env(safe-area-inset-bottom)); }
+}
