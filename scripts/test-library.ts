@@ -21,6 +21,7 @@
 import { sql } from 'drizzle-orm';
 import { createDb } from '@ipc/db';
 import * as library from '../services/api/src/library-admin.ts';
+import { listLibraryCategories } from '../services/api/src/repo.ts';
 import { EnvSchema } from '../services/api/src/env.ts';
 
 const url = process.env.DATABASE_URL;
@@ -131,6 +132,45 @@ try {
   // The one that matters: a whole-object patch used to be able to blank the
   // storage key, turning a hosted file into a row pointing at nothing.
   check('it is still a hosted file', moved?.kind === 'file', moved?.kind);
+
+  console.log('\nThe count members see');
+  /* The bug this exists for: the shelf count was a Drizzle `sql` template
+     referencing two table objects, and Drizzle renders those columns
+     unqualified unless the outer query has a join. It came out as
+     `where "category_id" = "id"`, and inside the subquery `"id"` binds to the
+     *inner* table — so it compared library_items.category_id against
+     library_items.id, false for every row. Every shelf read zero from the day
+     the library shipped, the member page said "0 resources" over a library
+     that was full, and nothing ever errored. */
+  // At this point the free link is on the first shelf and the silver file has
+  // been moved to the second.
+  const adminView = await listLibraryCategories(env, admin);
+  check(
+    'a shelf reports what is on it',
+    adminView.find((c) => c.id === categoryId)?.itemCount === 1,
+    String(adminView.find((c) => c.id === categoryId)?.itemCount),
+  );
+  check(
+    'and so does the other one',
+    adminView.find((c) => c.id === otherId)?.itemCount === 1,
+    String(adminView.find((c) => c.id === otherId)?.itemCount),
+  );
+
+  // The count is per-viewer, because RLS filters the rows it counts. A free
+  // member should not be told there are three resources behind a shelf they
+  // cannot open any of — that is a worse experience than an empty shelf, and
+  // it is the number the upgrade prompt would be arguing against.
+  const memberView = await listLibraryCategories(env, member);
+  check(
+    'a member sees the free item',
+    memberView.find((c) => c.id === categoryId)?.itemCount === 1,
+    String(memberView.find((c) => c.id === categoryId)?.itemCount),
+  );
+  check(
+    'and does not see the silver one',
+    memberView.find((c) => c.id === otherId)?.itemCount === 0,
+    String(memberView.find((c) => c.id === otherId)?.itemCount),
+  );
 
   console.log('\nA shelf with items on it');
   let refused = false;

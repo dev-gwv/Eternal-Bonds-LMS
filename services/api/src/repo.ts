@@ -396,7 +396,20 @@ export async function listLibraryCategories(env: Env, userId: string | null): Pr
         name: libraryCategories.name,
         blurb: libraryCategories.blurb,
         unit: libraryCategories.unit,
-        itemCount: sql<number>`(select count(*) from ${libraryItems} where ${libraryItems.categoryId} = ${libraryCategories.id})`,
+        /* Written out rather than built from the table objects, because
+           `sql`(select count(*) from ${libraryItems} where
+           ${libraryItems.categoryId} = ${libraryCategories.id})`` renders the
+           columns *unqualified* — `where "category_id" = "id"` — and inside
+           the subquery `"id"` binds to `library_items.id`, not the category.
+           It compared `library_items.category_id = library_items.id`, which is
+           false for every row, so every shelf reported zero from the day the
+           library shipped and the member page read "0 resources" over a
+           library that was full. It never errored; it just quietly counted the
+           wrong thing. */
+        itemCount: sql<number>`(
+          select count(*) from public.library_items li
+          where li.category_id = public.library_categories.id
+        )`,
       })
       .from(libraryCategories)
       .orderBy(asc(libraryCategories.rank));
