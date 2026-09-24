@@ -6,6 +6,7 @@ import {
   activityEvents, badgeDefs, certificates, courses, enrollments, lessonNotes, lessonQuestions,
   lessonResources, memberProfiles, memberStats, userBadges, users, withUser,
 } from '@ipc/db';
+import { QuizSubmission } from '@ipc/contracts';
 import type { AppEnv } from '../context.ts';
 import { problem, HttpError } from '../lib/problem.ts';
 import { requireAuth } from '../middleware/auth.ts';
@@ -186,6 +187,26 @@ export const learningRoutes = new Hono<AppEnv>()
       });
     });
   })
+  /* The quiz. Reading it never returns which option is correct — the column
+     is not granted to `authenticated`, so that is enforced by the database
+     rather than remembered by this handler. Answering goes through
+     `submit_quiz`, which is also the only writer of an attempt. */
+  .get('/lessons/:id/quiz', requireAuth, async (c) => {
+    const { getQuiz } = await import('../quizzes.ts');
+    const quiz = await getQuiz(c.env, c.get('userId'), c.req.param('id'));
+    // 200 with null, not 404: "this lesson has no quiz" is an ordinary answer
+    // and the lesson page asks on every load.
+    return c.json({ quiz });
+  })
+  .post(
+    '/lessons/:id/quiz',
+    requireAuth,
+    zValidator('json', QuizSubmission, invalid),
+    async (c) => {
+      const { submitQuiz } = await import('../quizzes.ts');
+      return c.json(await submitQuiz(c.env, c.get('userId')!, c.req.param('id'), c.req.valid('json')));
+    },
+  )
   .get('/certificates', requireAuth, async (c) => {
     const db = needDb(c.env);
     return withUser(db, c.get('userId'), async (tx) => {

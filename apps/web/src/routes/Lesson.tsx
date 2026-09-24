@@ -8,6 +8,7 @@ import { VideoPlayer } from '../shared/ui/VideoPlayer.tsx';
 import { YouTubePlayer } from '../shared/ui/YouTubePlayer.tsx';
 import { Card, Chip, Icon } from '../shared/ui/primitives.tsx';
 import { useToast } from '../shared/ui/Toast.tsx';
+import { LessonQuiz } from '../shared/ui/LessonQuiz.tsx';
 
 type Tab = 'notes' | 'files' | 'qa';
 
@@ -279,6 +280,10 @@ export function LessonPage() {
               acknowledgement of finishing eighteen lectures. The certificate
               endpoint and the list on the member profile both existed; nothing
               ever issued one, so every profile showed an empty shelf. */}
+          {/* Under the player and above "up next": the moment a lesson ends is
+              the only moment somebody will answer three questions about it. */}
+          <LessonQuiz lessonId={current.id} />
+
           {!next && done === all.length && all.length > 0 && <CourseFinished courseId={course.data!.id} />}
 
           {next && (

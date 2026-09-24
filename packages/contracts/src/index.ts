@@ -1017,6 +1017,81 @@ export const ChallengeInput = z.object({
 });
 export type ChallengeInput = z.infer<typeof ChallengeInput>;
 
+/* ── Quizzes ─────────────────────────────────────────────────────────── */
+
+/**
+ * A lesson asking whether it landed.
+ *
+ * Note what is *not* in this shape: which option is correct. The member-facing
+ * read cannot carry it, because the member-facing read is where an answer key
+ * would leak — and in this case the database will not even return the column
+ * (see the migration's column-level grant), so the type and the schema agree
+ * about it rather than the type being a promise the API has to keep.
+ */
+export const QuizQuestion = z.object({
+  id: z.uuid(),
+  prompt: z.string(),
+  options: z.array(z.object({ id: z.uuid(), label: z.string() })),
+});
+export type QuizQuestion = z.infer<typeof QuizQuestion>;
+
+export const Quiz = z.object({
+  lessonId: z.uuid(),
+  questions: z.array(QuizQuestion),
+  /** The member's most recent attempt, so the card can say "2 of 3 last time". */
+  lastAttempt: z.object({ score: z.int(), total: z.int(), at: z.iso.datetime() }).nullable(),
+  /** Whether they have ever got everything right. Drives the tick, and the XP. */
+  everPerfect: z.boolean(),
+});
+export type Quiz = z.infer<typeof Quiz>;
+
+/** Answers in; marks, the right answers, and the explanations out. */
+export const QuizSubmission = z.object({
+  answers: z
+    .array(z.object({ questionId: z.uuid(), optionId: z.uuid().nullable() }))
+    .min(1)
+    .max(50),
+});
+export type QuizSubmission = z.infer<typeof QuizSubmission>;
+
+export const QuizResult = z.object({
+  score: z.int().nonnegative(),
+  total: z.int().nonnegative(),
+  marks: z.array(
+    z.object({
+      questionId: z.uuid(),
+      correctOptionId: z.uuid().nullable(),
+      chosenOptionId: z.uuid().nullable(),
+      wasRight: z.boolean(),
+      explanation: z.string().nullable(),
+    }),
+  ),
+});
+export type QuizResult = z.infer<typeof QuizResult>;
+
+/** Authoring. One correct option per question — the form enforces it too. */
+export const QuizQuestionInput = z.object({
+  prompt: z.string().trim().min(5).max(500),
+  explanation: z.string().trim().max(1000).nullable().default(null),
+  options: z
+    .array(z.object({ label: z.string().trim().min(1).max(200), isCorrect: z.boolean() }))
+    .min(2, 'A question needs at least two options')
+    .max(6),
+}).refine((q) => q.options.filter((o) => o.isCorrect).length === 1, {
+  message: 'Exactly one option has to be the right one',
+  path: ['options'],
+});
+export type QuizQuestionInput = z.infer<typeof QuizQuestionInput>;
+
+/** What an admin sees: the same question, with the answer showing. */
+export const AdminQuizQuestion = z.object({
+  id: z.uuid(),
+  prompt: z.string(),
+  explanation: z.string().nullable(),
+  options: z.array(z.object({ id: z.uuid(), label: z.string(), isCorrect: z.boolean() })),
+});
+export type AdminQuizQuestion = z.infer<typeof AdminQuizQuestion>;
+
 /* ── Events (M6) ─────────────────────────────────────────────────────── */
 
 export const ClubEvent = z.object({

@@ -13,6 +13,9 @@ import {
   DirectoryMember,
   EventInput,
   Insight,
+  Quiz,
+  QuizResult,
+  type QuizSubmission,
   Challenge,
   ChallengeDetail,
   Journey,
@@ -302,6 +305,13 @@ export const api = {
     get(`/v1/learning/lessons/${lessonId}/resources`, z.object({ items: z.array(LessonResource) })).then((r) => r.items),
   certificates: () => get('/v1/learning/certificates', z.object({ items: z.array(Certificate) })).then((r) => r.items),
   issueCertificate: (courseId: string) => send('POST', `/v1/learning/courses/${courseId}/certificate`),
+
+  /* The quiz. Nothing in this response says which option is right — the
+     database will not return that column to a member's connection. */
+  quiz: (lessonId: string) =>
+    get(`/v1/learning/lessons/${lessonId}/quiz`, z.object({ quiz: Quiz.nullable() })).then((r) => r.quiz),
+  submitQuiz: (lessonId: string, input: QuizSubmission) =>
+    send('POST', `/v1/learning/lessons/${lessonId}/quiz`, input, QuizResult),
 
   /* Moderation + legal + flags. */
   report: (input: CreateReport) => send('POST', '/v1/moderation/reports', input),

@@ -968,6 +968,38 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
 .inline-add input:focus, .inline-add input:hover { border: 0; box-shadow: none; }
 .inline-add .btn { flex-shrink: 0; }
 
+/* A quiz option: a whole row you can click, not a 13px radio you have to hit.
+   After marking, the right answer is green whether or not it was picked, and a
+   wrong pick is red — being told you were wrong without being told what was
+   right is the most annoying possible outcome. */
+.quiz-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-ctl);
+  background: var(--panel);
+  font-size: 12px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+.quiz-option:hover { border-color: var(--pink); }
+.quiz-option input { accent-color: var(--pink-ink); flex-shrink: 0; }
+.quiz-option[data-state='picked'] { border-color: var(--pink); background: var(--pink-tint); color: var(--ink); }
+.quiz-option[data-state='right'] {
+  border-color: #c4e8d2;
+  background: var(--green-tint);
+  color: var(--green-ink);
+  font-weight: 500;
+}
+.quiz-option[data-state='wrong'] { border-color: #f3c9c6; background: #fdeceb; color: var(--red); }
+/* Once marked, the radios are disabled — but the row must not read as
+   unavailable, because it is still the answer somebody is looking at. */
+.quiz-option input:disabled { cursor: default; }
+.quiz-option:has(input:disabled) { cursor: default; opacity: 1; }
+
 .field-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
 .field-row > .field { flex: 1; }
 

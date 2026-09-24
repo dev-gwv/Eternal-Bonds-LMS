@@ -3,6 +3,7 @@ import { useParams } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { LessonInput, type AdminCourseDetail, type AdminLesson, type AdminModule, type Tier } from '@ipc/contracts';
 import { adminApi, fetchViewer, uploadLessonVideo } from '../../shared/admin-api.ts';
+import { QuizEditor } from './QuizEditor.tsx';
 import { clock } from '../../shared/api.ts';
 import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
 import { Card, Chip, Icon } from '../../shared/ui/primitives.tsx';
@@ -346,6 +347,7 @@ function LessonRow({
 }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(lesson.title);
+  const [quizOpen, setQuizOpen] = useState(false);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['admin', 'course', courseId] });
 
   // The row is the source of truth while it is being edited; once the server
@@ -401,7 +403,25 @@ function LessonRow({
 
       <VideoCell lesson={lesson} courseId={courseId} />
 
+      <button
+        type="button"
+        className={quizOpen ? 'btn btn-pink' : 'btn btn-ghost'}
+        style={quizOpen ? { color: '#fff', fontSize: 10 } : { fontSize: 10 }}
+        onClick={() => setQuizOpen((v) => !v)}
+      >
+        Quiz
+      </button>
+
       <ConfirmButton label="Delete" onConfirm={() => remove.mutate()} disabled={remove.isPending} />
+
+      {/* Full width under the row, and only when asked for. A quiz is three
+          questions with four options each; there is no version of that which
+          fits in a table cell, and most lessons will never have one. */}
+      {quizOpen && (
+        <div style={{ gridColumn: '1 / -1', paddingTop: 10 }}>
+          <QuizEditor lessonId={lesson.id} />
+        </div>
+      )}
     </div>
   );
 }

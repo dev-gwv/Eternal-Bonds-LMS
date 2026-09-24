@@ -7,6 +7,7 @@ import {
   AdminMemberDetail,
   AdminMemberPage,
   AdminWorkshop,
+  AdminQuizQuestion,
   Challenge,
   ChallengeDetail,
   Cohort,
@@ -31,6 +32,7 @@ import {
   type LessonPatch,
   type GrantTier,
   type ModuleInput,
+  type QuizQuestionInput,
   type SetSuspended,
   type WorkshopInput,
 } from '@ipc/contracts';
@@ -192,6 +194,17 @@ export const adminApi = {
   pickChallengeWinner: (id: string, winSlug: string | null) =>
     call('POST', `/v1/admin/challenges/${id}/winner`, { body: { winSlug }, schema: Challenge }),
   deleteChallenge: (id: string) => call<void>('DELETE', `/v1/admin/challenges/${id}`),
+
+  /* Quiz authoring. This is the only read in the app that returns which option
+     is correct, and it goes through a definer function that checks is_admin()
+     — the column is not granted to the role either side of that. */
+  lessonQuiz: (lessonId: string) =>
+    call('GET', `/v1/admin/lessons/${lessonId}/quiz`, {
+      schema: z.object({ items: z.array(AdminQuizQuestion) }),
+    }).then((r) => r.items),
+  addQuizQuestion: (lessonId: string, body: QuizQuestionInput) =>
+    call<void>('POST', `/v1/admin/lessons/${lessonId}/quiz`, { body }),
+  deleteQuizQuestion: (id: string) => call<void>('DELETE', `/v1/admin/quiz-questions/${id}`),
 
   /* The library. Read-only until now, for everyone including the person whose
      job it is to fill it. */

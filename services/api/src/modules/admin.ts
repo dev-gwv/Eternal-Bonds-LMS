@@ -8,6 +8,7 @@ import {
   LessonInput,
   LessonPatch,
   ModuleInput,
+  QuizQuestionInput,
   ReorderInput,
   WorkshopInput,
 } from '@ipc/contracts';
@@ -146,6 +147,25 @@ export const adminRoutes = new Hono<AppEnv>()
   )
   .delete('/lessons/:id/video', async (c) => {
     await detachVideo(c.env, who(c), c.req.param('id'));
+    return c.body(null, 204);
+  })
+
+  /* ── Quizzes ──────────────────────────────────────────────────────────────
+     Authoring only. `is_correct` is readable here because an admin holds the
+     table-wide grant the member role does not — an author cannot check a
+     question without being able to see its answer. */
+  .get('/lessons/:id/quiz', async (c) => {
+    const { listAdminQuiz } = await import('../quizzes.ts');
+    return c.json({ items: await listAdminQuiz(c.env, who(c), c.req.param('id')) });
+  })
+  .post('/lessons/:id/quiz', body(QuizQuestionInput), async (c) => {
+    const { addQuestion } = await import('../quizzes.ts');
+    await addQuestion(c.env, who(c), c.req.param('id'), c.req.valid('json'));
+    return c.body(null, 204);
+  })
+  .delete('/quiz-questions/:id', async (c) => {
+    const { deleteQuestion } = await import('../quizzes.ts');
+    await deleteQuestion(c.env, who(c), c.req.param('id'));
     return c.body(null, 204);
   })
 
