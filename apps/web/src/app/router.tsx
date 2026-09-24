@@ -13,8 +13,60 @@ import { DashboardPage } from '../routes/Dashboard.tsx';
  * This is the perf budget (docs/perf-budget.md) in practice.
  */
 
+/**
+ * A lazy route that survives a deploy.
+ *
+ * Vite hashes every chunk, so a deploy replaces `Journeys-BAvX3KQt.js` with a
+ * differently named file. A member whose tab has been open across that deploy
+ * is still running the old entry bundle, which asks for the old name — and the
+ * Worker's single-page-application fallback answers *200 with index.html*
+ * rather than 404, so the browser tries to parse HTML as a module and the
+ * route dies with "Something went wrong".
+ *
+ * That is not a rare edge: it happens to every open tab on every deploy, and
+ * the member's app simply stops navigating until they think to reload. The
+ * whole app is behind lazy routes, so it stops navigating anywhere.
+ *
+ * So a failed chunk load reloads the page once. A reload fetches the current
+ * index.html and the current hashes, and the member lands on the page they
+ * clicked — a blink instead of a dead end.
+ *
+ * Once, guarded by sessionStorage. If the chunk is genuinely missing rather
+ * than merely renamed, reloading in a loop would be worse than the error it
+ * replaced.
+ */
+const RELOAD_FLAG = 'eb-chunk-reload';
+
 const lazyPage = <T extends object>(loader: () => Promise<T>, name: keyof T) =>
-  lazy(() => loader().then((m) => ({ default: m[name] as unknown as React.ComponentType })));
+  lazy(() =>
+    loader()
+      .then((m) => {
+        // A load that worked clears the guard, so the *next* deploy gets its
+        // own one free reload.
+        try {
+          sessionStorage.removeItem(RELOAD_FLAG);
+        } catch {
+          // Private mode, blocked storage. Recovery is best-effort.
+        }
+        return { default: m[name] as unknown as React.ComponentType };
+      })
+      .catch((error: unknown) => {
+        let alreadyTried = true;
+        try {
+          alreadyTried = sessionStorage.getItem(RELOAD_FLAG) === '1';
+          if (!alreadyTried) sessionStorage.setItem(RELOAD_FLAG, '1');
+        } catch {
+          // No storage means no guard, and a reload loop is the one outcome
+          // worse than the error — so do not reload at all.
+        }
+        if (!alreadyTried) {
+          window.location.reload();
+          // Never resolves; the reload is already in flight.
+          return new Promise<{ default: React.ComponentType }>(() => {});
+        }
+        throw error;
+      }),
+  );
 
 const CommunityPage = lazyPage(() => import('../routes/Community.tsx'), 'CommunityPage');
 const CourseResumePage = lazyPage(() => import('../routes/CourseResume.tsx'), 'CourseResumePage');
