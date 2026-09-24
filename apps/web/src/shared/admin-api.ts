@@ -7,6 +7,8 @@ import {
   AdminMemberDetail,
   AdminMemberPage,
   AdminWorkshop,
+  Challenge,
+  ChallengeDetail,
   Cohort,
   CohortDetail,
   Journey,
@@ -17,6 +19,7 @@ import {
   UploadTicket,
   Viewer,
   type CourseInput,
+  type ChallengeInput,
   type CohortInput,
   type JourneyInput,
   type JourneyStepInput,
@@ -177,6 +180,18 @@ export const adminApi = {
   reorderJourneySteps: (id: string, ids: string[]) =>
     call<void>('POST', `/v1/admin/journeys/${id}/steps/order`, { body: { ids } }),
   removeJourneyStep: (stepId: string) => call<void>('DELETE', `/v1/admin/journeys/steps/${stepId}`),
+
+  /* Challenges — a prompt with a deadline. Entries are wins, so there is
+     nothing here for managing them; moderation already covers that. */
+  challenges: () =>
+    call('GET', '/v1/admin/challenges', { schema: z.object({ items: z.array(Challenge) }) }).then((r) => r.items),
+  challenge: (slug: string) => call('GET', `/v1/admin/challenges/${slug}`, { schema: ChallengeDetail }),
+  createChallenge: (body: ChallengeInput) => call('POST', '/v1/admin/challenges', { body, schema: Challenge }),
+  updateChallenge: (id: string, body: ChallengeInput) =>
+    call('PATCH', `/v1/admin/challenges/${id}`, { body, schema: Challenge }),
+  pickChallengeWinner: (id: string, winSlug: string | null) =>
+    call('POST', `/v1/admin/challenges/${id}/winner`, { body: { winSlug }, schema: Challenge }),
+  deleteChallenge: (id: string) => call<void>('DELETE', `/v1/admin/challenges/${id}`),
 
   /* The library. Read-only until now, for everyone including the person whose
      job it is to fill it. */

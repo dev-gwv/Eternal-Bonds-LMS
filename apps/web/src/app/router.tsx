@@ -53,6 +53,9 @@ const RevenuePage = lazyPage(() => import('../routes/admin/Revenue.tsx'), 'Reven
 const CohortsPage = lazyPage(() => import('../routes/admin/Cohorts.tsx'), 'CohortsPage');
 const CohortDetailPage = lazyPage(() => import('../routes/admin/CohortDetail.tsx'), 'CohortDetailPage');
 const MemberDetailPage = lazyPage(() => import('../routes/admin/MemberDetail.tsx'), 'MemberDetailPage');
+const ChallengesPage = lazyPage(() => import('../routes/Challenges.tsx'), 'ChallengesPage');
+const ChallengeDetailPage = lazyPage(() => import('../routes/Challenges.tsx'), 'ChallengeDetailPage');
+const AdminChallengesPage = lazyPage(() => import('../routes/admin/Challenges.tsx'), 'AdminChallengesPage');
 const WorkshopStudioPage = lazyPage(() => import('../routes/admin/WorkshopStudio.tsx'), 'WorkshopStudioPage');
 const AdminLibraryPage = lazyPage(() => import('../routes/admin/Library.tsx'), 'AdminLibraryPage');
 
@@ -161,6 +164,12 @@ const submitWinRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/wins/submit',
   component: SubmitWinPage,
+  /* `?challenge=` — the one link that turns the wins form into a challenge
+     entry. A search param rather than a separate route, because it is the same
+     form doing the same thing with one extra field set. */
+  validateSearch: (search: Record<string, unknown>): { challenge?: string } => ({
+    challenge: typeof search.challenge === 'string' ? search.challenge : undefined,
+  }),
 });
 const winDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -255,6 +264,22 @@ const adminLibraryRoute = createRoute({
   component: AdminLibraryPage,
 });
 
+const challengesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/challenges',
+  component: ChallengesPage,
+});
+const challengeDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/challenges/$slug',
+  component: ChallengeDetailPage,
+});
+const adminChallengesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/challenges',
+  component: AdminChallengesPage,
+});
+
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
   communityRoute,
@@ -297,6 +322,9 @@ const routeTree = rootRoute.addChildren([
   courseBuilderRoute,
   workshopStudioRoute,
   adminLibraryRoute,
+  challengesRoute,
+  challengeDetailRoute,
+  adminChallengesRoute,
 ]);
 
 export const router = createRouter({

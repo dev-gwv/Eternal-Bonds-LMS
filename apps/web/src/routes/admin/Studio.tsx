@@ -318,6 +318,10 @@ export function StudioPage() {
           <Icon name="library" size={13} />
           Library
         </Link>
+        <Link to="/admin/challenges" className="btn btn-soft">
+          <Icon name="flag" size={13} />
+          Challenges
+        </Link>
       </Toolbar>
 
       <ErrorNote error={courses.error ?? overview.error} />

@@ -152,6 +152,38 @@ export const unmatchedDilemmas = pgTable(
   (t) => [index('unmatched_dilemmas_created_idx').on(t.createdAt)],
 );
 
+/* ── Challenges ──────────────────────────────────────────────────────── */
+
+export const challengeStatusEnum = pgEnum('challenge_status', ['draft', 'open', 'closed']);
+
+/**
+ * A prompt with a deadline.
+ *
+ * Entries are not stored here — an entry is a win with `challengeId` set. See
+ * the migration for why: photographs, comments, reactions, first-post
+ * moderation, public sharing and XP all already work on wins, and a second
+ * table would mean a third copy of the media pipeline and a member learning
+ * two ways to post the same photograph.
+ */
+export const challenges = pgTable(
+  'challenges',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    slug: text('slug').notNull(),
+    title: text('title').notNull(),
+    prompt: text('prompt').notNull(),
+    briefMd: text('brief_md'),
+    status: challengeStatusEnum('status').notNull().default('draft'),
+    startsOn: date('starts_on').notNull(),
+    endsOn: date('ends_on').notNull(),
+    minTier: tierEnum('min_tier').notNull().default('free'),
+    winnerWinId: uuid('winner_win_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('challenges_slug_key').on(t.slug), index('challenges_status_idx').on(t.status, t.startsOn)],
+);
+
 /* ── Wins Board (M5) ─────────────────────────────────────────────────── */
 
 export const winStatusEnum = pgEnum('win_status', ['pending', 'published', 'hidden']);
@@ -172,6 +204,10 @@ export const wins = pgTable(
     publicShare: boolean('public_share').notNull().default(false),
     commentsCount: integer('comments_count').notNull().default(0),
     reactionsCount: integer('reactions_count').notNull().default(0),
+    /* The whole of the challenge join. Null for the overwhelming majority of
+       wins, which are not answering anything. `set null` on delete, so
+       removing a prompt never removes the photographs taken for it. */
+    challengeId: uuid('challenge_id').references(() => challenges.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

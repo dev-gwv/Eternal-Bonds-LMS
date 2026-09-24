@@ -7,6 +7,7 @@ import { buildWeeklyDigest, creditWorkshopAttendance, purgeDeletedAccounts, swee
 import {
   announceUnlocks,
   celebrateJourneys,
+  runChallengeLifecycle,
   nudgeOnboarding,
   sendLearningNudges,
   warnCohortDeadlines,
@@ -166,6 +167,14 @@ export const JOBS: JobDefinition[] = [
     description: 'Congratulate members who finished a path they chose, once',
     everySeconds: 900,
     run: ({ db }) => celebrateJourneys(db),
+  },
+  {
+    kind: 'challenge.lifecycle',
+    // Hourly. A challenge that opens when somebody remembers is not a weekly
+    // anything, and the whole mechanism is that everybody hears at once.
+    description: 'Open and close challenges on their dates, warn the day before, congratulate the winner',
+    everySeconds: 3600,
+    run: ({ db }) => runChallengeLifecycle(db),
   },
   {
     kind: 'cohort.deadline',

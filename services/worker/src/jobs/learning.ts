@@ -1,6 +1,5 @@
 import { sql, type SQL } from 'drizzle-orm';
 import type { Db } from '@ipc/db';
-
 /**
  * Bringing stalled learners back, without anybody having to remember to.
  *
@@ -21,7 +20,6 @@ import type { Db } from '@ipc/db';
  * Each stage is a single insert..select, so a run is atomic and cheap: no
  * loop, no read-then-write race between two workers.
  */
-
 type Stage = {
   stage: number;
   /** How long quiet before this one fires. */
@@ -32,10 +30,8 @@ type Stage = {
   title: SQL;
   body: SQL;
 };
-
 const COURSE = sql`cand.course_title`;
 const LESSON = sql`coalesce(cand.last_lesson_title, 'where you left off')`;
-
 const STAGES: Stage[] = [
   {
     stage: 0,
@@ -66,13 +62,10 @@ const STAGES: Stage[] = [
     body: sql`'We will stop mentioning it after this. The course is not going anywhere.'`,
   },
 ];
-
 /** Nobody gets nudged about anything twice inside this window. */
 const FLOOR_DAYS = 5;
-
 export async function sendLearningNudges(db: Db) {
   let sent = 0;
-
   for (const s of STAGES) {
     const rows = await db.execute<{ id: string }>(sql`
       with candidate as (
@@ -151,10 +144,8 @@ export async function sendLearningNudges(db: Db) {
     `);
     sent += rows.length;
   }
-
   return { sent };
 }
-
 /**
  * Telling a cohort that the next module has opened.
  *
@@ -219,10 +210,8 @@ export async function announceUnlocks(db: Db) {
     on conflict do nothing
     returning id
   `);
-
   return { announced: rows.length };
 }
-
 /**
  * Warning a cohort that its end date is coming and their work is not done.
  *
@@ -296,10 +285,8 @@ export async function warnCohortDeadlines(db: Db) {
     on conflict do nothing
     returning id
   `);
-
   return { warned: rows.length };
 }
-
 /**
  * Two messages to a member who joined and then stopped.
  *
@@ -317,9 +304,7 @@ export async function nudgeOnboarding(db: Db) {
     { stage: 1, afterDays: 2, title: 'One thing to get started', body: 'Introduce yourself in the community. Two lines about where you shoot is enough — members reply to introductions more than to anything else.' },
     { stage: 2, afterDays: 7, title: 'Still worth five minutes', body: 'Your first week checklist is on the dashboard. The first lesson is the only hard one.' },
   ];
-
   let sent = 0;
-
   for (const s of STAGES) {
     const rows = await db.execute<{ id: string }>(sql`
       with candidate as (
@@ -360,10 +345,8 @@ export async function nudgeOnboarding(db: Db) {
     `);
     sent += rows.length;
   }
-
   return { sent };
 }
-
 /**
  * Noticing that somebody finished a path, and saying so.
  *
@@ -451,6 +434,109 @@ export async function celebrateJourneys(db: Db) {
     on conflict do nothing
     returning id
   `);
-
   return { celebrated: rows.length };
+}
+/**
+ * Keeping a challenge on schedule, and telling people about it.
+ *
+ * A prompt with a deadline is only a prompt with a deadline if the deadline
+ * happens without anybody remembering. Three things, each of which is the
+ * difference between a ritual and an intention:
+ *
+ *   - a scheduled challenge opens on its start date, at which point everybody
+ *     hears about it at once, which is the entire mechanism
+ *   - it closes on its end date, so the board stops accepting work for a
+ *     question nobody is judging any more
+ *   - a chosen winner is congratulated, exactly once
+ *
+ * The announcement goes to every active member rather than to a subscriber
+ * list, because a challenge nobody was told about is a blank page again. The
+ * in-app preference is honoured; the point of that switch is to be able to say
+ * no to this.
+ */
+export async function runChallengeLifecycle(db: Db) {
+  // 1. Open what should be running. `current_date` rather than now(), because
+  //    the dates are dates — everybody in the club gets the same answer.
+  const opened = await db.execute<{ id: string; slug: string; title: string; prompt: string }>(sql`
+    update challenges set status = 'open', updated_at = now()
+    where status = 'draft' and starts_on <= current_date and ends_on >= current_date
+    returning id, slug, title, prompt
+  `);
+  for (const c of opened) {
+    await db.execute(sql`
+      insert into notifications (user_id, kind, title, body, link, subject_type, subject_id)
+      select
+        u.id, 'challenge.open', ${`${c.title} is open`}, ${c.prompt},
+        ${`/challenges/${c.slug}`}, 'challenge', ${c.id}::uuid
+      from users u
+      where not u.is_suspended
+        and coalesce((select p.in_app from notification_prefs p where p.user_id = u.id), true)
+      on conflict do nothing
+    `);
+  }
+  // 2. Two days out, once, and only to people who have not entered. A
+  //    reminder to somebody who already posted is noise that teaches them to
+  //    ignore the next one.
+  const warned = await db.execute<{ id: string }>(sql`
+    with due as (
+      select c.id, c.slug, c.title, c.ends_on
+      from challenges c
+      where c.status = 'open' and c.ends_on = current_date + 1
+    ),
+    logged as (
+      insert into challenge_notices (challenge_id, user_id, kind)
+      select due.id, u.id, 'ending'
+      from due
+      cross join users u
+      where not u.is_suspended
+        and coalesce((select p.in_app from notification_prefs p where p.user_id = u.id), true)
+        and not exists (
+          select 1 from wins w where w.challenge_id = due.id and w.author_id = u.id
+        )
+      on conflict do nothing
+      returning challenge_id, user_id
+    )
+    insert into notifications (user_id, kind, title, body, link, subject_type, subject_id)
+    select
+      logged.user_id, 'challenge.ending',
+      due.title || ' closes tomorrow',
+      'There is still today. One entry is all it takes to be in it.',
+      '/challenges/' || due.slug, 'challenge', due.id
+    from logged join due on due.id = logged.challenge_id
+    on conflict do nothing
+    returning id
+  `);
+  // 3. Close what has ended.
+  const closed = await db.execute<{ id: string }>(sql`
+    update challenges set status = 'closed', updated_at = now()
+    where status = 'open' and ends_on < current_date
+    returning id
+  `);
+  // 4. Congratulate a chosen winner, once. The ledger row is the dedupe, so
+  //    an admin changing their mind twice does not send three messages — and
+  //    a second winner, if they do change it, is told.
+  const won = await db.execute<{ id: string }>(sql`
+    with due as (
+      select c.id, c.slug, c.title, w.author_id, w.slug as win_slug
+      from challenges c
+      join wins w on w.id = c.winner_win_id
+      where c.winner_win_id is not null
+    ),
+    logged as (
+      insert into challenge_notices (challenge_id, user_id, kind)
+      select due.id, due.author_id, 'won' from due
+      on conflict do nothing
+      returning challenge_id, user_id
+    )
+    insert into notifications (user_id, kind, title, body, link, subject_type, subject_id)
+    select
+      logged.user_id, 'challenge.won',
+      'You won ' || due.title,
+      'Your entry was picked. It is at the top of the challenge page now.',
+      '/challenges/' || due.slug, 'challenge', due.id
+    from logged join due on due.id = logged.challenge_id and due.author_id = logged.user_id
+    on conflict do nothing
+    returning id
+  `);
+  return { opened: opened.length, warned: warned.length, closed: closed.length, won: won.length };
 }

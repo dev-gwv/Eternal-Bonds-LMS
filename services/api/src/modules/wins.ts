@@ -125,10 +125,29 @@ export const winsRoutes = new Hono<AppEnv>()
         const trusted = (await tx.select({ id: wins.id }).from(wins)
           .where(and(eq(wins.authorId, userId), eq(wins.status, 'published' as any)))
           .limit(1)).length > 0;
+        /* An entry is a win with a challenge on it — same moderation, same
+           media, same board. Resolved from the slug here rather than taken as
+           an id from the browser, so a member cannot file an entry against a
+           draft challenge they should not be able to see.
+
+           Everything about whether they *may* enter — open, in date, tier, not
+           already entered — is enforced by a trigger and a unique index, not
+           by this handler. Those rules have to survive a refactor of this
+           file, and a read-then-write check here loses to two tabs. */
+        let challengeId: string | null = null;
+        if (input.challengeSlug) {
+          const [ch] = await tx.execute<{ id: string }>(
+            sql`select id from challenges where slug = ${input.challengeSlug}`,
+          );
+          if (!ch) throw new HttpError(404, 'That challenge does not exist');
+          challengeId = ch.id;
+        }
+
         const row = (await tx.insert(wins).values({
           authorId: userId, slug: `${base}-${Date.now().toString(36)}`, title: input.title,
           bigIdeaMd: input.bigIdeaMd, howItHappenedMd: input.howItHappenedMd, category: input.category,
           occurredOn: input.occurredOn, tags: input.tags, publicShare: input.publicShare,
+          challengeId,
           status: 'pending',
         }).returning())[0]!;
         if (trusted) {

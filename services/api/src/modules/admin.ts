@@ -18,6 +18,7 @@ import { problem } from '../lib/problem.ts';
 import { requireAdmin } from '../middleware/auth.ts';
 import { cohortRoutes } from './cohorts.ts';
 import { adminJourneyRoutes } from './journeys.ts';
+import { adminChallengeRoutes } from './challenges.ts';
 import { membersRoutes } from './members.ts';
 import { adminLibraryRoutes } from './library-admin.ts';
 import { attachVideo, createUploadTicket, detachVideo } from '../video.ts';
@@ -68,6 +69,10 @@ export const adminRoutes = new Hono<AppEnv>()
   // migration and there was no endpoint between them and the author, so the
   // section could never hold anything the seed script had not put there.
   .route('/library', adminLibraryRoutes)
+
+  // Prompts with deadlines. The wins board has always existed and nothing ever
+  // asked anybody to use it.
+  .route('/challenges', adminChallengeRoutes)
 
   .get('/overview', async (c) => c.json(await studio.overview(c.env, who(c))))
 

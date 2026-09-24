@@ -13,6 +13,8 @@ import {
   DirectoryMember,
   EventInput,
   Insight,
+  Challenge,
+  ChallengeDetail,
   Journey,
   JourneyDetail,
   InsightDetail,
@@ -174,6 +176,11 @@ export const api = {
   /* Journeys — the ordered answer to "what do I do first?" */
   journeys: () => get('/v1/journeys', list(Journey)).then((r) => r.items),
   journey: (slug: string) => get(`/v1/journeys/${slug}`, JourneyDetail),
+
+  /* Challenges. There is no `enterChallenge` — an entry is a win, submitted
+     through `submitWin` with a `challengeSlug`. */
+  challenges: () => get('/v1/challenges', list(Challenge)).then((r) => r.items),
+  challenge: (slug: string) => get(`/v1/challenges/${slug}`, ChallengeDetail),
   // Returns the whole journey so the card that was pressed re-renders from the
   // response rather than a second round trip.
   followJourney: (slug: string, following: boolean) =>

@@ -39,10 +39,14 @@ const SECTIONS: { to: string; label: string; icon: string; owns: string[]; sub: 
     // Wins and the directory are "the community". Think Tank is not: it is a
     // weekly ritual with its own cycle, its own voting and its own session,
     // and burying a ritual one level down is how it stops happening.
-    owns: ['/wins', '/members'],
+    owns: ['/wins', '/members', '/challenges'],
     sub: [
       { to: '/community', label: 'Feed', icon: 'comment' },
       { to: '/wins', label: 'Wins', icon: 'heart' },
+      // Under Community rather than beside it: an entry *is* a win, and the
+      // board is where it lands. A top-level section would imply a separate
+      // place for the work to live, which is the opposite of the design.
+      { to: '/challenges', label: 'Challenges', icon: 'flag' },
       { to: '/members', label: 'Members', icon: 'people' },
     ],
   },

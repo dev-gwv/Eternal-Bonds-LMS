@@ -264,6 +264,12 @@ const paths: Record<string, ReactNode> = {
   ),
   chevron: <path d="m6 9 6 6 6-6" />,
   bookmark: <path d="M6 4h12v17l-6-4.2L6 21z" />,
+  flag: (
+    <>
+      <path d="M5 21V4" />
+      <path d="M5 5h11l-2 3.5L16 12H5z" />
+    </>
+  ),
   /* The three brand marks, drawn in the same 24px stroked style as everything
      else rather than dropped in as filled logos, so the footer reads as one
      set of icons instead of two. */

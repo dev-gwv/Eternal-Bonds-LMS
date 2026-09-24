@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link } from '@tanstack/react-router';
+import { Link, useSearch } from '@tanstack/react-router';
 import { SubmitWin, type Win } from '@ipc/contracts';
 import { api, relativeTime } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
@@ -122,6 +122,16 @@ export function WinsPage() {
  * match what the API would have said.
  */
 export function SubmitWinPage() {
+  /* Arriving from a challenge. The same form, one extra field set — an entry
+     is a win, so there is no second submit page to keep in step with this one. */
+  const { challenge: challengeSlug } = useSearch({ from: '/wins/submit' });
+  const challenge = useQuery({
+    queryKey: ['challenge', challengeSlug],
+    queryFn: () => api.challenge(challengeSlug!),
+    enabled: Boolean(challengeSlug),
+    retry: false,
+  });
+
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     title: '',
@@ -155,6 +165,7 @@ export function SubmitWinPage() {
     occurredOn: form.occurredOn || null,
     tags,
     publicShare: form.publicShare,
+    challengeSlug: challengeSlug ?? null,
   });
 
   const submit = async () => {
@@ -187,11 +198,24 @@ export function SubmitWinPage() {
         <PageHeader title="In review" crumbs={[{ label: 'Wins', to: '/wins' }, { label: 'Submitted' }]} />
         <Card>
           <p style={{ fontSize: 12, lineHeight: 1.7 }}>
-            First wins go through moderation, then auto-approve once trusted. We will notify you.
+            {challenge.data
+              ? `Your entry to ${challenge.data.title} is in. First wins go through moderation, then auto-approve once trusted — we will notify you, and it appears on the challenge page once it is through.`
+              : 'First wins go through moderation, then auto-approve once trusted. We will notify you.'}
           </p>
-          <Link to="/wins" className="btn btn-pink" style={{ alignSelf: 'flex-start', color: '#fff' }}>
-            Back to board
-          </Link>
+          {challenge.data ? (
+            <Link
+              to="/challenges/$slug"
+              params={{ slug: challenge.data.slug }}
+              className="btn btn-pink"
+              style={{ alignSelf: 'flex-start', color: '#fff' }}
+            >
+              Back to the challenge
+            </Link>
+          ) : (
+            <Link to="/wins" className="btn btn-pink" style={{ alignSelf: 'flex-start', color: '#fff' }}>
+              Back to board
+            </Link>
+          )}
         </Card>
       </Page>
     );
@@ -199,9 +223,40 @@ export function SubmitWinPage() {
   return (
     <Page>
       <PageHeader
-        title="Post a win"
-        crumbs={[{ label: 'Wins', to: '/wins' }, { label: step === 1 ? 'Write' : 'Preview' }]}
+        title={challenge.data ? `Enter ${challenge.data.title}` : 'Post a win'}
+        crumbs={
+          challenge.data
+            ? [
+                { label: 'Challenges', to: '/challenges' },
+                { label: challenge.data.title, to: '/challenges' },
+                { label: step === 1 ? 'Write' : 'Preview' },
+              ]
+            : [{ label: 'Wins', to: '/wins' }, { label: step === 1 ? 'Write' : 'Preview' }]
+        }
       />
+
+      {/* The prompt, kept in front of them while they write. Somebody who
+          clicked through from a challenge and then read four form fields has
+          already half-forgotten what they were answering. */}
+      {challenge.data && (
+        <div className="callout">
+          <strong>{challenge.data.prompt}</strong>
+          {challenge.data.daysLeft >= 0 && (
+            <> · {challenge.data.daysLeft === 0 ? 'closes today' : `${challenge.data.daysLeft} days left`}</>
+          )}
+        </div>
+      )}
+      {/* A stale link — the challenge closed while the tab was open, or they
+          already entered. Better said here than by a database error after they
+          have written six paragraphs. */}
+      {challengeSlug && challenge.data && !challenge.data.canEnter && (
+        <div className="alert">
+          {challenge.data.myEntrySlug
+            ? 'You have already entered this one — one entry each. Posting now adds an ordinary win to the board.'
+            : 'This challenge is not accepting entries any more. Posting now adds an ordinary win to the board.'}
+        </div>
+      )}
+
       {step === 1 ? (
         <Card>
           <label style={{ fontSize: 12 }}>

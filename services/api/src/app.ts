@@ -6,6 +6,7 @@ import { HttpError, problem } from './lib/problem.ts';
 import { idempotency } from './middleware/idempotency.ts';
 import { session } from './middleware/auth.ts';
 import { journeyRoutes } from './modules/journeys.ts';
+import { challengeRoutes } from './modules/challenges.ts';
 import { publicRoutes } from './modules/public.ts';
 import { adminRoutes } from './modules/admin.ts';
 import { billingRoutes } from './modules/billing.ts';
@@ -98,6 +99,8 @@ const v1 = new Hono<AppEnv>()
   .route('/directory', directoryRoutes)
   .route('/learning', learningRoutes)
   .route('/journeys', journeyRoutes)
+  // A prompt with a deadline. Entries go to /v1/wins — see modules/challenges.ts.
+  .route('/challenges', challengeRoutes)
   // Outside every auth middleware, deliberately. See modules/public.ts.
   .route('/public', publicRoutes)
   .route('/admin', adminRoutes)

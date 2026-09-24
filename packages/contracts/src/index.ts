@@ -712,6 +712,9 @@ export const NotificationKind = z.enum([
   'thinktank.featured',
   'onboarding.nudge',
   'journey.complete',
+  'challenge.open',
+  'challenge.ending',
+  'challenge.won',
 ]);
 export type NotificationKind = z.infer<typeof NotificationKind>;
 
@@ -936,8 +939,83 @@ export const SubmitWin = z.object({
   occurredOn: z.string().nullable().default(null),
   tags: z.array(z.string().max(30)).max(8).default([]),
   publicShare: z.boolean().default(false),
+  /**
+   * The challenge this answers, if any.
+   *
+   * On `SubmitWin` rather than on a separate endpoint, because an entry is a
+   * win — it goes through the same moderation, carries the same photographs,
+   * and lands on the same board. The only difference is that somebody asked.
+   */
+  challengeSlug: z.string().nullable().default(null),
 });
 export type SubmitWin = z.infer<typeof SubmitWin>;
+
+/* ── Challenges ──────────────────────────────────────────────────────── */
+
+/**
+ * A prompt with a deadline.
+ *
+ * The wins board has always been there and nothing ever asked anybody to use
+ * it; an empty box captioned "share a win" is a blank page, and a blank page
+ * with no deadline is something everyone intends to fill later. This is the
+ * opposite: one prompt, one week, everybody at once.
+ */
+export const Challenge = z.object({
+  id: z.uuid(),
+  slug: z.string(),
+  title: z.string(),
+  /** The prompt in one line. "One light, one portrait" — a thing you can picture doing. */
+  prompt: z.string(),
+  briefMd: z.string().nullable(),
+  status: z.enum(['draft', 'open', 'closed']),
+  startsOn: z.string(),
+  endsOn: z.string(),
+  minTier: Tier,
+  entryCount: z.int().nonnegative(),
+  /** Whether the viewer may enter: open, in date, and their tier allows it. */
+  canEnter: z.boolean(),
+  /** Their entry's slug, if they have one. One entry per member per challenge. */
+  myEntrySlug: z.string().nullable(),
+  /** Negative once it has ended; the UI says "closed" rather than counting up. */
+  daysLeft: z.int(),
+  winner: z
+    .object({ winSlug: z.string(), title: z.string(), authorName: z.string() })
+    .nullable(),
+});
+export type Challenge = z.infer<typeof Challenge>;
+
+export const ChallengeDetail = Challenge.extend({
+  entries: z.array(
+    z.object({
+      winSlug: z.string(),
+      title: z.string(),
+      authorName: z.string(),
+      authorInitials: z.string(),
+      reactions: z.int().nonnegative(),
+      coverUrl: z.string().nullable(),
+      createdAt: z.iso.datetime(),
+      isWinner: z.boolean(),
+    }),
+  ),
+});
+export type ChallengeDetail = z.infer<typeof ChallengeDetail>;
+
+export const ChallengeInput = z.object({
+  slug: z
+    .string()
+    .trim()
+    .min(3)
+    .max(80)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Lowercase letters, numbers and hyphens only'),
+  title: z.string().trim().min(3).max(140),
+  prompt: z.string().trim().min(8, 'One line a member could picture doing').max(200),
+  briefMd: z.string().max(8000).nullable().default(null),
+  startsOn: z.string(),
+  endsOn: z.string(),
+  minTier: Tier,
+  status: z.enum(['draft', 'open', 'closed']).default('draft'),
+});
+export type ChallengeInput = z.infer<typeof ChallengeInput>;
 
 /* ── Events (M6) ─────────────────────────────────────────────────────── */
 

@@ -7,6 +7,7 @@ import { ContinueRail } from '../shared/ui/ContinueRail.tsx';
 import { FirstWeek } from '../shared/ui/FirstWeek.tsx';
 import { MyCohorts } from '../shared/ui/MyCohorts.tsx';
 import { MyPath } from '../shared/ui/MyPath.tsx';
+import { OpenChallenge } from '../shared/ui/OpenChallenge.tsx';
 import { Card, DateBadge, EmptyState, Hero, Icon, StatTile } from '../shared/ui/primitives.tsx';
 import { LoadingLabel, Skeleton, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 
@@ -92,6 +93,10 @@ export function DashboardPage() {
           {/* Above everything for a member who has not finished it, and gone
               entirely for everyone who has. */}
           <FirstWeek />
+
+          {/* The week's prompt, above everything a member could do at their
+              own pace. This is the only thing on the page with a deadline. */}
+          <OpenChallenge />
 
           {/* The route through the library, above the library. A member who
               has chosen a path should not have to re-find it every morning. */}
