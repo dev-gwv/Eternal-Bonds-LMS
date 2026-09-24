@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from '@tanstack/react-router';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { CohortDetail, CohortMember } from '@ipc/contracts';
 import { adminApi } from '../../shared/admin-api.ts';
@@ -146,6 +146,7 @@ function AddMembers({ cohort }: { cohort: CohortDetail }) {
 
 export function CohortDetailPage() {
   const { id } = useParams({ from: '/admin/cohorts/$id' });
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -201,6 +202,28 @@ export function CohortDetailPage() {
     onError: toast.error,
   });
 
+  /**
+   * Deleting the cohort.
+   *
+   * `adminApi.deleteCohort` and its endpoint have existed since cohorts were
+   * built; no button ever called them, so a cohort created by mistake — wrong
+   * course, wrong start date — stayed in the list forever with no way to
+   * remove it. Closing it only stops new members joining.
+   *
+   * Members are not deleted with it. A cohort row carries a schedule, not
+   * progress: everyone in it keeps every lesson they finished and simply stops
+   * being on a shared timetable.
+   */
+  const destroy = useMutation({
+    mutationFn: () => adminApi.deleteCohort(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'cohorts'] });
+      toast.show('Cohort deleted — nobody lost any progress');
+      navigate({ to: '/admin/cohorts' });
+    },
+    onError: toast.error,
+  });
+
   if (cohort.isPending) {
     return (
       <Page>
@@ -238,11 +261,18 @@ export function CohortDetailPage() {
             >
               {c.isOpen ? 'Close to new members' : 'Reopen'}
             </button>
+            <ConfirmButton
+              label="Delete cohort"
+              confirmLabel={`Delete — ${c.members.length} member${c.members.length === 1 ? '' : 's'} keep their progress`}
+              disabled={destroy.isPending}
+              onConfirm={() => destroy.mutate()}
+              style={{ color: 'var(--red)' }}
+            />
           </Toolbar>
         }
       />
 
-      <ErrorNote error={remove.error ?? close.error} />
+      <ErrorNote error={remove.error ?? close.error ?? destroy.error} />
 
       <div className="content">
         <div className="col col-main">

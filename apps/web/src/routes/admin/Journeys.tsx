@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import type { Journey, JourneyInput, Tier } from '@ipc/contracts';
 import { adminApi } from '../../shared/admin-api.ts';
@@ -164,6 +164,7 @@ export function AdminJourneysPage() {
 
 export function AdminJourneyBuilderPage() {
   const { slug } = useParams({ from: '/admin/journeys/$slug' });
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const toast = useToast();
@@ -221,6 +222,27 @@ export function AdminJourneyBuilderPage() {
     mutationFn: (ids: string[]) => adminApi.reorderJourneySteps(journey.data!.id, ids),
     onSuccess: refresh,
   });
+  /**
+   * Deleting the journey.
+   *
+   * `adminApi.deleteJourney` and its endpoint shipped with journeys and no
+   * button ever called them, so a path created with the wrong promise could be
+   * unpublished but never removed — and the admin list showed every draft
+   * anybody had ever started.
+   *
+   * Steps and memberships cascade; nothing a member finished does. A member
+   * who was following this path keeps every lesson and simply stops being on
+   * a path.
+   */
+  const destroy = useMutation({
+    mutationFn: () => adminApi.deleteJourney(journey.data!.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'journeys'] });
+      toast.show('Journey deleted — no lessons were touched');
+      navigate({ to: '/admin/journeys' });
+    },
+    onError: toast.error,
+  });
 
   if (journey.isPending || !draft) {
     return (
@@ -265,11 +287,18 @@ export function AdminJourneyBuilderPage() {
             >
               {j.isPublished ? 'Unpublish' : 'Publish'}
             </button>
+            <ConfirmButton
+              label="Delete journey"
+              confirmLabel={j.isPublished ? 'Delete a published path' : 'Delete it'}
+              disabled={destroy.isPending}
+              onConfirm={() => destroy.mutate()}
+              style={{ color: 'var(--red)' }}
+            />
           </Toolbar>
         }
       />
 
-      <ErrorNote error={save.error ?? addStep.error ?? removeStep.error ?? reorder.error} />
+      <ErrorNote error={save.error ?? addStep.error ?? removeStep.error ?? reorder.error ?? destroy.error} />
 
       <div className="content">
         <div className="col col-main">

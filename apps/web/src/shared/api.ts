@@ -276,16 +276,10 @@ export const api = {
   event: (slug: string) => get(`/v1/events/${slug}`, ClubEvent),
   rsvpEvent: (id: string, rsvpd: boolean) => send(rsvpd ? 'POST' : 'DELETE', `/v1/events/${id}/rsvp`),
 
-  /* Photolancer. */
-  applyBrief: (id: string, pitchMd: string) =>
-    send('POST', `/v1/photolancer/briefs/${id}/apply`, { bodyMd: pitchMd }),
-
   /* Directory + badges. */
   directory: (q?: string) =>
     get(`/v1/directory${q ? `?q=${encodeURIComponent(q)}` : ''}`, z.object({ items: z.array(DirectoryMember), nextCursor: z.string().nullable() })).then((r) => r.items),
   badges: () => get('/v1/directory/badges', z.object({ items: z.array(Badge) })).then((r) => r.items),
-  updateDirectoryProfile: (patch: { bioMd?: string | null; expertise?: string[]; showInDirectory?: boolean }) =>
-    send('PUT', '/v1/directory/me', patch),
 
   /* Learning refinements. */
   lessonQuestions: (lessonId: string) =>

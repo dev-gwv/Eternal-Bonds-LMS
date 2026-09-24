@@ -864,6 +864,77 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
 /* The skip link is the one thing that should be loud when focused. */
 .skip-link:focus-visible { outline-offset: 4px; }
 
+/* An input that shows the fixed part of what it is building.
+   A field labelled "URL" holding `lighting-for-indian-weddings` is ambiguous
+   enough that people paste whole URLs into it; `/courses/` sitting inside the
+   box removes the question. The wrapper carries the border so the prefix and
+   the input read as one control. */
+.input-prefixed {
+  display: flex;
+  align-items: center;
+  background: var(--soft);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-ctl);
+  overflow: hidden;
+}
+.input-prefixed:focus-within {
+  border-color: var(--pink);
+  box-shadow: 0 0 0 3px var(--pink-tint);
+}
+.input-prefix {
+  padding: 0 2px 0 11px;
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  user-select: none;
+}
+/* The inner input gives up its own chrome to the wrapper. */
+.input-prefixed input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding-left: 0;
+}
+.input-prefixed input:focus,
+.input-prefixed input:hover { border: 0; box-shadow: none; }
+
+/* A two-or-three-way choice that decides which fields come next.
+   Radio buttons would be the semantic answer and read as a settings form; this
+   reads as "pick a mode", which is what it is. */
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  background: var(--soft);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-pill);
+  align-self: flex-start;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+.segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 7px 13px;
+  border-radius: var(--r-pill);
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+.segmented button:hover { color: var(--ink); }
+.segmented button.is-on {
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: var(--sh-sm);
+}
+
 .field-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
 .field-row > .field { flex: 1; }
 

@@ -56,20 +56,38 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
     },
   });
 
-  const valid = CourseInput.safeParse({
+  /**
+   * Why the button is off, field by field.
+   *
+   * It used to be `valid = safeParse(...).success` and a `disabled` prop, and
+   * that is the whole story of this form's worst bug: somebody pasted a
+   * YouTube URL into the field labelled "URL", the slug rule rejected it, and
+   * the only thing that happened was that Create draft went grey. No message,
+   * nothing marked, nothing to read. From the author's side the studio had
+   * simply stopped letting them make courses.
+   */
+  const parsed = CourseInput.safeParse({
     title: title.trim(),
     slug: effectiveSlug,
     category,
     level,
     language,
     minTier,
-  }).success;
+  });
+  const errors: Record<string, string> = {};
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      const key = String(issue.path[0] ?? 'form');
+      errors[key] ??= issue.message;
+    }
+  }
+  const valid = parsed.success;
 
   return (
     <Card title="New course">
       <ErrorNote error={create.error} />
       <div className="field-row">
-        <Field label="Title">
+        <Field label="Title" error={title.trim() === '' ? null : errors.title}>
           <input
             value={title}
             autoFocus
@@ -77,15 +95,26 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
             onChange={(e) => setTitle(e.target.value)}
           />
         </Field>
-        <Field label="URL">
-          <input
-            value={effectiveSlug}
-            placeholder="lighting-for-indian-weddings"
-            onChange={(e) => {
-              setTouchedSlug(true);
-              setSlug(e.target.value);
-            }}
-          />
+        {/* Was labelled "URL", which invited exactly one mistake: pasting the
+            video. This is the course's own address on the site, so it says so
+            and shows the part it is appended to. Video belongs on a lesson —
+            there is nowhere on a course to put one. */}
+        <Field label="Page address" error={errors.slug}>
+          <span className="input-prefixed">
+            <span className="input-prefix">/courses/</span>
+            <input
+              value={effectiveSlug}
+              placeholder="lighting-for-indian-weddings"
+              onChange={(e) => {
+                setTouchedSlug(true);
+                setSlug(e.target.value);
+              }}
+              // Normalised when they leave the field rather than as they type,
+              // which would fight anybody typing a hyphen. A pasted URL becomes
+              // a usable address instead of an error nobody can act on.
+              onBlur={(e) => setSlug(slugify(e.target.value))}
+            />
+          </span>
         </Field>
       </div>
       <div className="field-row">
@@ -115,8 +144,10 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
           Cancel
         </button>
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 10 }} className="dim">
-          Created as a draft. Nothing is visible to members until you publish it.
+        <span style={{ fontSize: 10, textAlign: 'right' }} className="dim">
+          {valid || title.trim() === ''
+            ? 'Created as a draft. Nothing is visible to members until you publish it.'
+            : `Cannot create yet — ${Object.values(errors)[0]?.toLowerCase()}.`}
         </span>
       </Toolbar>
     </Card>
@@ -251,6 +282,10 @@ export function StudioPage() {
         <Link to="/admin/workshops" className="btn btn-soft">
           <Icon name="workshops" size={13} />
           Workshops
+        </Link>
+        <Link to="/admin/library" className="btn btn-soft">
+          <Icon name="library" size={13} />
+          Library
         </Link>
       </Toolbar>
 

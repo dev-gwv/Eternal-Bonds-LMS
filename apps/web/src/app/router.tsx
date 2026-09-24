@@ -54,6 +54,7 @@ const CohortsPage = lazyPage(() => import('../routes/admin/Cohorts.tsx'), 'Cohor
 const CohortDetailPage = lazyPage(() => import('../routes/admin/CohortDetail.tsx'), 'CohortDetailPage');
 const MemberDetailPage = lazyPage(() => import('../routes/admin/MemberDetail.tsx'), 'MemberDetailPage');
 const WorkshopStudioPage = lazyPage(() => import('../routes/admin/WorkshopStudio.tsx'), 'WorkshopStudioPage');
+const AdminLibraryPage = lazyPage(() => import('../routes/admin/Library.tsx'), 'AdminLibraryPage');
 
 const rootRoute = createRootRoute({ component: AppShell });
 
@@ -248,6 +249,12 @@ const workshopStudioRoute = createRoute({
   component: WorkshopStudioPage,
 });
 
+const adminLibraryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/library',
+  component: AdminLibraryPage,
+});
+
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
   communityRoute,
@@ -289,6 +296,7 @@ const routeTree = rootRoute.addChildren([
   cohortDetailRoute,
   courseBuilderRoute,
   workshopStudioRoute,
+  adminLibraryRoute,
 ]);
 
 export const router = createRouter({

@@ -11,6 +11,8 @@ import {
   CohortDetail,
   Journey,
   JourneyDetail,
+  LibraryCategory,
+  LibraryItem,
   Revenue,
   UploadTicket,
   Viewer,
@@ -18,6 +20,9 @@ import {
   type CohortInput,
   type JourneyInput,
   type JourneyStepInput,
+  type LibraryCategoryInput,
+  type LibraryItemInput,
+  type LibraryItemPatch,
   type CoursePatch,
   type LessonInput,
   type LessonPatch,
@@ -172,7 +177,50 @@ export const adminApi = {
   reorderJourneySteps: (id: string, ids: string[]) =>
     call<void>('POST', `/v1/admin/journeys/${id}/steps/order`, { body: { ids } }),
   removeJourneyStep: (stepId: string) => call<void>('DELETE', `/v1/admin/journeys/steps/${stepId}`),
+
+  /* The library. Read-only until now, for everyone including the person whose
+     job it is to fill it. */
+  libraryCategories: () =>
+    call('GET', '/v1/admin/library/categories', {
+      schema: z.object({ items: z.array(LibraryCategory) }),
+    }).then((r) => r.items),
+  createLibraryCategory: (body: LibraryCategoryInput) =>
+    call('POST', '/v1/admin/library/categories', { body, schema: LibraryCategory }),
+  updateLibraryCategory: (id: string, body: LibraryCategoryInput) =>
+    call<void>('PATCH', `/v1/admin/library/categories/${id}`, { body }),
+  deleteLibraryCategory: (id: string) => call<void>('DELETE', `/v1/admin/library/categories/${id}`),
+
+  libraryItems: (categoryId?: string) =>
+    call('GET', `/v1/admin/library/items${categoryId ? `?categoryId=${categoryId}` : ''}`, {
+      schema: z.object({ items: z.array(LibraryItem) }),
+    }).then((r) => r.items),
+  createLibraryItem: (body: LibraryItemInput) =>
+    call('POST', '/v1/admin/library/items', { body, schema: LibraryItem }),
+  updateLibraryItem: (id: string, body: LibraryItemPatch) =>
+    call<void>('PATCH', `/v1/admin/library/items/${id}`, { body }),
+  deleteLibraryItem: (id: string) => call<void>('DELETE', `/v1/admin/library/items/${id}`),
 };
+
+/**
+ * A library file, browser to storage, without passing through this process.
+ *
+ * Same shape as the lesson video and course cover paths: the API signs a URL,
+ * the bytes go direct, and only the key comes back here. A 40MB PDF never
+ * occupies a request worker.
+ */
+export async function uploadLibraryFile(file: File): Promise<{ key: string; mime: string }> {
+  const ticket = await call('POST', '/v1/admin/library/items/upload-ticket', {
+    body: { filename: file.name },
+    schema: UploadTicket,
+  });
+  const put = await fetch(ticket.url, {
+    method: ticket.method,
+    headers: { 'content-type': file.type || 'application/octet-stream' },
+    body: file,
+  });
+  if (!put.ok) throw new Error(`Storage refused the upload (${put.status})`);
+  return { key: ticket.key, mime: file.type || 'application/octet-stream' };
+}
 
 /** Anonymous is a normal answer here, not an error — the shell asks on load. */
 export async function fetchViewer(): Promise<Viewer> {

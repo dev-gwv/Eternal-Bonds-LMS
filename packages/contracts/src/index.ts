@@ -130,6 +130,70 @@ export const LibraryCategory = z.object({
 });
 export type LibraryCategory = z.infer<typeof LibraryCategory>;
 
+/**
+ * Writing to the library, which until now nobody could.
+ *
+ * The library shipped with a read API and admin RLS policies and no write
+ * endpoint between them, so the only resources the club will ever have are
+ * the ones the seed script inserted. For a section whose entire purpose is
+ * "the things we give members", that is the most complete-looking dead end in
+ * the application.
+ *
+ * An item is a file we host or a link somewhere else, never both. The two are
+ * genuinely different — one has a storage key and a mime type and can be
+ * signed for six hours, the other is a URL — and a row holding both raises a
+ * question nothing can answer about which one a member should get.
+ */
+export const LibraryItemInput = z
+  .object({
+    categoryId: z.uuid(),
+    title: z.string().trim().min(2).max(200),
+    minTier: Tier,
+    /** Set for a link. Mutually exclusive with `storageKey`. */
+    externalUrl: z.url().max(2000).nullable().default(null),
+    /** Set for a hosted file, after the upload ticket has been used. */
+    storageKey: z.string().max(500).nullable().default(null),
+    mime: z.string().max(120).nullable().default(null),
+  })
+  .refine((v) => (v.externalUrl === null) !== (v.storageKey === null), {
+    message: 'An item is either a link or an uploaded file, not both and not neither',
+    path: ['externalUrl'],
+  });
+export type LibraryItemInput = z.infer<typeof LibraryItemInput>;
+
+/**
+ * Editing an item, which is deliberately *not* the same shape as creating one.
+ *
+ * What a resource is — the file, or the link — cannot be edited. Swapping the
+ * target under a title members already know is how somebody downloads last
+ * year's contract believing it is this year's. Replacing a resource is a new
+ * item and a deleted old one: two deliberate acts rather than one quiet one.
+ *
+ * It also keeps the client honest. The read shape carries `kind` and a URL,
+ * never the storage key, so a whole-object PATCH could not round-trip a hosted
+ * file without inventing one.
+ */
+export const LibraryItemPatch = z.object({
+  categoryId: z.uuid(),
+  title: z.string().trim().min(2).max(200),
+  minTier: Tier,
+});
+export type LibraryItemPatch = z.infer<typeof LibraryItemPatch>;
+
+export const LibraryCategoryInput = z.object({
+  slug: z
+    .string()
+    .trim()
+    .min(2)
+    .max(60)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Lowercase letters, numbers and hyphens only'),
+  name: z.string().trim().min(2).max(80),
+  blurb: z.string().trim().max(300).nullable().default(null),
+  /** What the count under the category name is counting. */
+  unit: z.enum(['files', 'links', 'images', 'videos']).default('files'),
+});
+export type LibraryCategoryInput = z.infer<typeof LibraryCategoryInput>;
+
 export const LeaderboardRow = z.object({
   rank: z.int().positive(),
   name: z.string(),

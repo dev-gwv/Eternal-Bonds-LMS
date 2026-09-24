@@ -19,6 +19,7 @@ import { requireAdmin } from '../middleware/auth.ts';
 import { cohortRoutes } from './cohorts.ts';
 import { adminJourneyRoutes } from './journeys.ts';
 import { membersRoutes } from './members.ts';
+import { adminLibraryRoutes } from './library-admin.ts';
 import { attachVideo, createUploadTicket, detachVideo } from '../video.ts';
 
 /**
@@ -62,6 +63,11 @@ export const adminRoutes = new Hono<AppEnv>()
   // Sequencing. What to do first, which is the question eighteen courses in a
   // grid cannot answer.
   .route('/journeys', adminJourneyRoutes)
+
+  // The library. Its tables have had admin-write policies since the first auth
+  // migration and there was no endpoint between them and the author, so the
+  // section could never hold anything the seed script had not put there.
+  .route('/library', adminLibraryRoutes)
 
   .get('/overview', async (c) => c.json(await studio.overview(c.env, who(c))))
 
