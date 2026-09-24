@@ -21,11 +21,16 @@ const LEVELS = ['beginner', 'intermediate', 'advanced', 'all'] as const;
 const LANGUAGES = ['hindi', 'english'] as const;
 const TIERS: readonly Tier[] = ['free', 'silver', 'diamond', 'franchisee'] as const;
 
+/** Anything with a scheme or a dotted host — enough to catch a pasted link. */
+const looksLikeUrl = (v: string) => /^[a-z]+:\/\//i.test(v) || /^(www\.|[\w-]+\.[a-z]{2,})/i.test(v);
+
 function NewCourseForm({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [touchedSlug, setTouchedSlug] = useState(false);
+  /** Set when somebody pastes a link into the address field — usually the video. */
+  const [pastedUrl, setPastedUrl] = useState(false);
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('business');
   const [level, setLevel] = useState<(typeof LEVELS)[number]>('beginner');
   const [language, setLanguage] = useState<(typeof LANGUAGES)[number]>('hindi');
@@ -99,7 +104,14 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
             video. This is the course's own address on the site, so it says so
             and shows the part it is appended to. Video belongs on a lesson —
             there is nowhere on a course to put one. */}
-        <Field label="Page address" error={errors.slug}>
+        <Field
+          label="Page address"
+          error={
+            pastedUrl
+              ? 'That is a link, not a page address. A video goes on a lesson, inside the course.'
+              : errors.slug
+          }
+        >
           <span className="input-prefixed">
             <span className="input-prefix">/courses/</span>
             <input
@@ -109,10 +121,29 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
                 setTouchedSlug(true);
                 setSlug(e.target.value);
               }}
-              // Normalised when they leave the field rather than as they type,
-              // which would fight anybody typing a hyphen. A pasted URL becomes
-              // a usable address instead of an error nobody can act on.
-              onBlur={(e) => setSlug(slugify(e.target.value))}
+              /* Tidied when they leave the field rather than as they type,
+                 which would fight anybody typing a hyphen.
+
+                 A pasted URL is thrown away rather than slugified. Running
+                 `slugify` over a YouTube link produces
+                 `https-www-youtube-com-watch-v-gmsq0199bw0`, which passes the
+                 rule — so the form goes green and the course is created at
+                 that address. Silently accepting nonsense is worse than the
+                 error was: the author cannot see that anything went wrong
+                 until they look at the live URL. So it reverts to the
+                 title-derived default and says where the video actually
+                 goes. */
+              onBlur={(e) => {
+                const raw = e.target.value.trim();
+                if (looksLikeUrl(raw)) {
+                  setTouchedSlug(false);
+                  setSlug('');
+                  setPastedUrl(true);
+                  return;
+                }
+                setPastedUrl(false);
+                setSlug(slugify(raw));
+              }}
             />
           </span>
         </Field>
