@@ -5,8 +5,9 @@ import { HttpError } from './problem.ts';
 /**
  * Video, behind one interface.
  *
- * Three implementations: Cloudflare Stream, Bunny Stream, and `none` (the
- * file sits in Supabase Storage and is served as a signed progressive MP4).
+ * Four implementations: Cloudflare Stream, Bunny Stream, YouTube, and `none`
+ * (the file sits in Supabase Storage and is served as a signed progressive
+ * MP4).
  * Nothing above this file knows which is in use, which is what keeps the
  * choice a pricing decision rather than a migration — the portability contract
  * (docs/portability-contract.md §4) in practice.
@@ -39,7 +40,7 @@ export type AssetState = {
   error?: string;
 };
 
-export type PlaybackSource = { url: string; kind: 'hls' | 'mp4' };
+export type PlaybackSource = { url: string; kind: 'hls' | 'mp4' | 'youtube' };
 
 /** A webhook that has been verified and understood. Anything else is dropped. */
 export type VideoWebhookEvent = {
@@ -51,7 +52,7 @@ export type VideoWebhookEvent = {
 };
 
 export interface VideoProvider {
-  readonly name: 'cloudflare' | 'bunny' | 'none';
+  readonly name: 'cloudflare' | 'bunny' | 'youtube' | 'none';
   createDirectUpload(lessonId: string, filename: string, maxSeconds: number): Promise<DirectUpload>;
   playback(assetId: string, ttlSeconds: number): Promise<PlaybackSource>;
   state(assetId: string): Promise<AssetState>;
@@ -355,12 +356,111 @@ class NoProvider implements VideoProvider {
   }
 }
 
+
+/* ── YouTube ───────────────────────────────────────────────────────────────
+   The odd one out, and deliberately so.
+
+   Every other provider here is storage plus a CDN that we pay for and control.
+   YouTube is somebody else's storage, somebody else's CDN, somebody else's
+   transcoding — all free, all with adaptive bitrate and a player that works on
+   every device in India including the cheap ones. For a community whose
+   courses are not individually sold, that trade is overwhelmingly correct.
+
+   What it costs, stated plainly rather than buried:
+
+   **There is no access control.** An unlisted video is not a private one — it
+   is a video without a directory entry. Anyone holding the id can watch it,
+   signed in or not, member or not. Every other provider in this file mints a
+   URL that expires; this one cannot, because the bytes are not ours to gate.
+   That is acceptable precisely because the courses are not paid, and it would
+   be unacceptable the moment they are.
+
+   **We cannot confirm a video is playable.** `state()` reports `ready` on the
+   strength of the id parsing, because the alternative — polling oEmbed on
+   every check — spends a request to learn something the author already knows.
+   A deleted or private video shows as an error in the player, not here.
+
+   So nothing is uploaded, nothing is signed, and nothing is deleted on our
+   side. The lesson stores an 11-character id and the browser embeds it. */
+
+/** Every shape a YouTube link arrives in, including the ones people paste. */
+export function youtubeId(input: string): string | null {
+  const raw = input.trim();
+  // Already an id.
+  if (/^[\w-]{11}$/.test(raw)) return raw;
+
+  let url: URL;
+  try {
+    url = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
+  } catch {
+    return null;
+  }
+
+  const host = url.hostname.replace(/^www\./, '');
+  // youtu.be/<id>
+  if (host === 'youtu.be') {
+    const id = url.pathname.slice(1).split('/')[0];
+    return id && /^[\w-]{11}$/.test(id) ? id : null;
+  }
+  if (!/(^|\.)youtube(-nocookie)?\.com$/.test(host)) return null;
+
+  // watch?v=<id>
+  const v = url.searchParams.get('v');
+  if (v && /^[\w-]{11}$/.test(v)) return v;
+
+  // /embed/<id>, /live/<id>, /shorts/<id>, /v/<id>
+  const parts = url.pathname.split('/').filter(Boolean);
+  const idx = parts.findIndex((p) => ['embed', 'live', 'shorts', 'v'].includes(p));
+  if (idx >= 0) {
+    const id = parts[idx + 1];
+    if (id && /^[\w-]{11}$/.test(id)) return id;
+  }
+  return null;
+}
+
+class YouTubeVideo implements VideoProvider {
+  readonly name = 'youtube' as const;
+
+  async createDirectUpload(): Promise<DirectUpload> {
+    // Deliberately a clear refusal rather than a stub that half-works. The
+    // studio checks the provider and shows a paste box instead of a dropzone,
+    // so reaching here means something bypassed the UI.
+    throw new HttpError(
+      400,
+      'YouTube videos are not uploaded here',
+      'Upload the video to YouTube as unlisted, then paste its link into the lesson.',
+    );
+  }
+
+  async playback(assetId: string): Promise<PlaybackSource> {
+    // No signing and no expiry: the id *is* the address, and pretending
+    // otherwise by wrapping it in a short-lived token would imply an access
+    // control that does not exist.
+    return { url: assetId, kind: 'youtube' };
+  }
+
+  async state(assetId: string): Promise<AssetState> {
+    return { status: youtubeId(assetId) ? 'ready' : 'errored' };
+  }
+
+  async remove(): Promise<void> {
+    // The video belongs to the channel, not to us. Detaching a lesson must
+    // never reach across and delete somebody's upload.
+  }
+
+  async verifyWebhook(): Promise<VideoWebhookEvent | null> {
+    return null;
+  }
+}
+
 export function createVideoProvider(env: Env): VideoProvider {
   switch (env.VIDEO_PROVIDER) {
     case 'cloudflare':
       return new CloudflareStream(env);
     case 'bunny':
       return new BunnyStream(env);
+    case 'youtube':
+      return new YouTubeVideo();
     default:
       return new NoProvider();
   }

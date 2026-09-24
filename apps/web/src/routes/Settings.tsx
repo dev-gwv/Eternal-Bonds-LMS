@@ -7,6 +7,7 @@ import { useSession } from '../shared/session.tsx';
 import { signOut } from '../shared/supabase.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Card, Chip, Icon } from '../shared/ui/primitives.tsx';
+import { AvatarPicker } from '../shared/ui/AvatarPicker.tsx';
 import { PublicProfileCard } from '../shared/ui/PublicProfile.tsx';
 import { useToast } from '../shared/ui/Toast.tsx';
 
@@ -120,6 +121,9 @@ export function SettingsProfilePage() {
       <div className="content">
         <div className="col col-main">
           <Card title="Your details">
+            {/* First, because it is the thing a member came here to change and
+                the thing every other member sees. */}
+            <AvatarPicker />
             <div className="field-row">
               <label className="field">
                 <span>Name</span>

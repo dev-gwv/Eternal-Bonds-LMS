@@ -135,6 +135,15 @@ export const api = {
     send<{ fullName: string; city: string | null }>('PATCH', '/v1/me', input),
   dismissOnboarding: () => send<void>('POST', '/v1/me/onboarding/dismiss'),
 
+  /* The member's photograph. Same ticket-then-record shape as post media. */
+  avatarTicket: (mime: 'image/jpeg' | 'image/png' | 'image/webp') =>
+    send('POST', '/v1/me/avatar-ticket', { mime }, z.object({
+      key: z.string(), url: z.string(), token: z.string(), method: z.literal('PUT'),
+    })),
+  setAvatar: (key: string) =>
+    send('POST', '/v1/me/avatar', { key }, z.object({ avatarUrl: z.string().nullable() })),
+  clearAvatar: () => send<void>('DELETE', '/v1/me/avatar'),
+
   /* Your public profile — the directory entry. The PUT existed with no caller,
      which meant a member could not write a bio, and the Account page showed
      their details with nothing editable on it. */
@@ -209,6 +218,17 @@ export const api = {
   exportUrl: `${BASE}/v1/me/export`,
 
   /* Think Tank. Cursor pages: pass nextCursor back as cursor. */
+  /** The open voting cycle, or null between weeks. Drives the countdown. */
+  voteCycle: () =>
+    get(
+      '/v1/think-tank/cycles/current',
+      z.object({
+        cycle: z
+          .object({ id: z.string(), startsOn: z.string(), endsOn: z.string(), status: z.string() })
+          .nullable(),
+      }),
+    ).then((r) => r.cycle),
+
   insights: (opts?: { cursor?: string; domain?: string }) =>
     get(`/v1/think-tank/insights?limit=20${opts?.cursor ? `&cursor=${opts.cursor}` : ''}${opts?.domain ? `&domain=${opts.domain}` : ''}`,
       z.object({ items: z.array(Insight), nextCursor: z.string().nullable() })),
@@ -244,8 +264,6 @@ export const api = {
   rsvpEvent: (id: string, rsvpd: boolean) => send(rsvpd ? 'POST' : 'DELETE', `/v1/events/${id}/rsvp`),
 
   /* Photolancer. */
-  briefs: () => get('/v1/photolancer/briefs', z.object({ items: z.array(Brief) })).then((r) => r.items),
-  createBrief: (input: CreateBrief) => send('POST', '/v1/photolancer/briefs', input, z.object({ id: z.string() })),
   applyBrief: (id: string, pitchMd: string) =>
     send('POST', `/v1/photolancer/briefs/${id}/apply`, { bodyMd: pitchMd }),
 

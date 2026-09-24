@@ -89,13 +89,13 @@ export function UserMenu() {
         aria-label={me.data ? `Account menu for ${me.data.fullName}` : 'Account menu'}
         onClick={() => setOpen((o) => !o)}
       >
-        <Avatar initials={me.data?.initials ?? '··'} size={32} />
+        <Avatar initials={me.data?.initials ?? '··'} src={me.data?.avatarUrl} size={32} />
       </button>
 
       {open && (
         <div role="menu" className="menu-panel">
           <div className="menu-head">
-            <Avatar initials={me.data?.initials ?? '··'} size={38} />
+            <Avatar initials={me.data?.initials ?? '··'} src={me.data?.avatarUrl} size={38} />
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600 }}>
                 {me.data?.fullName ?? 'Loading…'}

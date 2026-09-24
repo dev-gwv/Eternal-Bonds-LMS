@@ -139,6 +139,17 @@ export const Member = z.object({
   memberCode: z.string(),
   fullName: z.string(),
   initials: z.string(),
+  /**
+   * A signed, expiring link to the member's photograph, or null.
+   *
+   * `users.avatar_url` has existed since the first migration and was read by
+   * exactly one admin query and written by nothing — so no member has ever
+   * been able to set a picture, and every avatar in the app is initials. The
+   * column holds a storage key; this field is that key signed for reading,
+   * because the bucket is private like everything else.
+   */
+  avatarUrl: z.string().nullable().default(null),
+  initialsOnly: z.boolean().default(false),
   tier: Tier,
   active: z.boolean(),
   joinedAt: z.iso.datetime(),
@@ -324,8 +335,13 @@ export type CourseDetail = z.infer<typeof CourseDetail>;
  */
 export const PlaybackTicket = z.object({
   lessonId: z.uuid(),
+  /**
+   * For hls/mp4 this is a signed, expiring URL. For `youtube` it is the bare
+   * video id — there is nothing to sign, because the video is hosted by
+   * YouTube and the player is their iframe rather than our <video> element.
+   */
   url: z.string(),
-  kind: z.enum(['hls', 'mp4']),
+  kind: z.enum(['hls', 'mp4', 'youtube']),
   expiresAt: z.iso.datetime(),
 });
 export type PlaybackTicket = z.infer<typeof PlaybackTicket>;
@@ -345,6 +361,13 @@ export const Viewer = z.object({
   tier: Tier,
   /** True only for `admin`. The API re-checks; this just avoids dead buttons. */
   canAuthor: z.boolean(),
+  /**
+   * Which video backend is configured. The studio needs it to decide whether a
+   * lesson gets a file dropzone or a paste-a-link box — asking for a file when
+   * the answer is a YouTube URL is the kind of wrong affordance somebody
+   * fights for ten minutes before reading the docs.
+   */
+  videoProvider: z.enum(['none', 'cloudflare', 'bunny', 'youtube']).default('none'),
 });
 export type Viewer = z.infer<typeof Viewer>;
 
@@ -493,12 +516,21 @@ export const UploadTicket = z.object({
   /** Providers disagree about this, so the server says which to use. */
   method: z.enum(['PUT', 'POST']),
   headers: z.record(z.string(), z.string()),
-  provider: z.enum(['none', 'cloudflare', 'bunny']),
+  provider: z.enum(['none', 'cloudflare', 'bunny', 'youtube']),
   expiresAt: z.iso.datetime(),
 });
 export type UploadTicket = z.infer<typeof UploadTicket>;
 
 /** What the browser reports back once the upload to storage finished. */
+/**
+ * Attaching a video to a lesson.
+ *
+ * `key` is whatever the provider handed back from a direct upload. With
+ * YouTube there is no upload at all — the author pastes a link — so `key`
+ * carries the URL and the server extracts the id from it. Accepting the whole
+ * URL rather than asking for an 11-character id is the difference between
+ * pasting from the address bar and hunting through it.
+ */
 export const AttachVideo = z.object({
   key: z.string().min(1),
   durationSeconds: z.int().nonnegative().optional(),

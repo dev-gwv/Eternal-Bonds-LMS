@@ -2,11 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { LessonInput, type AdminCourseDetail, type AdminLesson, type AdminModule, type Tier } from '@ipc/contracts';
-import { adminApi, uploadLessonVideo } from '../../shared/admin-api.ts';
+import { adminApi, fetchViewer, uploadLessonVideo } from '../../shared/admin-api.ts';
 import { clock } from '../../shared/api.ts';
 import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
 import { Card, Chip, Icon } from '../../shared/ui/primitives.tsx';
 import { ConfirmButton, Empty, ErrorNote, Field, IconButton, Select, Toolbar, slugify } from './studio-ui.tsx';
+import { useToast } from '../../shared/ui/Toast.tsx';
 
 /**
  * Where a course is actually built: metadata, modules, lessons, video.
@@ -36,6 +37,14 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
   const input = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [link, setLink] = useState('');
+  const [pasting, setPasting] = useState(false);
+  const toast = useToast();
+
+  // Which affordance this lesson gets. Asking for a file when the answer is a
+  // URL is the kind of wrong affordance somebody fights for ten minutes.
+  const viewer = useQuery({ queryKey: ['viewer'], queryFn: fetchViewer, staleTime: 5 * 60_000 });
+  const isYouTube = viewer.data?.videoProvider === 'youtube';
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['admin', 'course', courseId] });
 
@@ -53,7 +62,25 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
     }
   };
 
-  const detach = useMutation({ mutationFn: () => adminApi.detachVideo(lesson.id), onSuccess: refresh });
+  const detach = useMutation({
+    mutationFn: () => adminApi.detachVideo(lesson.id),
+    onSuccess: () => {
+      refresh();
+      toast.show('Video removed from the lesson');
+    },
+    onError: toast.error,
+  });
+
+  const attachLink = useMutation({
+    mutationFn: () => adminApi.attachVideoLink(lesson.id, link.trim()),
+    onSuccess: () => {
+      setLink('');
+      setPasting(false);
+      refresh();
+      toast.show('Video attached');
+    },
+    onError: toast.error,
+  });
 
   if (progress !== null) {
     return (
@@ -94,10 +121,26 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
         </span>
       )}
       {lesson.videoStatus === 'ready' ? (
-        <Chip tone="green">
-          <Icon name="check" size={10} strokeWidth={3} />
-          Video
-        </Chip>
+        isYouTube && lesson.videoAssetId ? (
+          // The id, linked. An author checking their own course wants to see
+          // *which* video is attached, not merely that one is.
+          <a
+            href={`https://youtu.be/${lesson.videoAssetId}`}
+            target="_blank"
+            rel="noreferrer"
+            title="Open on YouTube"
+          >
+            <Chip tone="green">
+              <Icon name="check" size={10} strokeWidth={3} />
+              {lesson.videoAssetId}
+            </Chip>
+          </a>
+        ) : (
+          <Chip tone="green">
+            <Icon name="check" size={10} strokeWidth={3} />
+            Video
+          </Chip>
+        )
       ) : lesson.videoStatus === 'processing' ? (
         <Chip tone="yellow">Transcoding</Chip>
       ) : lesson.videoStatus === 'uploading' ? (
@@ -110,9 +153,44 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
       ) : (
         <Chip>No video</Chip>
       )}
-      <button type="button" className="btn btn-soft" onClick={() => input.current?.click()}>
-        {lesson.videoAssetId ? 'Replace' : 'Upload'}
-      </button>
+      {isYouTube ? (
+        pasting ? (
+          <>
+            <input
+              autoFocus
+              value={link}
+              placeholder="Paste the YouTube link"
+              aria-label={`YouTube link for ${lesson.title}`}
+              onChange={(e) => setLink(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && link.trim()) attachLink.mutate();
+                if (e.key === 'Escape') { setPasting(false); setLink(''); }
+              }}
+              style={{ width: 260, fontSize: 11.5, padding: '7px 10px' }}
+            />
+            <button
+              type="button"
+              className="btn btn-pink"
+              disabled={!link.trim() || attachLink.isPending}
+              onClick={() => attachLink.mutate()}
+            >
+              {attachLink.isPending ? 'Saving…' : 'Attach'}
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => { setPasting(false); setLink(''); }}>
+              Cancel
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn btn-soft" onClick={() => setPasting(true)}>
+            <Icon name="link" size={13} />
+            {lesson.videoAssetId ? 'Replace link' : 'Add YouTube link'}
+          </button>
+        )
+      ) : (
+        <button type="button" className="btn btn-soft" onClick={() => input.current?.click()}>
+          {lesson.videoAssetId ? 'Replace' : 'Upload'}
+        </button>
+      )}
       {lesson.videoAssetId && (
         <IconButton icon="back" label="Remove video" onClick={() => detach.mutate()} />
       )}

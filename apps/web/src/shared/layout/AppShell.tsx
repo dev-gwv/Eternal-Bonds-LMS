@@ -35,15 +35,25 @@ const SECTIONS: { to: string; label: string; icon: string; owns: string[]; sub: 
     to: '/community',
     label: 'Community',
     icon: 'community',
-    // Think Tank, Wins and the directory are all "the community" — it is where
-    // a member would look for them, and they were orphans at the top level.
-    owns: ['/think-tank', '/wins', '/members'],
+    // Wins and the directory are "the community". Think Tank is not: it is a
+    // weekly ritual with its own cycle, its own voting and its own session,
+    // and burying a ritual one level down is how it stops happening.
+    owns: ['/wins', '/members'],
     sub: [
       { to: '/community', label: 'Feed', icon: 'comment' },
-      { to: '/think-tank', label: 'Think Tank', icon: 'bulb' },
       { to: '/wins', label: 'Wins', icon: 'heart' },
       { to: '/members', label: 'Members', icon: 'people' },
     ],
+  },
+  {
+    // Promoted out of Community, and Photolancer's old slot. Photolancer was a
+    // separate product behind an iframe; this is the thing the club actually
+    // runs every week.
+    to: '/think-tank',
+    label: 'Think Tank',
+    icon: 'bulb',
+    owns: [],
+    sub: [],
   },
   {
     to: '/workshops',
@@ -72,7 +82,6 @@ const SECTIONS: { to: string; label: string; icon: string; owns: string[]; sub: 
   // It gets one when it gains sub-pages — the alternative is inventing links
   // that go nowhere.
   { to: '/library', label: 'Library', icon: 'library', owns: [], sub: [] },
-  { to: '/photolancer', label: 'Photolancer', icon: 'search', owns: [], sub: [] },
 ];
 
 /** Which top-level section a path belongs to, including the paths it owns. */

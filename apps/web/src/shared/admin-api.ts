@@ -105,6 +105,13 @@ export const adminApi = {
   deleteWorkshop: (id: string) => call<void>('DELETE', `/v1/admin/workshops/${id}`),
 
   detachVideo: (lessonId: string) => call<void>('DELETE', `/v1/admin/lessons/${lessonId}/video`),
+  /**
+   * Attach a video that was not uploaded through us — today that means a
+   * YouTube link. The server parses the URL, so the studio can pass whatever
+   * the author pasted rather than making them extract an id by hand.
+   */
+  attachVideoLink: (lessonId: string, link: string) =>
+    call('POST', `/v1/admin/lessons/${lessonId}/video`, { body: { key: link }, schema: AdminLesson }),
 
   /* The members console. Filters are server-side because the roster is the one
      list that will not fit in the browser — 849 today and growing. */
@@ -160,7 +167,7 @@ export async function fetchViewer(): Promise<Viewer> {
   try {
     return await call('GET', '/v1/me/viewer', { schema: Viewer });
   } catch {
-    return { userId: null, role: 'member', tier: 'free', canAuthor: false };
+    return { userId: null, role: 'member', tier: 'free', canAuthor: false, videoProvider: 'none' };
   }
 }
 

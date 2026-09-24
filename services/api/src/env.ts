@@ -27,7 +27,7 @@ export const EnvSchema = z.object({
   /* Video. `none` keeps the file in Supabase Storage and serves a signed
      progressive MP4 — fine to develop against, not adaptive bitrate. The
      other two are real providers; see docs/video.md. */
-  VIDEO_PROVIDER: z.enum(['cloudflare', 'bunny', 'none']).default('none'),
+  VIDEO_PROVIDER: z.enum(['cloudflare', 'bunny', 'youtube', 'none']).default('none'),
   VIDEO_API_TOKEN: z.string().default(''),
   /** Cloudflare account id. */
   VIDEO_ACCOUNT_ID: z.string().default(''),

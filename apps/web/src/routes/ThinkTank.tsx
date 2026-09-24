@@ -4,7 +4,7 @@ import { Link } from '@tanstack/react-router';
 import type { Insight } from '@ipc/contracts';
 import { api, relativeTime } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
-import { Avatar, Card, Chip, EmptyState, Hero } from '../shared/ui/primitives.tsx';
+import { Avatar, Card, Chip, EmptyState, Hero, Icon } from '../shared/ui/primitives.tsx';
 import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 
 function InsightCard({ insight }: { insight: Insight }) {
@@ -38,6 +38,50 @@ function InsightCard({ insight }: { insight: Insight }) {
   );
 }
 
+/**
+ * The week, stated at the top.
+ *
+ * Promoting Think Tank out of Community is only worth doing if the page shows
+ * the thing that makes it a ritual rather than another list: voting is open,
+ * it closes on a date, and what wins becomes a live session. The cycle has
+ * been opened and closed by a scheduled job since the ritual work; nothing
+ * ever displayed it, so from a member's side there was no week at all.
+ */
+function ThisWeek() {
+  const cycle = useQuery({ queryKey: ['vote-cycle'], queryFn: api.voteCycle, staleTime: 5 * 60_000 });
+  if (!cycle.data) return null;
+
+  const ends = new Date(cycle.data.endsOn);
+  const days = Math.max(0, Math.ceil((ends.getTime() - Date.now()) / 86_400_000));
+
+  return (
+    <Card>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span
+          style={{
+            width: 38, height: 38, borderRadius: 999, flexShrink: 0,
+            display: 'grid', placeItems: 'center', background: 'var(--pink-tint)',
+          }}
+        >
+          <Icon name="bulb" size={18} color="var(--pink-ink)" />
+        </span>
+        <span style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>
+            {days === 0 ? 'Voting closes today' : `Voting closes in ${days} day${days === 1 ? '' : 's'}`}
+          </span>
+          <span style={{ fontSize: 11.5, lineHeight: 1.5 }} className="muted">
+            The most-voted insight becomes this week's live session. Post one, or vote on the ones below.
+          </span>
+        </span>
+        <Link to="/events" className="btn btn-soft">
+          <Icon name="calendar" size={13} />
+          Sessions
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
 export function ThinkTankPage() {
   const [domain, setDomain] = useState<string | undefined>(undefined);
   const [dilemma, setDilemma] = useState('');
@@ -56,6 +100,8 @@ export function ThinkTankPage() {
         sub="Operators sharing what actually worked — voted up by the club, featured in the live session."
         actions={<Link to="/think-tank/share" className="btn btn-pink" style={{ color: '#fff' }}>Share an insight</Link>}
       />
+
+      <ThisWeek />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {['business', 'marketing', 'mindset', 'sales', 'operations'].map((d) => (
           <button key={d} className={`btn ${domain === d ? 'btn-pink' : 'btn-soft'}`}

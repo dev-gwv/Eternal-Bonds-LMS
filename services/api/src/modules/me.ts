@@ -49,6 +49,36 @@ export const meRoutes = new Hono<AppEnv>()
     },
   )
 
+  /* The member's photograph. Two steps, because the file goes browser →
+     storage directly; see onboarding.ts for why the key is scoped. */
+  .post(
+    '/avatar-ticket',
+    requireAuth,
+    zValidator('json', z.object({ mime: z.enum(['image/jpeg', 'image/png', 'image/webp']) }), (result, c) =>
+      result.success ? undefined : problem(c, 422, 'Only JPEG, PNG or WebP images'),
+    ),
+    async (c) => {
+      const { avatarTicket } = await import('../onboarding.ts');
+      return c.json(await avatarTicket(c.env, c.get('userId'), c.req.valid('json').mime));
+    },
+  )
+  .post(
+    '/avatar',
+    requireAuth,
+    zValidator('json', z.object({ key: z.string().min(1).max(500) }), (result, c) =>
+      result.success ? undefined : problem(c, 422, 'Invalid image'),
+    ),
+    async (c) => {
+      const { setAvatar } = await import('../onboarding.ts');
+      return c.json(await setAvatar(c.env, c.get('userId'), c.req.valid('json').key));
+    },
+  )
+  .delete('/avatar', requireAuth, async (c) => {
+    const { clearAvatar } = await import('../onboarding.ts');
+    await clearAvatar(c.env, c.get('userId'));
+    return c.body(null, 204);
+  })
+
   // Skipping the setup flow. Recorded server-side rather than in localStorage,
   // so it does not reappear on the member's phone as if the app had forgotten
   // them. It records that they skipped, never that they finished.
@@ -75,6 +105,7 @@ export const meRoutes = new Hono<AppEnv>()
       role,
       tier: member?.tier ?? 'free',
       canAuthor: role === 'admin',
+      videoProvider: c.env.VIDEO_PROVIDER,
     });
   })
 

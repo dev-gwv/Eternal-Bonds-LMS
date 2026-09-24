@@ -29,6 +29,8 @@ export const member: Member = {
   memberCode: 'IPC-4821',
   fullName: 'Aditya Kulkarni',
   initials: 'AK',
+  avatarUrl: null,
+  initialsOnly: true,
   tier: 'diamond',
   active: true,
   joinedAt: '2026-01-30T00:00:00.000Z',

@@ -409,16 +409,32 @@ export async function getMember(env: Env, userId: string | null): Promise<Member
         city: users.city,
         isSuspended: users.isSuspended,
         createdAt: users.createdAt,
+        avatarKey: users.avatarUrl,
         tier: sql<string>`public.current_tier(${users.id})`,
       })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
     if (!row) return null;
+
+    // The column holds a storage key, not a URL — the bucket is private, so
+    // the link is minted per request like every other file in the app. A
+    // missing object must not take the profile down with it.
+    let avatarUrl: string | null = null;
+    if (row.avatarKey) {
+      try {
+        avatarUrl = await createStorage(env).signedDownloadUrl(row.avatarKey, 6 * 3600);
+      } catch {
+        avatarUrl = null;
+      }
+    }
+
     return {
       id: row.id,
       memberCode: row.memberCode,
       fullName: row.fullName,
+      avatarUrl,
+      initialsOnly: !avatarUrl,
       initials: row.fullName.split(' ').map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase(),
       tier: (row.tier ?? 'free') as Member['tier'],
       active: !row.isSuspended,

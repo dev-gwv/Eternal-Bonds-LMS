@@ -3,6 +3,7 @@ import { withUser } from '@ipc/db';
 import type { Onboarding, OnboardingStep } from '@ipc/contracts';
 import type { Env } from './env.ts';
 import { getDb } from './repo.ts';
+import { HttpError } from './lib/problem.ts';
 
 /**
  * The first week.
@@ -192,5 +193,87 @@ export async function dismissOnboarding(env: Env, userId: string | null): Promis
       update users set onboarding_dismissed_at = now()
       where id = ${userId}::uuid and onboarding_dismissed_at is null
     `);
+  });
+}
+
+/**
+ * A member's photograph.
+ *
+ * Same two-step as post and win media — ticket, direct upload, then record —
+ * because the reasons are identical: the file must not pass through a request
+ * worker, and the key must be scoped so a member cannot claim somebody else's
+ * object. The only difference is the destination column.
+ */
+export async function avatarTicket(
+  env: Env,
+  userId: string | null,
+  mime: 'image/jpeg' | 'image/png' | 'image/webp',
+): Promise<{ key: string; url: string; token: string; method: 'PUT' }> {
+  if (!userId) throw new HttpError(401, 'Not authenticated');
+  const { createStorage } = await import('./lib/storage.ts');
+  const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
+  // Under the member's own id, which is what makes the prefix check below
+  // meaningful rather than decorative.
+  const key = `avatars/${userId}/${crypto.randomUUID()}.${ext}`;
+  const { url, token } = await createStorage(env).signedUploadUrl(key);
+  return { key, url, token, method: 'PUT' };
+}
+
+export async function setAvatar(
+  env: Env,
+  userId: string | null,
+  key: string,
+): Promise<{ avatarUrl: string | null }> {
+  const db = getDb(env);
+  if (!db || !userId) throw new HttpError(401, 'Not authenticated');
+
+  if (!key.startsWith(`avatars/${userId}/`)) {
+    throw new HttpError(422, 'That file does not belong to you');
+  }
+
+  const { createStorage } = await import('./lib/storage.ts');
+  const storage = createStorage(env);
+
+  return withUser(db, userId, async (tx) => {
+    // The previous photograph is removed rather than orphaned. Avatars are
+    // replaced often and each one is a file somebody pays to store forever.
+    const [before] = await tx.execute<{ avatar_url: string | null }>(
+      sql`select avatar_url from users where id = ${userId}::uuid`,
+    );
+    await tx.execute(sql`update users set avatar_url = ${key} where id = ${userId}::uuid`);
+
+    const old = before?.avatar_url;
+    if (old && old !== key && old.startsWith('avatars/')) {
+      try {
+        await storage.remove([old]);
+      } catch {
+        // A leftover file is not worth failing the save over; the sweep can
+        // collect it later.
+      }
+    }
+
+    return { avatarUrl: await storage.signedDownloadUrl(key, 6 * 3600).catch(() => null) };
+  });
+}
+
+/** Back to initials. The file goes too — "remove" should mean removed. */
+export async function clearAvatar(env: Env, userId: string | null): Promise<void> {
+  const db = getDb(env);
+  if (!db || !userId) throw new HttpError(401, 'Not authenticated');
+
+  const { createStorage } = await import('./lib/storage.ts');
+  await withUser(db, userId, async (tx) => {
+    const [before] = await tx.execute<{ avatar_url: string | null }>(
+      sql`select avatar_url from users where id = ${userId}::uuid`,
+    );
+    await tx.execute(sql`update users set avatar_url = null where id = ${userId}::uuid`);
+    const old = before?.avatar_url;
+    if (old?.startsWith('avatars/')) {
+      try {
+        await createStorage(env).remove([old]);
+      } catch {
+        // As above.
+      }
+    }
   });
 }

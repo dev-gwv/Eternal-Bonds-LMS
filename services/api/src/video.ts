@@ -5,7 +5,7 @@ import type { Env } from './env.ts';
 import { HttpError } from './lib/problem.ts';
 import { createStorage } from './lib/storage.ts';
 import { supabaseConfigured } from './lib/supabase.ts';
-import { createVideoProvider } from './lib/video-provider.ts';
+import { createVideoProvider, youtubeId } from './lib/video-provider.ts';
 import { getDb } from './repo.ts';
 
 /**
@@ -132,6 +132,23 @@ export async function attachVideo(
 ): Promise<AdminLesson> {
   const db = requireDb(env);
   const direct = env.VIDEO_PROVIDER === 'none';
+  const isYouTube = env.VIDEO_PROVIDER === 'youtube';
+
+  // With YouTube there was no upload, so there is no asset id waiting to be
+  // matched — the author pasted a link. Normalise it to the 11-character id
+  // here, once, so nothing downstream has to know about URL shapes.
+  let assetId = input.key;
+  if (isYouTube) {
+    const id = youtubeId(input.key);
+    if (!id) {
+      throw new HttpError(
+        422,
+        'That does not look like a YouTube link',
+        'Paste the address from the browser, or the share link — youtube.com/watch?v=…, youtu.be/…, or the 11-character id.',
+      );
+    }
+    assetId = id;
+  }
 
   if (direct && !input.key.startsWith(`lessons/${lessonId}/`)) {
     // The key came from the client, so it is not trusted. Without this check
@@ -140,9 +157,10 @@ export async function attachVideo(
   }
 
   return withUser(db, userId, async (tx) => {
-    if (!direct) {
-      // With a provider the asset id was recorded when the upload was created.
-      // Accepting a different one from the browser would undo that.
+    if (!direct && !isYouTube) {
+      // With an uploading provider the asset id was recorded when the upload
+      // was created. Accepting a different one from the browser would undo
+      // that. YouTube has no such record, because there was no upload.
       const [existing] = await tx
         .select({ assetId: lessons.videoAssetId })
         .from(lessons)
@@ -158,9 +176,11 @@ export async function attachVideo(
       .update(lessons)
       .set({
         videoProvider: env.VIDEO_PROVIDER,
-        videoAssetId: input.key,
-        videoStatus: direct ? 'ready' : 'processing',
-        videoReadyAt: direct ? new Date() : null,
+        videoAssetId: assetId,
+        // A YouTube video is playable the instant the link is pasted — there
+        // is no transcode to wait on and no webhook that will ever arrive.
+        videoStatus: direct || isYouTube ? 'ready' : 'processing',
+        videoReadyAt: direct || isYouTube ? new Date() : null,
         videoError: null,
         ...(input.durationSeconds
           ? { durationSeconds: input.durationSeconds, videoDurationSource: 'browser' }
@@ -266,7 +286,7 @@ export async function playbackFor(
   env: Env,
   assetId: string,
   ttlSeconds: number,
-): Promise<{ url: string; kind: 'hls' | 'mp4' }> {
+): Promise<{ url: string; kind: 'hls' | 'mp4' | 'youtube' }> {
   if (env.VIDEO_PROVIDER === 'none') {
     return { url: await createStorage(env).signedDownloadUrl(assetId, ttlSeconds), kind: 'mp4' };
   }

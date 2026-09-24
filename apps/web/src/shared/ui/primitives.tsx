@@ -24,11 +24,18 @@ export function Card({
 
 export function Avatar({
   initials,
+  src,
   size = 30,
   tone = 'pink',
   ring = false,
 }: {
   initials: string;
+  /**
+   * A photograph, if the member has one. Initials remain the fallback rather
+   * than a placeholder silhouette: two letters in the member's own tier colour
+   * say who this is, and a grey outline of a head says nothing.
+   */
+  src?: string | null;
   size?: number;
   tone?: 'pink' | 'yellow' | 'blue' | 'grey';
   /** Gradient halo for profile-level avatars. */
@@ -40,7 +47,23 @@ export function Avatar({
     blue: { background: 'linear-gradient(135deg, #d5e5fb, #aecdf3)', color: '#2c4f86' },
     grey: { background: 'linear-gradient(135deg, #f3f3f7, #e2e2ea)', color: 'var(--ink-2)' },
   } as const;
-  const core = (
+  const core = src ? (
+    <img
+      className="avatar"
+      src={src}
+      alt=""
+      width={size}
+      height={size}
+      loading="lazy"
+      decoding="async"
+      style={{ width: size, height: size, objectFit: 'cover', flexShrink: 0 }}
+      // A signed link expires. When it does, fall back to initials rather than
+      // leaving a broken-image glyph where somebody's face was.
+      onError={(e) => {
+        e.currentTarget.style.display = 'none';
+      }}
+    />
+  ) : (
     <span
       className="avatar"
       style={{ width: size, height: size, fontSize: Math.round(size * 0.36), ...tones[tone] }}

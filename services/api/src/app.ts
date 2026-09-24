@@ -21,7 +21,6 @@ import { searchRoutes } from './modules/search.ts';
 import { thinktankRoutes } from './modules/thinktank.ts';
 import { winsRoutes } from './modules/wins.ts';
 import { eventsRoutes } from './modules/events.ts';
-import { photolancerRoutes } from './modules/photolancer.ts';
 import { legalRoutes, moderationRoutes } from './modules/moderation.ts';
 import { analyticsRoutes } from './modules/analytics.ts';
 import { directoryRoutes, learningRoutes } from './modules/platform.ts';
@@ -93,7 +92,6 @@ const v1 = new Hono<AppEnv>()
   .route('/think-tank', thinktankRoutes)
   .route('/wins', winsRoutes)
   .route('/events', eventsRoutes)
-  .route('/photolancer', photolancerRoutes)
   .route('/moderation', moderationRoutes)
   .route('/legal', legalRoutes)
   .route('/analytics', analyticsRoutes)

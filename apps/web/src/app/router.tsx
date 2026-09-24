@@ -34,7 +34,6 @@ const InsightDetailPage = lazyPage(() => import('../routes/Events.tsx'), 'Insigh
 const DirectoryPage = lazyPage(() => import('../routes/Directory.tsx'), 'DirectoryPage');
 const LegalPage = lazyPage(() => import('../routes/Legal.tsx'), 'LegalPage');
 const ModerationPage = lazyPage(() => import('../routes/admin/Moderation.tsx'), 'ModerationPage');
-const PhotolancerPage = lazyPage(() => import('../routes/Photolancer.tsx'), 'PhotolancerPage');
 const WorkshopsPage = lazyPage(() => import('../routes/Workshops.tsx'), 'WorkshopsPage');
 const CourseBuilderPage = lazyPage(() => import('../routes/admin/CourseBuilder.tsx'), 'CourseBuilderPage');
 const StudioPage = lazyPage(() => import('../routes/admin/Studio.tsx'), 'StudioPage');
@@ -113,11 +112,6 @@ const notificationsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/notifications',
   component: NotificationsPage,
-});
-const photolancerRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/photolancer',
-  component: PhotolancerPage,
 });
 const thinkTankRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -238,7 +232,6 @@ const routeTree = rootRoute.addChildren([
   accountRoute,
   membershipRedirectRoute,
   notificationsRoute,
-  photolancerRoute,
   thinkTankRoute,
   shareInsightRoute,
   insightDetailRoute,

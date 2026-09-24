@@ -5,6 +5,7 @@ import type { CourseDetail, Lesson } from '@ipc/contracts';
 import { api, clock } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { VideoPlayer } from '../shared/ui/VideoPlayer.tsx';
+import { YouTubePlayer } from '../shared/ui/YouTubePlayer.tsx';
 import { Card, Chip, Icon } from '../shared/ui/primitives.tsx';
 
 type Tab = 'notes' | 'files' | 'qa';
@@ -119,13 +120,27 @@ export function LessonPage() {
 
       <div className="content">
         <div className="col col-main">
-          <VideoPlayer
-            src={playback.data?.url ?? null}
-            startAt={current.lastPositionSeconds}
-            title={current.title}
-            onProgress={handleProgress}
-            onEnded={handleEnded}
-          />
+          {/* Two players, one progress contract. A YouTube lesson still
+              resumes, still reports watch time and still completes — see
+              YouTubePlayer for why that is worth the extra component rather
+              than dropping in an iframe. */}
+          {playback.data?.kind === 'youtube' ? (
+            <YouTubePlayer
+              videoId={playback.data.url}
+              startAt={current.lastPositionSeconds}
+              title={current.title}
+              onProgress={handleProgress}
+              onEnded={handleEnded}
+            />
+          ) : (
+            <VideoPlayer
+              src={playback.data?.url ?? null}
+              startAt={current.lastPositionSeconds}
+              title={current.title}
+              onProgress={handleProgress}
+              onEnded={handleEnded}
+            />
+          )}
 
           {playback.isError && (
             <div className="callout" style={{ background: 'var(--soft)', color: 'var(--red)' }}>
