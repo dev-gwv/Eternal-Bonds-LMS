@@ -520,6 +520,7 @@ const workshopColumns = {
   joinUrl: workshopsTable.joinUrl,
   recurring: workshopsTable.recurring,
   capacity: workshopsTable.capacity,
+  coverKey: workshopsTable.coverKey,
   registrationCount: sql<number>`(
     select count(*) from workshop_registrations
     where workshop_registrations.workshop_id = workshops.id
@@ -539,7 +540,8 @@ type WorkshopRow = {
   registrationCount: number;
 };
 
-const toAdminWorkshop = (r: WorkshopRow): AdminWorkshop => ({
+const toAdminWorkshop = (r: WorkshopRow, coverUrl: string | null = null): AdminWorkshop => ({
+  coverUrl,
   id: r.id,
   title: r.title,
   startsAt: r.startsAt.toISOString(),
@@ -552,11 +554,15 @@ const toAdminWorkshop = (r: WorkshopRow): AdminWorkshop => ({
   registrationCount: Number(r.registrationCount) || 0,
 });
 
+/** Added to the column set so the studio can show what it uploaded. */
+
 export async function listAdminWorkshops(env: Env, userId: string): Promise<AdminWorkshop[]> {
   const db = requireDb(env);
   return withUser(db, userId, async (tx) => {
     const rows = await tx.select(workshopColumns).from(workshopsTable).orderBy(asc(workshopsTable.startsAt));
-    return rows.map((r) => toAdminWorkshop(r as WorkshopRow));
+    const { signCovers } = await import('./covers.ts');
+    const covers = await signCovers(env, rows.map((r) => (r as { coverKey?: string | null }).coverKey ?? null));
+    return rows.map((r, i) => toAdminWorkshop(r as WorkshopRow, covers[i] ?? null));
   });
 }
 

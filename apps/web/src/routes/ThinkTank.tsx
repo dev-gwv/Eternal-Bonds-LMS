@@ -6,6 +6,7 @@ import { api, relativeTime } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Avatar, Card, Chip, EmptyState, Hero, Icon } from '../shared/ui/primitives.tsx';
 import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
+import { CoverPicker } from '../shared/ui/CoverPicker.tsx';
 import { useDraft } from '../shared/ui/useDraft.ts';
 
 function InsightCard({ insight }: { insight: Insight }) {
@@ -29,6 +30,16 @@ function InsightCard({ insight }: { insight: Insight }) {
         </div>
         {insight.domainSlug && <Chip tone="yellow">{insight.domainSlug}</Chip>}
       </div>
+      {insight.coverUrl && (
+        <Link to="/think-tank/$slug" params={{ slug: insight.slug }} style={{ display: 'block', marginTop: 10 }}>
+          <img
+            src={insight.coverUrl}
+            alt=""
+            loading="lazy"
+            style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', borderRadius: 10, display: 'block' }}
+          />
+        </Link>
+      )}
       <Link to="/think-tank/$slug" params={{ slug: insight.slug }} style={{ color: 'inherit', textDecoration: 'none' }}>
         <h3 style={{ margin: '8px 0 4px', fontSize: 14 }}>{insight.title}</h3>
       </Link>
@@ -199,6 +210,9 @@ export function ShareInsightPage() {
     title: '', situationMd: '', bigIdeaMd: '', domainSlug: 'business', impactSlug: 'growth',
   });
   const [done, setDone] = useState<string | null>(null);
+  // Kept so the author can put a picture on it once it exists — a cover needs
+  // an id, the same reason win photos upload after the win is created.
+  const [madeId, setMadeId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const save = async () => {
@@ -207,6 +221,7 @@ export function ShareInsightPage() {
     try {
       const r = await api.shareInsight({ ...form, howMd: '', steps: [] });
       clearDraft();
+      setMadeId(r.id);
       setDone(r.slug);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save');
@@ -214,11 +229,34 @@ export function ShareInsightPage() {
       setBusy(false);
     }
   };
-  if (done) return (
-    <Page><PageHeader title="Published" crumbs={[{ label: 'Think Tank', to: '/think-tank' }, { label: 'Published' }]} />
-      <Card><p>Your insight is live in this week's vote.</p><Link to="/think-tank" className="btn btn-pink">Back to library</Link></Card>
-    </Page>
-  );
+  if (done)
+    return (
+      <Page>
+        <PageHeader title="Published" crumbs={[{ label: 'Think Tank', to: '/think-tank' }, { label: 'Published' }]} />
+        <Card>
+          <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.7 }}>
+            Your insight is live in this week&apos;s vote.
+          </p>
+          {/* Offered here rather than in the form, because a cover needs the
+              insight to exist first — and because asking for a photograph
+              before somebody has written anything is how a form gets
+              abandoned. Optional: most insights are words. */}
+          {madeId && (
+            <CoverPicker
+              kind="insight"
+              id={madeId}
+              coverUrl={null}
+              label="Add a picture (optional)"
+              hint="16:9. It shows on the Think Tank card, which is otherwise a wall of text."
+              invalidate={[['insights'], ['insight', done]]}
+            />
+          )}
+          <Link to="/think-tank" className="btn btn-pink" style={{ alignSelf: 'flex-start', color: '#fff' }}>
+            Back to the library
+          </Link>
+        </Card>
+      </Page>
+    );
   const set = (k: keyof typeof form) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
   return (
     <Page>

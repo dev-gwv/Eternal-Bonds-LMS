@@ -37,6 +37,7 @@ import {
   type WorkshopInput,
 } from '@ipc/contracts';
 import { z } from 'zod';
+
 import { accessToken } from './supabase.ts';
 
 /**
@@ -49,7 +50,7 @@ import { accessToken } from './supabase.ts';
 const BASE = import.meta.env.VITE_API_URL ?? '';
 
 async function call<T>(
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   options: { body?: unknown; schema?: z.ZodType<T> } = {},
 ): Promise<T> {
@@ -113,18 +114,6 @@ export const adminApi = {
   updateWorkshop: (id: string, body: WorkshopInput) =>
     call('PATCH', `/v1/admin/workshops/${id}`, { body, schema: AdminWorkshop }),
   deleteWorkshop: (id: string) => call<void>('DELETE', `/v1/admin/workshops/${id}`),
-
-  /* The course cover. Ticket, direct upload, record — the same shape as every
-     other image, so the browser never sends a file through the API. */
-  coverTicket: (courseId: string, mime: 'image/jpeg' | 'image/png' | 'image/webp') =>
-    call('POST', `/v1/admin/courses/${courseId}/cover-ticket`, {
-      body: { mime },
-      schema: z.object({ key: z.string(), url: z.string(), token: z.string(), method: z.literal('PUT') }),
-    }),
-  setCover: (courseId: string, key: string) =>
-    call('POST', `/v1/admin/courses/${courseId}/cover`, { body: { key }, schema: AdminCourse }),
-  clearCover: (courseId: string) =>
-    call('DELETE', `/v1/admin/courses/${courseId}/cover`, { schema: AdminCourse }),
 
   detachVideo: (lessonId: string) => call<void>('DELETE', `/v1/admin/lessons/${lessonId}/video`),
   /**

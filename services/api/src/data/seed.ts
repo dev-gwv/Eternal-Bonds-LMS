@@ -193,6 +193,7 @@ export const workshops: Workshop[] = [
     occurrence: { index: 50, total: 405 },
     registered: false,
     joinUrl: null,
+    coverUrl: null,
   },
   {
     id: id(21),
@@ -203,6 +204,7 @@ export const workshops: Workshop[] = [
     recurring: false,
     occurrence: null,
     registered: true,
+    coverUrl: null,
     joinUrl: 'https://zoom.example/ipc-laser-ads',
   },
   {
@@ -215,6 +217,7 @@ export const workshops: Workshop[] = [
     occurrence: { index: 70, total: 97 },
     registered: false,
     joinUrl: null,
+    coverUrl: null,
   },
   {
     id: id(23),
@@ -226,6 +229,7 @@ export const workshops: Workshop[] = [
     occurrence: { index: 51, total: 405 },
     registered: false,
     joinUrl: null,
+    coverUrl: null,
   },
 ];
 
@@ -406,7 +410,7 @@ export const insights: Insight[] = [
     situationMd: 'Enquiries went cold after 3 days of back-and-forth on price.',
     bigIdeaMd: 'Send the quotation the same evening, with exactly two packages and a 7-day validity line.',
     howMd: '', status: 'published', domainSlug: 'sales', impactSlug: 'profit',
-    votes: 214, votedByMe: false, savedByMe: false, featuredAt: null,
+    votes: 214, votedByMe: false, savedByMe: false, featuredAt: null, coverUrl: null,
     author: { name: 'Rohit Bundela', initials: 'RB', tier: 'diamond' },
     createdAt: '2026-09-16T05:00:00.000Z',
   },
@@ -415,7 +419,7 @@ export const insights: Insight[] = [
     situationMd: 'No enquiries between wedding seasons, fixed studio costs every month.',
     bigIdeaMd: 'One themed mini-shoot weekend a month for past clients at a flat rate — the cheapest lead is someone who already paid you.',
     howMd: '', status: 'published', domainSlug: 'marketing', impactSlug: 'growth',
-    votes: 167, votedByMe: false, savedByMe: false, featuredAt: null,
+    votes: 167, votedByMe: false, savedByMe: false, featuredAt: null, coverUrl: null,
     author: { name: 'Sneha Kulkarni', initials: 'SK', tier: 'silver' },
     createdAt: '2026-09-15T06:30:00.000Z',
   },
@@ -424,7 +428,7 @@ export const insights: Insight[] = [
     situationMd: 'Editing revisions stretched for weeks; clients treated delivery as a draft forever.',
     bigIdeaMd: 'Cap revisions at two rounds in the quotation itself. The third round is billed.',
     howMd: '', status: 'published', domainSlug: 'operations', impactSlug: 'time',
-    votes: 142, votedByMe: false, savedByMe: false, featuredAt: null,
+    votes: 142, votedByMe: false, savedByMe: false, featuredAt: null, coverUrl: null,
     author: { name: 'Aman Saifi', initials: 'AS', tier: 'diamond' },
     createdAt: '2026-09-14T08:00:00.000Z',
   },

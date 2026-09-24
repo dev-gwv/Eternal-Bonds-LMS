@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { LessonInput, type AdminCourseDetail, type AdminLesson, type AdminModule, type Tier } from '@ipc/contracts';
 import { adminApi, fetchViewer, uploadLessonVideo } from '../../shared/admin-api.ts';
 import { QuizEditor } from './QuizEditor.tsx';
+import { CoverPicker } from '../../shared/ui/CoverPicker.tsx';
 import { clock } from '../../shared/api.ts';
 import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
 import { Card, Chip, Icon } from '../../shared/ui/primitives.tsx';
@@ -32,137 +33,6 @@ const moved = <T,>(items: T[], from: number, to: number): T[] => {
 };
 
 /* ── Video ─────────────────────────────────────────────────────────────────*/
-
-/**
- * The course cover.
- *
- * Every course card in the app rendered a coloured gradient because there was
- * nowhere to put an image — on a product sold to photographers, of all people.
- * 16:9 because that is what the cards and the course page both use, and a
- * portrait crop letterboxed into them looks like a mistake rather than a
- * choice.
- */
-function CoverPicker({ course }: { course: AdminCourseDetail }) {
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const input = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-
-  const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['admin', 'course', course.id] });
-    queryClient.invalidateQueries({ queryKey: ['admin', 'courses'] });
-    queryClient.invalidateQueries({ queryKey: ['courses'] });
-  };
-
-  const upload = async (file: File) => {
-    setBusy(true);
-    try {
-      // Downscale before upload, which also strips EXIF. 1600px wide is more
-      // than any card needs and still sharp on a retina course page.
-      const bitmap = await createImageBitmap(file);
-      const width = Math.min(1600, bitmap.width);
-      const height = Math.round((width / bitmap.width) * bitmap.height);
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      canvas.getContext('2d')?.drawImage(bitmap, 0, 0, width, height);
-      bitmap.close();
-      const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', 0.86));
-
-      const ticket = await adminApi.coverTicket(course.id, 'image/jpeg');
-      const put = await fetch(ticket.url, {
-        method: 'PUT',
-        headers: { 'content-type': 'image/jpeg' },
-        body: blob ?? file,
-      });
-      if (!put.ok) throw new Error(`Storage refused the upload (${put.status})`);
-      await adminApi.setCover(course.id, ticket.key);
-      setPreview(URL.createObjectURL(blob ?? file));
-      refresh();
-      toast.show('Cover updated');
-    } catch (e) {
-      toast.error(e);
-    } finally {
-      setBusy(false);
-      if (input.current) input.current.value = '';
-    }
-  };
-
-  const clear = useMutation({
-    mutationFn: () => adminApi.clearCover(course.id),
-    onSuccess: () => {
-      setPreview(null);
-      refresh();
-      toast.show('Cover removed');
-    },
-    onError: toast.error,
-  });
-
-  const has = Boolean(preview ?? course.coverUrl);
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <span style={{ fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--ink-3)', fontWeight: 500 }}>
-        Cover image
-      </span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        <div
-          style={{
-            width: 176,
-            aspectRatio: '16 / 9',
-            borderRadius: 10,
-            overflow: 'hidden',
-            flexShrink: 0,
-            background: has ? 'var(--soft)' : 'linear-gradient(135deg, #fdecf5, #f9d6e6)',
-            display: 'grid',
-            placeItems: 'center',
-          }}
-        >
-          {preview ? (
-            <img src={preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <span style={{ fontSize: 10 }} className="dim">
-              {course.coverUrl ? 'Cover set' : 'No cover'}
-            </span>
-          )}
-        </div>
-        <input
-          ref={input}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          hidden
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void upload(file);
-          }}
-        />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span style={{ display: 'flex', gap: 8 }}>
-            <button type="button" className="btn btn-soft" disabled={busy} onClick={() => input.current?.click()}>
-              <Icon name="image" size={13} />
-              {busy ? 'Uploading…' : course.coverUrl ? 'Replace' : 'Upload cover'}
-            </button>
-            {course.coverUrl && (
-              <button
-                type="button"
-                className="btn btn-ghost"
-                style={{ color: 'var(--red)' }}
-                disabled={clear.isPending}
-                onClick={() => clear.mutate()}
-              >
-                Remove
-              </button>
-            )}
-          </span>
-          <span style={{ fontSize: 10, lineHeight: 1.5 }} className="dim">
-            16:9, resized to 1600px. Shown on the course card and the course page.
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string }) {
   const queryClient = useQueryClient();
@@ -685,7 +555,12 @@ function Settings({ course }: { course: AdminCourseDetail }) {
           <Select value={draft.minTier} options={TIERS} onChange={(minTier) => setDraft({ ...draft, minTier })} />
         </Field>
       </div>
-      <CoverPicker course={course} />
+      <CoverPicker
+        kind="course"
+        id={course.id}
+        coverUrl={course.coverUrl}
+        invalidate={[['admin', 'course', course.id], ['admin', 'courses'], ['courses']]}
+      />
 
       <Field label="Taught by">
         <input

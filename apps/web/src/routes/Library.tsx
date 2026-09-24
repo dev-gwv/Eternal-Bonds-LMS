@@ -99,9 +99,21 @@ function ItemList({ slug }: { slug: string }) {
             if (item.url) void api.openLibraryItem(item.id);
           }}
         >
-          <Tile size={30} tone="blue">
-            <Icon name={item.kind === 'link' ? 'link' : 'file'} size={14} />
-          </Tile>
+          {/* The thumbnail where there is one, the icon where there is not.
+              A shelf called "Photo Library" reading as a list of filenames was
+              the case that made this worth adding. */}
+          {item.coverUrl ? (
+            <img
+              src={item.coverUrl}
+              alt=""
+              loading="lazy"
+              style={{ width: 48, height: 36, objectFit: 'cover', borderRadius: 7, flexShrink: 0 }}
+            />
+          ) : (
+            <Tile size={30} tone="blue">
+              <Icon name={item.kind === 'link' ? 'link' : 'file'} size={14} />
+            </Tile>
+          )}
           <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={{ fontSize: 12, fontWeight: 500 }}>{item.title}</span>
             <span style={{ fontSize: 10 }} className="dim">

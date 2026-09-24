@@ -7,6 +7,7 @@ import { idempotency } from './middleware/idempotency.ts';
 import { session } from './middleware/auth.ts';
 import { journeyRoutes } from './modules/journeys.ts';
 import { challengeRoutes } from './modules/challenges.ts';
+import { coverRoutes } from './modules/covers.ts';
 import { publicRoutes } from './modules/public.ts';
 import { adminRoutes } from './modules/admin.ts';
 import { billingRoutes } from './modules/billing.ts';
@@ -101,6 +102,14 @@ const v1 = new Hono<AppEnv>()
   .route('/journeys', journeyRoutes)
   // A prompt with a deadline. Entries go to /v1/wins — see modules/challenges.ts.
   .route('/challenges', challengeRoutes)
+  /* The same cover routes as the admin mount, for members.
+     Not a weaker copy — the identical router, and the authorisation is the
+     RLS policy on whichever table `kind` names. A member setting a cover on
+     their own insight passes `insights_update`; the same member reaching for a
+     course updates zero rows and gets a 404, because courses are admin-write.
+     Putting that decision in one place, in the schema, is what makes a shared
+     endpoint safe rather than a shortcut. */
+  .route('/covers', coverRoutes)
   // Outside every auth middleware, deliberately. See modules/public.ts.
   .route('/public', publicRoutes)
   .route('/admin', adminRoutes)

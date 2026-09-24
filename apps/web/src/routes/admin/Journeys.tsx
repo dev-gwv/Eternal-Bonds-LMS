@@ -8,6 +8,7 @@ import { Card, Chip, EmptyState, Icon } from '../../shared/ui/primitives.tsx';
 import { LoadingLabel, Skeleton, SkeletonRow } from '../../shared/ui/Skeleton.tsx';
 import { ConfirmButton, ErrorNote, Field, IconButton, Select, Toolbar, fieldErrors } from './studio-ui.tsx';
 import { useToast } from '../../shared/ui/Toast.tsx';
+import { CoverPicker } from '../../shared/ui/CoverPicker.tsx';
 
 /**
  * Building a journey.
@@ -316,6 +317,13 @@ export function AdminJourneyBuilderPage() {
                 onChange={(e) => setDraft({ ...draft, descriptionMd: e.target.value || null })}
               />
             </Field>
+            <CoverPicker
+              kind="journey"
+              id={j.id}
+              coverUrl={j.coverUrl}
+              hint="16:9. Shown on the journeys page — a path with a photograph on it reads as somewhere to go."
+              invalidate={[['admin', 'journey', slug], ['admin', 'journeys'], ['journeys']]}
+            />
             <div className="field-row">
               <Field label="Minimum tier">
                 <Select value={draft.minTier} options={TIERS} onChange={(minTier) => setDraft({ ...draft, minTier })} />

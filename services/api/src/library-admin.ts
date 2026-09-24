@@ -128,9 +128,11 @@ export async function deleteCategory(env: Env, userId: string, id: string): Prom
 type ItemRow = {
   id: string; category_slug: string; title: string; storage_key: string | null;
   external_url: string | null; mime: string | null; min_tier: string; created_at: string;
+  cover_key: string | null;
 };
 
-const toItem = (r: ItemRow): LibraryItem => ({
+const toItem = (r: ItemRow, coverUrl: string | null = null): LibraryItem => ({
+  coverUrl,
   id: r.id,
   categorySlug: r.category_slug,
   title: r.title,
@@ -149,14 +151,16 @@ export async function listAdminItems(env: Env, userId: string, categoryId?: stri
   return withUser(db, userId, async (tx) => {
     const rows = await tx.execute<ItemRow>(sql`
       select i.id, c.slug as category_slug, i.title, i.storage_key, i.external_url,
-             i.mime, i.min_tier::text, i.created_at
+             i.mime, i.min_tier::text, i.created_at, i.cover_key
       from library_items i
       join library_categories c on c.id = i.category_id
       ${categoryId ? sql`where i.category_id = ${categoryId}::uuid` : sql``}
       order by i.created_at desc
       limit 500
     `);
-    return rows.map(toItem);
+    const { signCovers } = await import('./covers.ts');
+    const covers = await signCovers(env, rows.map((r) => r.cover_key));
+    return rows.map((r, i) => toItem(r, covers[i] ?? null));
   });
 }
 
@@ -173,7 +177,7 @@ export async function createItem(env: Env, userId: string, input: LibraryItemInp
         returning *
       )
       select i.id, c.slug as category_slug, i.title, i.storage_key, i.external_url,
-             i.mime, i.min_tier::text, i.created_at
+             i.mime, i.min_tier::text, i.created_at, i.cover_key
       from inserted i join library_categories c on c.id = i.category_id
     `);
     const row = rows[0];

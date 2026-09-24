@@ -53,6 +53,10 @@ export const Workshop = z.object({
   occurrence: z.object({ index: z.int(), total: z.int() }).nullable(),
   registered: z.boolean(),
   joinUrl: z.string().nullable(),
+  /* Signed for an hour on read, like every other image here. Null is the
+     normal case and the card falls back to a gradient — a missing cover must
+     degrade, never break the grid. */
+  coverUrl: z.string().nullable().default(null),
 });
 export type Workshop = z.infer<typeof Workshop>;
 
@@ -111,6 +115,9 @@ export const LibraryItem = z.object({
   id: z.uuid(),
   categorySlug: z.string(),
   title: z.string(),
+  /* A thumbnail, distinct from the file itself. A PDF contract has both; a
+     link to a Drive folder has a thumbnail and no file at all. */
+  coverUrl: z.string().nullable().default(null),
   /** 'file' when it lives in our storage, 'link' when it points elsewhere. */
   kind: z.enum(['file', 'link']),
   url: z.string().nullable(),
@@ -572,6 +579,7 @@ export const AdminWorkshop = z.object({
   recurring: z.boolean(),
   capacity: z.int().nullable(),
   registrationCount: z.int().nonnegative(),
+  coverUrl: z.string().nullable().default(null),
 });
 export type AdminWorkshop = z.infer<typeof AdminWorkshop>;
 
@@ -871,6 +879,7 @@ export const Insight = z.object({
   votedByMe: z.boolean().default(false),
   savedByMe: z.boolean().default(false),
   featuredAt: z.iso.datetime().nullable(),
+  coverUrl: z.string().nullable().default(null),
   author: z.object({ name: z.string(), initials: z.string(), tier: Tier }),
   createdAt: z.iso.datetime(),
 });
@@ -1497,6 +1506,7 @@ export const Journey = z.object({
    * *theirs* out of the sixteen that are published.
    */
   following: z.boolean(),
+  coverUrl: z.string().nullable().default(null),
   /** When they picked it, null if they have not. */
   startedAt: z.iso.datetime().nullable(),
   /** When the congratulation was sent. Only ever set for a followed path. */

@@ -108,7 +108,19 @@ function JourneyCard({ j }: { j: Journey }) {
   return (
     <div className="card lift card-linked" style={{ padding: '16px 18px', gap: 11 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-        <Ring progress={j.progress} />
+        {/* The cover replaces the ring when there is one: a photograph says
+            more about where a path goes than a percentage does, and the
+            percentage is repeated in the line underneath either way. */}
+        {j.coverUrl ? (
+          <img
+            src={j.coverUrl}
+            alt=""
+            loading="lazy"
+            style={{ width: 96, aspectRatio: '16 / 9', objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
+          />
+        ) : (
+          <Ring progress={j.progress} />
+        )}
         <Link
           to="/journeys/$slug"
           params={{ slug: j.slug }}
@@ -350,6 +362,14 @@ export function JourneyDetailPage() {
           You are not on this path yet. Picking it puts it on your dashboard and keeps one route in front of you
           instead of eighteen courses — it locks nothing, and you can drop it whenever.
         </div>
+      )}
+
+      {j.coverUrl && (
+        <img
+          src={j.coverUrl}
+          alt=""
+          style={{ width: '100%', aspectRatio: '16 / 6', objectFit: 'cover', borderRadius: 'var(--r-card)' }}
+        />
       )}
 
       <Card>

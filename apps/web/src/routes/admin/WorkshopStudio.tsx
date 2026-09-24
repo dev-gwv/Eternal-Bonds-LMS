@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { WorkshopInput, type AdminWorkshop, type Tier } from '@ipc/contracts';
+import { CoverPicker } from '../../shared/ui/CoverPicker.tsx';
 import { adminApi } from '../../shared/admin-api.ts';
 import { dayHeading, timeRange } from '../../shared/api.ts';
 import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
@@ -209,6 +210,13 @@ function WorkshopRow({ workshop }: { workshop: AdminWorkshop }) {
         <Chip tone="blue">{workshop.platform.replace(/_/g, ' ')}</Chip>
         <Chip>{workshop.minTier}</Chip>
       </div>
+      <CoverPicker
+        kind="workshop"
+        id={workshop.id}
+        coverUrl={workshop.coverUrl}
+        hint="16:9. Shown on the workshops page, which is otherwise a list of dates."
+        invalidate={[['admin', 'workshops'], ['workshops']]}
+      />
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11 }} className="muted">
         <span>{dayHeading(workshop.startsAt)}</span>
         <span>·</span>

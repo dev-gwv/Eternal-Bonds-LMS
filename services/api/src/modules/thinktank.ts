@@ -77,6 +77,7 @@ export const thinktankRoutes = new Hono<AppEnv>()
           createdAt: insights.createdAt, authorId: users.id, authorName: users.fullName,
           authorTier: sql<string>`public.current_tier(${users.id})`,
           domainSlug: insightDomains.slug, impactSlug: insightImpactAreas.slug,
+          coverKey: insights.coverKey,
           liked: userId ? sql<boolean>`exists (select 1 from insight_votes v where v.insight_id = ${insights.id} and v.user_id = ${userId}::uuid)` : sql<boolean>`false`,
           saved: userId ? sql<boolean>`exists (select 1 from bookmarks b where b.target_id = ${insights.id} and b.target_type = 'insight' and b.user_id = ${userId}::uuid)` : sql<boolean>`false`,
         })
@@ -92,8 +93,11 @@ export const thinktankRoutes = new Hono<AppEnv>()
       const rows = await q;
       const hasMore = rows.length > limit;
       const page = rows.slice(0, limit);
+      const { signCovers } = await import('../covers.ts');
+      const covers = await signCovers(c.env, page.map((r) => r.coverKey));
       return c.json({
-        items: page.map((r) => ({
+        items: page.map((r, i) => ({
+          coverUrl: covers[i] ?? null,
           id: r.id, slug: r.slug, title: r.title, situationMd: r.situationMd, bigIdeaMd: r.bigIdeaMd,
           howMd: r.howMd, status: r.status, domainSlug: r.domainSlug, impactSlug: r.impactSlug,
           votes: r.votes, votedByMe: Boolean(r.liked), savedByMe: Boolean(r.saved),

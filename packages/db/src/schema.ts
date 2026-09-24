@@ -174,6 +174,7 @@ export const workshops = pgTable(
     endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
     platform: text('platform').notNull().default('zoom_webinar'),
     joinUrl: text('join_url'),
+    coverKey: text('cover_key'),
     registrationUrl: text('registration_url'),
     recurring: boolean('recurring').notNull().default(false),
     occurrenceIndex: integer('occurrence_index'),
@@ -259,6 +260,8 @@ export const libraryItems = pgTable('library_items', {
   externalUrl: text('external_url'),
   mime: text('mime'),
   minTier: tierEnum('min_tier').notNull().default('diamond'),
+  /** A thumbnail, distinct from `storageKey`, which is the file itself. */
+  coverKey: text('cover_key'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

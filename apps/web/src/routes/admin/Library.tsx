@@ -8,6 +8,7 @@ import { Card, Chip, EmptyState, Icon } from '../../shared/ui/primitives.tsx';
 import { LoadingLabel, SkeletonCard } from '../../shared/ui/Skeleton.tsx';
 import { useToast } from '../../shared/ui/Toast.tsx';
 import { ConfirmButton, ErrorNote, Field, Select, Toolbar, slugify } from './studio-ui.tsx';
+import { CoverPicker } from '../../shared/ui/CoverPicker.tsx';
 
 /**
  * Filling the library.
@@ -330,13 +331,35 @@ function ItemRow({ item, categories }: { item: LibraryItem; categories: LibraryC
         <button type="button" className="btn btn-ghost" onClick={() => setEditing(false)}>
           Cancel
         </button>
+        {/* The thumbnail, not the file. A link to a Drive folder has one and no
+            file at all, which is exactly the row that looks emptiest without. */}
+        <span style={{ flexBasis: '100%' }}>
+          <CoverPicker
+            kind="library-item"
+            id={item.id}
+            coverUrl={item.coverUrl}
+            label="Thumbnail"
+            aspect="4 / 3"
+            hint="Optional. A shelf called Photo Library reading as a list of filenames is the thing this fixes."
+            invalidate={[['admin', 'library']]}
+          />
+        </span>
       </div>
     );
   }
 
   return (
     <div className="card-row" style={{ gap: 10, alignItems: 'center' }}>
-      <Icon name={item.kind === 'link' ? 'link' : 'image'} size={14} />
+      {item.coverUrl ? (
+        <img
+          src={item.coverUrl}
+          alt=""
+          loading="lazy"
+          style={{ width: 44, height: 33, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
+        />
+      ) : (
+        <Icon name={item.kind === 'link' ? 'link' : 'image'} size={14} />
+      )}
       <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <span style={{ fontSize: 12.5, fontWeight: 500 }}>{item.title}</span>
         <span style={{ fontSize: 10 }} className="dim">

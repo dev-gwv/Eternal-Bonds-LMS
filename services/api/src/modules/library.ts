@@ -26,9 +26,10 @@ export const libraryRoutes = new Hono<AppEnv>()
       const rows = await tx.execute<{
         id: string; category_slug: string; title: string; storage_key: string | null;
         external_url: string | null; mime: string | null; min_tier: string; created_at: string;
+        cover_key: string | null;
       }>(sql`
         select i.id, c.slug as category_slug, i.title, i.storage_key, i.external_url,
-               i.mime, i.min_tier, i.created_at
+               i.mime, i.min_tier, i.created_at, i.cover_key
         from library_items i
         join library_categories c on c.id = i.category_id
         ${category ? sql`where c.slug = ${category}` : sql``}
@@ -37,11 +38,16 @@ export const libraryRoutes = new Hono<AppEnv>()
       `);
 
       const { createStorage } = await import('../lib/storage.ts');
+      const { signCovers } = await import('../covers.ts');
       const storage = createStorage(c.env);
+      // Thumbnails in one batch; the file links stay per-row because each has
+      // a different expiry story and most rows are links, not files.
+      const covers = await signCovers(c.env, rows.map((r) => r.cover_key));
 
       return c.json({
         items: await Promise.all(
-          rows.map(async (r) => ({
+          rows.map(async (r, i) => ({
+            coverUrl: covers[i] ?? null,
             id: r.id,
             categorySlug: r.category_slug,
             title: r.title,

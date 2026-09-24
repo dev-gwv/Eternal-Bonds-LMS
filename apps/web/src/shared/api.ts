@@ -58,6 +58,11 @@ import {
   Workshop,
 } from '@ipc/contracts';
 import { z } from 'zod';
+
+/** The things that can carry a cover. Mirrors the allowlist in the API. */
+export type CoverKind = 'course' | 'workshop' | 'journey' | 'insight' | 'library-item';
+
+const CoverResult = z.object({ coverUrl: z.string().nullable() });
 import { accessToken } from './supabase.ts';
 
 /**
@@ -144,6 +149,21 @@ export const api = {
   dismissOnboarding: () => send<void>('POST', '/v1/me/onboarding/dismiss'),
 
   /* The member's photograph. Same ticket-then-record shape as post media. */
+  /* Cover images, for every kind of thing that has one. One path for admins
+     and members alike: who may set what is the RLS policy on the table `kind`
+     names, not a second list kept in the client. */
+  coverTicket: (kind: CoverKind, id: string, mime: 'image/jpeg' | 'image/png' | 'image/webp') =>
+    send('POST', `/v1/covers/${kind}/${id}/ticket`, { mime }, z.object({
+      key: z.string(),
+      url: z.string(),
+      token: z.string().nullable(),
+      method: z.literal('PUT'),
+    })),
+  setCover: (kind: CoverKind, id: string, key: string) =>
+    send('PUT', `/v1/covers/${kind}/${id}`, { key }, CoverResult),
+  clearCover: (kind: CoverKind, id: string) =>
+    send('DELETE', `/v1/covers/${kind}/${id}`, undefined, CoverResult),
+
   avatarTicket: (mime: 'image/jpeg' | 'image/png' | 'image/webp') =>
     send('POST', '/v1/me/avatar-ticket', { mime }, z.object({
       key: z.string(), url: z.string(), token: z.string(), method: z.literal('PUT'),

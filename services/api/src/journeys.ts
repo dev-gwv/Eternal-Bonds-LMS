@@ -32,6 +32,7 @@ type Row = {
   lessons_total: number; lessons_done: number;
   next_slug: string | null; next_title: string | null;
   started_at: string | null; completed_at: string | null;
+  cover_key: string | null;
 };
 
 /**
@@ -78,7 +79,7 @@ const PROGRESS = (userId: string) => sql`
   left join journey_members jm on jm.journey_id = j.id and jm.user_id = ${userId}::uuid
 `;
 
-const toJourney = (r: Row): Journey => {
+const toJourney = (r: Row, coverUrl: string | null = null): Journey => {
   const total = Number(r.lessons_total) || 0;
   const done = Number(r.lessons_done) || 0;
   return {
@@ -94,6 +95,7 @@ const toJourney = (r: Row): Journey => {
     progress: total === 0 ? 0 : Math.round((done / total) * 100),
     nextCourseSlug: r.next_slug,
     nextCourseTitle: r.next_title,
+    coverUrl,
     following: r.started_at !== null,
     startedAt: r.started_at ? new Date(r.started_at).toISOString() : null,
     completedAt: r.completed_at ? new Date(r.completed_at).toISOString() : null,
@@ -110,12 +112,14 @@ export async function listJourneys(env: Env, userId: string | null): Promise<Jou
         j.id, j.slug, j.title, j.promise, j.description_md, j.min_tier, j.is_published,
         agg.step_count, agg.steps_done, agg.lessons_total, agg.lessons_done,
         nxt.slug as next_slug, nxt.title as next_title,
-        jm.started_at, jm.completed_at
+        jm.started_at, jm.completed_at, j.cover_key
       from journeys j
       ${PROGRESS(userId)}
       order by j.rank asc, j.created_at asc
     `);
-    return rows.map(toJourney);
+    const { signCovers } = await import('./covers.ts');
+    const covers = await signCovers(env, rows.map((r) => r.cover_key));
+    return rows.map((r, i) => toJourney(r, covers[i] ?? null));
   });
 }
 
@@ -129,7 +133,7 @@ export async function getJourney(env: Env, userId: string | null, slug: string):
         j.id, j.slug, j.title, j.promise, j.description_md, j.min_tier, j.is_published,
         agg.step_count, agg.steps_done, agg.lessons_total, agg.lessons_done,
         nxt.slug as next_slug, nxt.title as next_title,
-        jm.started_at, jm.completed_at
+        jm.started_at, jm.completed_at, j.cover_key
       from journeys j
       ${PROGRESS(userId)}
       where j.slug = ${slug}
@@ -162,8 +166,11 @@ export async function getJourney(env: Env, userId: string | null, slug: string):
       order by cat.rank asc
     `);
 
+    const { signCovers } = await import('./covers.ts');
+    const [cover] = await signCovers(env, [head.cover_key]);
+
     return {
-      ...toJourney(head),
+      ...toJourney(head, cover ?? null),
       steps: steps.map((s): JourneyStep => {
         const total = Number(s.lesson_count) || 0;
         const done = Number(s.done) || 0;
@@ -200,7 +207,7 @@ export async function createJourney(env: Env, userId: string, input: JourneyInpu
         j.id, j.slug, j.title, j.promise, j.description_md, j.min_tier, j.is_published,
         0 as step_count, 0 as steps_done, 0 as lessons_total, 0 as lessons_done,
         null::text as next_slug, null::text as next_title,
-        null::timestamptz as started_at, null::timestamptz as completed_at
+        null::timestamptz as started_at, null::timestamptz as completed_at, j.cover_key
       from inserted j
     `);
     const row = rows[0];
@@ -230,7 +237,7 @@ export async function updateJourney(
         j.id, j.slug, j.title, j.promise, j.description_md, j.min_tier, j.is_published,
         agg.step_count, agg.steps_done, agg.lessons_total, agg.lessons_done,
         nxt.slug as next_slug, nxt.title as next_title,
-        jm.started_at, jm.completed_at
+        jm.started_at, jm.completed_at, j.cover_key
       from updated j
       ${PROGRESS(userId)}
     `);

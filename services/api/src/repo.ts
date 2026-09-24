@@ -242,6 +242,7 @@ export async function listWorkshops(env: Env, userId: string | null, scope: 'upc
         occurrenceIndex: workshopsTable.occurrenceIndex,
         occurrenceTotal: workshopsTable.occurrenceTotal,
         joinUrl: workshopsTable.joinUrl,
+        coverKey: workshopsTable.coverKey,
         registrationId: workshopRegistrations.id,
       })
       .from(workshopsTable)
@@ -257,7 +258,13 @@ export async function listWorkshops(env: Env, userId: string | null, scope: 'upc
       .where(scope === 'completed' ? lt(workshopsTable.endsAt, now) : gte(workshopsTable.endsAt, now))
       .orderBy(scope === 'completed' ? desc(workshopsTable.startsAt) : asc(workshopsTable.startsAt));
 
-    return rows.map((r): Workshop => ({
+    // Signed in one batch rather than one await per card — twenty workshops
+    // would otherwise be twenty sequential round trips to storage.
+    const { signCovers } = await import('./covers.ts');
+    const covers = await signCovers(env, rows.map((r) => r.coverKey));
+
+    return rows.map((r, i): Workshop => ({
+      coverUrl: covers[i] ?? null,
       id: r.id,
       title: r.title,
       startsAt: r.startsAt.toISOString(),

@@ -19,7 +19,19 @@ function groupByDay(items: Workshop[]) {
 function WorkshopRow({ workshop, onToggle, busy }: { workshop: Workshop; onToggle: (registered: boolean) => void; busy: boolean }) {
   return (
     <div className="card-row" style={workshop.registered ? { background: '#fafcf8' } : undefined}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {/* Only when there is one. An empty placeholder on every row would make
+          a page of undecorated workshops look worse than it does now, not
+          better. */}
+      {workshop.coverUrl && (
+        <img
+          src={workshop.coverUrl}
+          alt=""
+          loading="lazy"
+          className="hide-xs"
+          style={{ width: 72, aspectRatio: '16 / 9', objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
+        />
+      )}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 13, fontWeight: 500 }}>{workshop.title}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 10 }} className="muted">{timeRange(workshop.startsAt, workshop.endsAt)}</span>
