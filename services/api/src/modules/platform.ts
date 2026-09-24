@@ -61,13 +61,6 @@ export const directoryRoutes = new Hono<AppEnv>()
       });
     });
   })
-  /* Another member's profile. Only members who opted into the directory are
-     visible — that is the consent they gave, and honouring it on one page but
-     not another would be a bait-and-switch. */
-  .get('/:id', requireAuth, async (c) => {
-    const { getPublicMember } = await import('../profiles.ts');
-    return c.json(await getPublicMember(c.env, c.get('userId'), c.req.param('id')));
-  })
   .put('/me', requireAuth, zValidator('json', z.object({
     bioMd: z.string().max(2000).nullable().optional(),
     expertise: z.array(z.string().max(40)).max(10).optional(),
@@ -95,6 +88,20 @@ export const directoryRoutes = new Hono<AppEnv>()
         })),
       });
     });
+  })
+  /* Another member's profile. Only members who opted into the directory are
+     visible — that is the consent they gave, and honouring it on one page but
+     not another would be a bait-and-switch.
+
+     Last in the router, and matching a uuid only. Hono matches in registration
+     order, so when this sat above `/badges` it ate it: `GET /directory/badges`
+     arrived here as a member id, went into the query as `'badges'::uuid`, and
+     came back a 500. That broke the member page for everyone — the badge strip
+     is on it — and it would have broken the next sibling route too. The
+     pattern makes that impossible rather than merely unlikely. */
+  .get('/:id{[0-9a-fA-F-]{36}}', requireAuth, async (c) => {
+    const { getPublicMember } = await import('../profiles.ts');
+    return c.json(await getPublicMember(c.env, c.get('userId'), c.req.param('id')));
   });
 
 /** Lesson Q&A, notes, resources, certificates. */

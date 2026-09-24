@@ -21,6 +21,7 @@
     "db:seed": "bun scripts/seed.ts",
     "db:seed-demo": "bun --env-file=.env scripts/seed-demo.ts",
     "db:verify": "bun scripts/verify-supabase.ts",
+    "check:routes": "bun scripts/check-routes.ts",
     "db:setup": "bun run db:push && bun run db:seed && bun run db:verify && bun run db:test-rls && bun run db:test-studio && bun run db:test-engagement && bun run db:test-unread && bun run db:test-media && bun run db:test-nudges && bun run db:test-cohorts && bun run db:test-journeys && bun run db:test-thinktank && bun run db:test-onboarding && bun run db:test-public",
     "db:diff": "bunx supabase db diff --db-url $DATABASE_URL",
     "db:test-rls": "bun scripts/test-rls.ts",

@@ -10,6 +10,7 @@ import { UserMenu } from '../ui/UserMenu.tsx';
 import { useSession } from '../session.tsx';
 import { devLoginEnabled } from '../supabase.ts';
 import { api } from '../api.ts';
+import { socialLinks, supportEmail } from '../site.ts';
 import { PublicWinPage } from '../../routes/PublicWin.tsx';
 import { WelcomePage } from '../../routes/Welcome.tsx';
 import { SignInPage } from '../../routes/SignIn.tsx';
@@ -282,16 +283,40 @@ export function PageHeader({
   );
 }
 
+/**
+ * Everything here is real or absent.
+ *
+ * It used to be neither: `Contact` was an `#contact` anchor pointing at an id
+ * that exists on no page, and the three social buttons were the letters f, ig
+ * and yt on grey circles — not links, not icons, nothing you could click. They
+ * read as a site still under construction, which on the one page every visitor
+ * scrolls to the bottom of is an expensive impression.
+ *
+ * What to show now comes from `site.ts`, and a link with nothing configured
+ * behind it is not rendered at all.
+ */
 function Footer() {
   return (
     <footer className="footer">
-      <span>Copyright © 2026 Eternal Bonds</span>
-      <Link to="/legal">Privacy & Terms</Link>
-      <a href="#contact">Contact</a>
+      <span>Copyright © {new Date().getFullYear()} Eternal Bonds</span>
+      <Link to="/legal">Privacy &amp; Terms</Link>
+      {supportEmail && <a href={`mailto:${supportEmail}`}>Contact</a>}
       <span style={{ flex: 1 }} />
-      <span className="social">f</span>
-      <span className="social">ig</span>
-      <span className="social">yt</span>
+      {socialLinks.map((s) => (
+        <a
+          key={s.key}
+          className="social"
+          href={s.href}
+          target="_blank"
+          // `noopener` because a tab we opened can otherwise reach back through
+          // `window.opener` and navigate this one.
+          rel="noopener noreferrer"
+          aria-label={s.label}
+          title={s.label}
+        >
+          <Icon name={s.key as 'instagram'} size={13} />
+        </a>
+      ))}
     </footer>
   );
 }

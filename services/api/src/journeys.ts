@@ -31,6 +31,7 @@ type Row = {
   step_count: number; steps_done: number;
   lessons_total: number; lessons_done: number;
   next_slug: string | null; next_title: string | null;
+  started_at: string | null; completed_at: string | null;
 };
 
 /**
@@ -71,6 +72,10 @@ const PROGRESS = (userId: string) => sql`
     order by cat.rank asc
     limit 1
   ) nxt on true
+  -- Left join, not a filter: the list is every journey, with the member's own
+  -- one marked. Filtering here would hide the fifteen they have not picked,
+  -- which is the entire point of the page.
+  left join journey_members jm on jm.journey_id = j.id and jm.user_id = ${userId}::uuid
 `;
 
 const toJourney = (r: Row): Journey => {
@@ -89,6 +94,9 @@ const toJourney = (r: Row): Journey => {
     progress: total === 0 ? 0 : Math.round((done / total) * 100),
     nextCourseSlug: r.next_slug,
     nextCourseTitle: r.next_title,
+    following: r.started_at !== null,
+    startedAt: r.started_at ? new Date(r.started_at).toISOString() : null,
+    completedAt: r.completed_at ? new Date(r.completed_at).toISOString() : null,
   };
 };
 
@@ -101,7 +109,8 @@ export async function listJourneys(env: Env, userId: string | null): Promise<Jou
       select
         j.id, j.slug, j.title, j.promise, j.description_md, j.min_tier, j.is_published,
         agg.step_count, agg.steps_done, agg.lessons_total, agg.lessons_done,
-        nxt.slug as next_slug, nxt.title as next_title
+        nxt.slug as next_slug, nxt.title as next_title,
+        jm.started_at, jm.completed_at
       from journeys j
       ${PROGRESS(userId)}
       order by j.rank asc, j.created_at asc
@@ -119,7 +128,8 @@ export async function getJourney(env: Env, userId: string | null, slug: string):
       select
         j.id, j.slug, j.title, j.promise, j.description_md, j.min_tier, j.is_published,
         agg.step_count, agg.steps_done, agg.lessons_total, agg.lessons_done,
-        nxt.slug as next_slug, nxt.title as next_title
+        nxt.slug as next_slug, nxt.title as next_title,
+        jm.started_at, jm.completed_at
       from journeys j
       ${PROGRESS(userId)}
       where j.slug = ${slug}
@@ -189,7 +199,8 @@ export async function createJourney(env: Env, userId: string, input: JourneyInpu
       select
         j.id, j.slug, j.title, j.promise, j.description_md, j.min_tier, j.is_published,
         0 as step_count, 0 as steps_done, 0 as lessons_total, 0 as lessons_done,
-        null::text as next_slug, null::text as next_title
+        null::text as next_slug, null::text as next_title,
+        null::timestamptz as started_at, null::timestamptz as completed_at
       from inserted j
     `);
     const row = rows[0];
@@ -218,7 +229,8 @@ export async function updateJourney(
       select
         j.id, j.slug, j.title, j.promise, j.description_md, j.min_tier, j.is_published,
         agg.step_count, agg.steps_done, agg.lessons_total, agg.lessons_done,
-        nxt.slug as next_slug, nxt.title as next_title
+        nxt.slug as next_slug, nxt.title as next_title,
+        jm.started_at, jm.completed_at
       from updated j
       ${PROGRESS(userId)}
     `);
@@ -231,9 +243,10 @@ export async function updateJourney(
 export async function deleteJourney(env: Env, userId: string, id: string): Promise<void> {
   const db = requireDb(env);
   await withUser(db, userId, async (tx) => {
-    // Steps cascade. Nothing else references a journey, and no member state
-    // lives on one — progress is derived from the courses — so this is a safe
-    // delete in a way that deleting a course is not.
+    // Steps and memberships cascade; lesson progress does not live here, so a
+    // member who was following this path keeps every lesson they finished and
+    // simply stops being on a path. That is a safe delete in a way that
+    // deleting a course is not.
     await tx.execute(sql`delete from journeys where id = ${id}::uuid`);
   });
 }
@@ -282,4 +295,64 @@ export async function reorderSteps(
       `);
     }
   });
+}
+
+/* ── Following ─────────────────────────────────────────────────────────── */
+
+/**
+ * Picking a path.
+ *
+ * "Pick a path" navigated and nothing else for as long as journeys have
+ * existed, which meant the choice left no trace: no way to show a member the
+ * one path that is theirs, no moment at which finishing it could be noticed,
+ * and no way to answer whether journeys work at all.
+ *
+ * Idempotent, because the button is on a card people press twice, and because
+ * re-picking a path you are already on should not reset the day you started
+ * it — that date is the honest answer to "how long has this taken me".
+ */
+export async function followJourney(env: Env, userId: string, slug: string): Promise<Journey> {
+  const db = requireDb(env);
+  await withUser(db, userId, async (tx) => {
+    const done = await tx.execute<{ id: string }>(sql`
+      insert into journey_members (user_id, journey_id)
+      select ${userId}::uuid, j.id from journeys j where j.slug = ${slug}
+      on conflict (user_id, journey_id) do nothing
+      returning journey_id as id
+    `);
+    // Nothing inserted is either "already following" or "no such journey" —
+    // and the insert policy makes an unpublished draft behave like the latter.
+    // Only the second is an error, so check which it was.
+    if (done.length === 0) {
+      const [exists] = await tx.execute<{ n: number }>(sql`
+        select count(*)::int as n from journey_members jm
+        join journeys j on j.id = jm.journey_id
+        where jm.user_id = ${userId}::uuid and j.slug = ${slug}
+      `);
+      if (!exists || Number(exists.n) === 0) throw new HttpError(404, 'Journey not found');
+    }
+  });
+  // Re-read rather than construct: the caller wants the card to update, and
+  // that card carries progress numbers this function never computed.
+  return getJourney(env, userId, slug);
+}
+
+/**
+ * Dropping a path.
+ *
+ * Deliberately loses nothing. Lesson progress is not stored here, so a member
+ * who unfollows and follows again a month later finds the same three courses
+ * still ticked — which is what makes stepping off a path cheap enough to step
+ * onto one in the first place.
+ */
+export async function unfollowJourney(env: Env, userId: string, slug: string): Promise<Journey> {
+  const db = requireDb(env);
+  await withUser(db, userId, async (tx) => {
+    await tx.execute(sql`
+      delete from journey_members jm
+      using journeys j
+      where j.id = jm.journey_id and j.slug = ${slug} and jm.user_id = ${userId}::uuid
+    `);
+  });
+  return getJourney(env, userId, slug);
 }

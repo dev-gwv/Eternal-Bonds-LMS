@@ -141,6 +141,18 @@ const rows: Row[] = [
     value: env.get('VITE_SUPABASE_ANON_KEY') ?? env.get('SUPABASE_ANON_KEY') ?? null,
     note: 'the web build',
   },
+  // The footer. Optional by design: an unset one is simply not rendered, which
+  // is why these are the only rows that stay quiet when they have no value.
+  ...(
+    [
+      ['VITE_SUPPORT_EMAIL', 'footer contact link'],
+      ['VITE_SOCIAL_INSTAGRAM', 'footer social link'],
+      ['VITE_SOCIAL_YOUTUBE', 'footer social link'],
+      ['VITE_SOCIAL_FACEBOOK', 'footer social link'],
+    ] as const
+  )
+    .filter(([name]) => env.get(name) !== null)
+    .map(([name, note]) => ({ kind: 'Variable' as const, name, value: env.get(name), note })),
   {
     kind: 'Variable',
     name: 'API_URL',

@@ -12,6 +12,7 @@
 import { sql } from 'drizzle-orm';
 import { createDb } from '@ipc/db';
 import * as journeys from '../services/api/src/journeys.ts';
+import { celebrateJourneys } from '../services/worker/src/jobs/learning.ts';
 import { EnvSchema } from '../services/api/src/env.ts';
 
 const url = process.env.DATABASE_URL;
@@ -182,6 +183,72 @@ try {
   // 2 of 20 now, because the 4-lesson course left with it.
   const recounted = await journeys.getJourney(env, member, journeySlug);
   check('and the percentage recounts against what is left', recounted.progress === 10, `${recounted.progress}%`);
+
+  console.log('\nFollowing');
+  // The gap this closes: "Pick a path" navigated and recorded nothing, so
+  // there was no such thing as the path a member is on.
+  const before = (await journeys.listJourneys(env, member)).find((j) => j.slug === journeySlug);
+  check('a member starts on no path', before?.following === false);
+
+  const followed = await journeys.followJourney(env, member, journeySlug);
+  check('picking one records it', followed.following && followed.startedAt !== null);
+  check('and it carries the progress they already had', followed.progress === 10, `${followed.progress}%`);
+
+  // Twice, because the button is on a card people press twice.
+  const again = await journeys.followJourney(env, member, journeySlug);
+  check('picking it twice is a no-op', again.startedAt === followed.startedAt);
+
+  const seen = (await journeys.listJourneys(env, member)).find((j) => j.slug === journeySlug);
+  check('the list marks the one they chose', seen?.following === true);
+
+  // Somebody else's choice must not leak into this member's view.
+  const other = (await journeys.listJourneys(env, admin)).find((j) => j.slug === journeySlug);
+  check('another member is not on it', other?.following === false);
+
+  const dropped = await journeys.unfollowJourney(env, member, journeySlug);
+  check('dropping it clears the choice', dropped.following === false);
+  check('and loses no lessons', dropped.progress === 10, `${dropped.progress}%`);
+
+  let refused = false;
+  try {
+    await journeys.followJourney(env, member, 'no-such-journey-at-all');
+  } catch {
+    refused = true;
+  }
+  check('following a journey that does not exist is a 404', refused);
+
+  console.log('\nCompletion');
+  // The whole point of membership state: a derived percentage crossing 100%
+  // is silent, and this is the job that notices.
+  await journeys.followJourney(env, member, journeySlug);
+  await db.execute(sql`
+    insert into lesson_progress (user_id, lesson_id, is_completed, completed_at)
+    select ${member}::uuid, l.id, true, now()
+    from lessons l
+    join modules m on m.id = l.module_id
+    join journey_steps js on js.course_id = m.course_id
+    where js.journey_id = ${journeyId}::uuid
+    on conflict (user_id, lesson_id) do update set is_completed = true, completed_at = now()
+  `);
+  const finished = await journeys.getJourney(env, member, journeySlug);
+  check('finishing every lesson reads as 100%', finished.progress === 100, `${finished.progress}%`);
+  check('but nothing has been stamped yet', finished.completedAt === null);
+
+  const first = await celebrateJourneys(db);
+  check('the job congratulates them once', first.celebrated === 1, JSON.stringify(first));
+  const stamped = await journeys.getJourney(env, member, journeySlug);
+  check('and stamps the membership', stamped.completedAt !== null);
+
+  // The dedupe that matters: this runs every fifteen minutes forever.
+  const second = await celebrateJourneys(db);
+  check('and never again', second.celebrated === 0, JSON.stringify(second));
+
+  const [note] = await db.execute<{ title: string; link: string }>(sql`
+    select title, link from notifications
+    where user_id = ${member}::uuid and kind = 'journey.complete'
+  `);
+  check('the notification names the path', note?.title?.includes('Zero to first paid shoot') === true, note?.title);
+  check('and links to it', note?.link === `/journeys/${journeySlug}`, note?.link);
 } finally {
   console.log('\nCleanup');
   await db.execute(sql`delete from journeys where id = ${journeyId || null}`);

@@ -53,6 +53,13 @@ jobs:
       - name: Typecheck every workspace
         run: bun run typecheck
 
+      # A wildcard route registered above a literal sibling makes the sibling
+      # unreachable, and nothing else in the pipeline notices: it typechecks,
+      # it builds, and the endpoint answers with whatever the wildcard does
+      # when handed a word instead of an id.
+      - name: Every route is reachable
+        run: bun run check:routes
+
       # No database needed: quiet hours, signature comparison, every input
       # schema. Fast enough to run on every push.
       - name: Unit tests
@@ -66,6 +73,10 @@ jobs:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPPORT_EMAIL: ${{ vars.VITE_SUPPORT_EMAIL }}
+          VITE_SOCIAL_INSTAGRAM: ${{ vars.VITE_SOCIAL_INSTAGRAM }}
+          VITE_SOCIAL_YOUTUBE: ${{ vars.VITE_SOCIAL_YOUTUBE }}
+          VITE_SOCIAL_FACEBOOK: ${{ vars.VITE_SOCIAL_FACEBOOK }}
 
       # The test sign-in button must not reach a production bundle. It is dead
       # code in a normal build, but a config change or a bundler upgrade could

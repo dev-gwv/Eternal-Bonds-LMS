@@ -647,6 +647,7 @@ export const NotificationKind = z.enum([
   'cohort.deadline',
   'thinktank.featured',
   'onboarding.nudge',
+  'journey.complete',
 ]);
 export type NotificationKind = z.infer<typeof NotificationKind>;
 
@@ -1266,6 +1267,19 @@ export const Journey = z.object({
   /** The step to open next: the first unfinished one, or null when done. */
   nextCourseSlug: z.string().nullable(),
   nextCourseTitle: z.string().nullable(),
+  /**
+   * Whether the member has chosen this path.
+   *
+   * Distinct from having progress on it: finishing a course that happens to
+   * sit on four journeys does not mean the member is following four paths.
+   * Following is a decision, and it is the only thing that makes one journey
+   * *theirs* out of the sixteen that are published.
+   */
+  following: z.boolean(),
+  /** When they picked it, null if they have not. */
+  startedAt: z.iso.datetime().nullable(),
+  /** When the congratulation was sent. Only ever set for a followed path. */
+  completedAt: z.iso.datetime().nullable(),
 });
 export type Journey = z.infer<typeof Journey>;
 

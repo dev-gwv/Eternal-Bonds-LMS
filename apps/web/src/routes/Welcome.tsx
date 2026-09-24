@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import type { Journey } from '@ipc/contracts';
 import { api } from '../shared/api.ts';
 import { Avatar, Chip, Icon } from '../shared/ui/primitives.tsx';
 import { AnimatePresence, m } from '../shared/ui/motion.tsx';
@@ -103,6 +104,26 @@ export function WelcomePage() {
       queryClient.invalidateQueries({ queryKey: ['me'] });
       next();
     },
+  });
+
+  /**
+   * One path at a time. Picking a second swaps the first out rather than
+   * stacking them: somebody ninety seconds into their first session who is
+   * following three routes through the library is following none of them.
+   * They can add more from the journeys page later, once "a path" means
+   * something to them.
+   */
+  const pickPath = useMutation({
+    mutationFn: async (chosen: Journey) => {
+      const current = (journeys.data ?? []).find((j) => j.following && j.slug !== chosen.slug);
+      if (current) await api.followJourney(current.slug, false);
+      return api.followJourney(chosen.slug, !chosen.following);
+    },
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['journeys'] });
+      if (updated.following) toast.show(`You are on ${updated.title}`);
+    },
+    onError: toast.error,
   });
 
   const saveCraft = useMutation({
@@ -238,16 +259,32 @@ export function WelcomePage() {
                 there, it just does not tell you where to start.
               </span>
             ) : (
+              /* Picking used to navigate straight to the journey page, which
+                 abandoned the wizard two steps from the end — the member never
+                 saw the rest of onboarding, and nothing recorded the choice
+                 anyway. Now it enrols them and stays put, and Continue
+                 finishes the job. */
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {list.map((j) => (
                   <button
                     key={j.id}
                     type="button"
                     className="card lift"
-                    style={{ padding: '14px 16px', gap: 4, textAlign: 'left', cursor: 'pointer' }}
-                    onClick={() => navigate({ to: '/journeys/$slug', params: { slug: j.slug } })}
+                    style={{
+                      padding: '14px 16px',
+                      gap: 4,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      borderColor: j.following ? 'var(--pink)' : undefined,
+                    }}
+                    disabled={pickPath.isPending}
+                    aria-pressed={j.following}
+                    onClick={() => pickPath.mutate(j)}
                   >
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{j.title}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>{j.title}</span>
+                      {j.following && <Chip tone="pink">Picked</Chip>}
+                    </span>
                     <span style={{ fontSize: 11.5, lineHeight: 1.5 }} className="muted">
                       {j.promise}
                     </span>

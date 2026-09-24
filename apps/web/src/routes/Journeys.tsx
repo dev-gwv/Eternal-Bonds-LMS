@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import type { Journey, JourneyStep } from '@ipc/contracts';
 import { api } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Card, Chip, EmptyState, Hero, Icon } from '../shared/ui/primitives.tsx';
 import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
+import { useToast } from '../shared/ui/Toast.tsx';
 
 /**
  * "What do I do first?"
@@ -51,19 +52,78 @@ function Ring({ progress, size = 44 }: { progress: number; size?: number }) {
   );
 }
 
+/**
+ * Picking a path, and stepping off one.
+ *
+ * "Pick a path" used to navigate and nothing else, which meant the choice left
+ * no trace: no way to show a member which of sixteen journeys is theirs, and
+ * no moment at which finishing one could be noticed.
+ *
+ * Unfollowing is offered without a warning because it costs nothing —
+ * progress lives on the lessons, so a member who drops a path and picks it up
+ * next month finds the same courses ticked. Cheap to leave is what makes it
+ * cheap to start.
+ */
+function FollowButton({ j }: { j: Journey }) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  const follow = useMutation({
+    mutationFn: () => api.followJourney(j.slug, !j.following),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['journey', j.slug], updated);
+      queryClient.invalidateQueries({ queryKey: ['journeys'] });
+      toast.show(updated.following ? `You are on ${updated.title}` : 'Path dropped — your progress stays');
+    },
+    onError: toast.error,
+  });
+
+  return (
+    <button
+      type="button"
+      className={`btn ${j.following ? 'btn-soft' : 'btn-pink'} above-link`}
+      style={j.following ? undefined : { color: '#fff' }}
+      disabled={follow.isPending}
+      onClick={(e) => {
+        // The card behind this is one large link.
+        e.preventDefault();
+        e.stopPropagation();
+        follow.mutate();
+      }}
+    >
+      {j.following ? (
+        <>
+          <Icon name="check" size={13} strokeWidth={3} />
+          On this path
+        </>
+      ) : (
+        'Pick this path'
+      )}
+    </button>
+  );
+}
+
 function JourneyCard({ j }: { j: Journey }) {
   const started = j.progress > 0;
   return (
-    <Link
-      to="/journeys/$slug"
-      params={{ slug: j.slug }}
-      className="card lift"
-      style={{ color: 'inherit', textDecoration: 'none', padding: '16px 18px', gap: 11 }}
-    >
+    <div className="card lift card-linked" style={{ padding: '16px 18px', gap: 11 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
         <Ring progress={j.progress} />
-        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <Link
+          to="/journeys/$slug"
+          params={{ slug: j.slug }}
+          className="stretch-link"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+            color: 'inherit',
+            textDecoration: 'none',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 14, fontWeight: 600 }}>{j.title}</span>
             {j.minTier !== 'free' && <Chip tone="pink">{j.minTier}</Chip>}
             {j.progress === 100 && <Chip tone="green">Done</Chip>}
@@ -72,10 +132,10 @@ function JourneyCard({ j }: { j: Journey }) {
           <span style={{ fontSize: 12, lineHeight: 1.55 }} className="muted">
             {j.promise}
           </span>
-        </span>
+        </Link>
       </div>
 
-      <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5 }} className="dim">
+      <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5, flexWrap: 'wrap' }} className="dim">
         <span className="num">
           {j.stepsDone} of {j.stepCount} course{j.stepCount === 1 ? '' : 's'}
         </span>
@@ -87,8 +147,10 @@ function JourneyCard({ j }: { j: Journey }) {
             </span>
           </>
         )}
+        <span style={{ flex: 1 }} />
+        <FollowButton j={j} />
       </span>
-    </Link>
+    </div>
   );
 }
 
@@ -250,14 +312,45 @@ export function JourneyDetailPage() {
         back="/journeys"
         crumbs={[{ label: 'Journeys', to: '/journeys' }, { label: j.title }]}
         actions={
-          nextSlug ? (
-            <Link to="/courses/$slug" params={{ slug: nextSlug }} className="btn btn-pink" style={{ color: '#fff' }}>
-              <Icon name="play" size={13} />
-              {j.progress > 0 ? 'Continue' : 'Start'}
-            </Link>
-          ) : undefined
+          <>
+            <FollowButton j={j} />
+            {nextSlug && (
+              <Link
+                to="/courses/$slug"
+                params={{ slug: nextSlug }}
+                className="btn btn-pink"
+                style={{ color: '#fff' }}
+              >
+                <Icon name="play" size={13} />
+                {j.progress > 0 ? 'Continue' : 'Start'}
+              </Link>
+            )}
+          </>
         }
       />
+
+      {/* The moment. A derived progress number crosses 100% silently in the
+          middle of whichever lesson happened to be last, so this is the only
+          place the app says the thing the member actually came for. The job
+          that sends the notification stamps `completedAt`; this does not wait
+          for it, because somebody who just finished is looking at the screen
+          now. */}
+      {j.progress === 100 && j.following && (
+        <div className="callout callout-green">
+          <strong>You finished {j.title}.</strong> {j.promise} — that is {j.stepCount} course
+          {j.stepCount === 1 ? '' : 's'} done. Worth telling somebody about.
+          <Link to="/wins/submit" className="btn btn-soft" style={{ alignSelf: 'flex-start', marginTop: 8 }}>
+            Share the win
+          </Link>
+        </div>
+      )}
+
+      {!j.following && j.progress < 100 && (
+        <div className="callout">
+          You are not on this path yet. Picking it puts it on your dashboard and keeps one route in front of you
+          instead of eighteen courses — it locks nothing, and you can drop it whenever.
+        </div>
+      )}
 
       <Card>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>

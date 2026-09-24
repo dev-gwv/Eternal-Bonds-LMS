@@ -4,6 +4,7 @@ import { Link, getRouteApi } from '@tanstack/react-router';
 import { api, relativeTime, timeRange } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Card, Chip, EmptyState, Hero } from '../shared/ui/primitives.tsx';
+import { ConfirmButton } from '../shared/ui/ConfirmButton.tsx';
 import { Gallery } from '../shared/ui/Gallery.tsx';
 import { ReportButton } from '../shared/ui/ReportButton.tsx';
 import { SkeletonCard, LoadingLabel } from '../shared/ui/Skeleton.tsx';
@@ -58,10 +59,23 @@ export function EventsPage() {
                   Finished — recording not posted yet
                 </span>
               ) : (
-                <button className="btn btn-soft" disabled={rsvp.isPending}
-                  onClick={() => rsvp.mutate({ id: e.id, rsvpd: !e.rsvpd })}>
-                  {e.rsvpd ? 'Cancel RSVP' : 'RSVP'}
-                </button>
+                /* Cancelling confirms; saying yes does not. Cancelling gives
+                   up a seat that may be the last one, and on a phone this
+                   button sits exactly where the RSVP button was a moment ago. */
+                e.rsvpd ? (
+                  <ConfirmButton
+                    label="Cancel RSVP"
+                    confirmLabel="Give up my seat"
+                    className="btn btn-soft"
+                    disabled={rsvp.isPending}
+                    onConfirm={() => rsvp.mutate({ id: e.id, rsvpd: false })}
+                  />
+                ) : (
+                  <button className="btn btn-soft" disabled={rsvp.isPending}
+                    onClick={() => rsvp.mutate({ id: e.id, rsvpd: true })}>
+                    RSVP
+                  </button>
+                )
               )}
             </div>
           </Card>
@@ -309,9 +323,19 @@ export function EventDetailPage() {
               Finished — recording not posted yet
             </span>
           ) : (
-            <button className="btn btn-soft" disabled={rsvp.isPending} onClick={() => rsvp.mutate(!e.rsvpd)}>
-              {e.rsvpd ? 'Cancel RSVP' : 'RSVP'}
-            </button>
+            e.rsvpd ? (
+              <ConfirmButton
+                label="Cancel RSVP"
+                confirmLabel="Give up my seat"
+                className="btn btn-soft"
+                disabled={rsvp.isPending}
+                onConfirm={() => rsvp.mutate(false)}
+              />
+            ) : (
+              <button className="btn btn-soft" disabled={rsvp.isPending} onClick={() => rsvp.mutate(true)}>
+                RSVP
+              </button>
+            )
           )}
         </div>
       </Card>

@@ -146,9 +146,13 @@ try {
   check('week one is open', weekOne?.unlocksAt === null && weekOne?.lessons[0]?.locked === false);
   check('week two is not', weekTwo?.unlocksAt !== null && weekTwo?.lessons[0]?.locked === true, String(weekTwo?.unlocksAt));
 
-  // Four days from a start three days ago.
+  // Four days from a start three days ago — but `starts_on` is a date, so the
+  // unlock lands at midnight and "how many days from now" depends on the time
+  // of day the test runs: just over 3 late in the evening, just under 4 shortly
+  // after midnight. The window was 3.5–4.5, which made this pass in the morning
+  // and fail after about half past nine at night.
   const opensIn = weekTwo?.unlocksAt ? (Date.parse(weekTwo.unlocksAt) - Date.now()) / 86_400_000 : NaN;
-  check('and it opens four days from now', opensIn > 3.5 && opensIn < 4.5, `${opensIn.toFixed(1)} days`);
+  check('and it opens four days from now', opensIn > 3 && opensIn <= 4, `${opensIn.toFixed(1)} days`);
 
   console.log('\nThe gate, which is the part that has to hold');
   await refused('playing a locked lesson is refused', () => getPlaybackTicket(env, early, lockedLesson), 403);

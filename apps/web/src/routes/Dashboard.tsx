@@ -6,6 +6,7 @@ import { ActivityChart } from '../shared/ui/charts.tsx';
 import { ContinueRail } from '../shared/ui/ContinueRail.tsx';
 import { FirstWeek } from '../shared/ui/FirstWeek.tsx';
 import { MyCohorts } from '../shared/ui/MyCohorts.tsx';
+import { MyPath } from '../shared/ui/MyPath.tsx';
 import { Card, DateBadge, EmptyState, Hero, Icon, StatTile } from '../shared/ui/primitives.tsx';
 import { LoadingLabel, Skeleton, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 
@@ -91,6 +92,10 @@ export function DashboardPage() {
           {/* Above everything for a member who has not finished it, and gone
               entirely for everyone who has. */}
           <FirstWeek />
+
+          {/* The route through the library, above the library. A member who
+              has chosen a path should not have to re-find it every morning. */}
+          <MyPath />
 
           {/* A schedule is a reason to come back today, so it sits with the
               other reasons rather than on a page somebody has to go and find. */}

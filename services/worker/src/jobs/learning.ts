@@ -363,3 +363,94 @@ export async function nudgeOnboarding(db: Db) {
 
   return { sent };
 }
+
+/**
+ * Noticing that somebody finished a path, and saying so.
+ *
+ * Journey progress is derived — counted from `lesson_progress` across the
+ * courses on the path — which means it crosses 100% silently, in the middle of
+ * whichever lesson happened to be last. There is no moment. A member finishes
+ * six courses aimed at one named outcome and the application's entire response
+ * is a progress ring that stops moving.
+ *
+ * This is that moment. It runs on a schedule rather than at the point of
+ * completion because the completing event is a lesson tick that knows nothing
+ * about journeys, and threading journey awareness through the lesson write
+ * path would make the hot query pay for a feature it does not use.
+ *
+ * Every step counts, including ones above the member's tier. Completing the
+ * path means completing the path; a free member on a path with a Diamond
+ * course simply does not finish it, which is both honest and the clearest
+ * upgrade argument the app has.
+ *
+ * `completed_at` is the dedupe. One stamp, one congratulation, and the update
+ * and the insert are a single statement so a second worker cannot get between
+ * them.
+ */
+export async function celebrateJourneys(db: Db) {
+  const rows = await db.execute<{ id: string }>(sql`
+    with progress as (
+      select
+        jm.user_id,
+        jm.journey_id,
+        j.slug,
+        j.title,
+        j.promise,
+        count(*)::int as steps,
+        coalesce(sum(cat.lesson_count), 0)::int as lessons_total,
+        coalesce(sum(cat.done), 0)::int as lessons_done
+      from journey_members jm
+      join journeys j on j.id = jm.journey_id
+      join users u on u.id = jm.user_id
+      join lateral (
+        select
+          (select count(*)::int
+             from lessons l join modules m on m.id = l.module_id
+            where m.course_id = js.course_id) as lesson_count,
+          (select count(*)::int
+             from lessons l
+             join modules m on m.id = l.module_id
+             join lesson_progress lp on lp.lesson_id = l.id and lp.user_id = jm.user_id
+            where m.course_id = js.course_id and lp.is_completed) as done
+        from journey_steps js
+        where js.journey_id = jm.journey_id
+      ) cat on true
+      where jm.completed_at is null
+        and not u.is_suspended
+      group by jm.user_id, jm.journey_id, j.slug, j.title, j.promise
+    ),
+    -- An empty path is not a finished path. Without this an admin creating a
+    -- journey with no steps yet would congratulate everybody following it.
+    done as (
+      select * from progress
+      where steps > 0 and lessons_total > 0 and lessons_done >= lessons_total
+    ),
+    stamped as (
+      update journey_members jm
+      set completed_at = now()
+      from done
+      where jm.user_id = done.user_id
+        and jm.journey_id = done.journey_id
+        and jm.completed_at is null
+      returning jm.user_id, jm.journey_id
+    )
+    insert into notifications (user_id, kind, title, body, link, subject_type, subject_id)
+    select
+      done.user_id,
+      'journey.complete',
+      'You finished ' || done.title,
+      -- The promise back in their own hands. It is what they signed up for and
+      -- the only sentence here worth reading twice.
+      done.promise || ' — that is ' || done.steps || ' course' ||
+        (case when done.steps = 1 then '' else 's' end) || ' done. Worth telling somebody about.',
+      '/journeys/' || done.slug,
+      'journey',
+      done.journey_id
+    from done
+    join stamped on stamped.user_id = done.user_id and stamped.journey_id = done.journey_id
+    on conflict do nothing
+    returning id
+  `);
+
+  return { celebrated: rows.length };
+}

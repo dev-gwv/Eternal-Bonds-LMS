@@ -33,6 +33,14 @@ export const journeyRoutes = new Hono<AppEnv>()
   .get('/', requireAuth, async (c) => c.json({ items: await journeys.listJourneys(c.env, c.get('userId')) }))
   .get('/:slug', requireAuth, async (c) =>
     c.json(await journeys.getJourney(c.env, c.get('userId'), c.req.param('slug'))),
+  )
+  // Both return the whole journey rather than 204, so the card that was
+  // pressed re-renders from the response instead of a second round trip.
+  .post('/:slug/follow', requireAuth, async (c) =>
+    c.json(await journeys.followJourney(c.env, c.get('userId')!, c.req.param('slug'))),
+  )
+  .delete('/:slug/follow', requireAuth, async (c) =>
+    c.json(await journeys.unfollowJourney(c.env, c.get('userId')!, c.req.param('slug'))),
   );
 
 export const adminJourneyRoutes = new Hono<AppEnv>()

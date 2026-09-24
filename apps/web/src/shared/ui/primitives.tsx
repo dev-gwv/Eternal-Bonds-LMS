@@ -263,6 +263,29 @@ const paths: Record<string, ReactNode> = {
     </>
   ),
   chevron: <path d="m6 9 6 6 6-6" />,
+  /* The three brand marks, drawn in the same 24px stroked style as everything
+     else rather than dropped in as filled logos, so the footer reads as one
+     set of icons instead of two. */
+  instagram: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <path d="M16.9 7.1h.01" />
+    </>
+  ),
+  youtube: (
+    <>
+      <rect x="2" y="5" width="20" height="14" rx="4" />
+      <path d="M10.5 9.2v5.6l4.6-2.8z" />
+    </>
+  ),
+  facebook: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <path d="M14.8 8.2h-1.3a1.7 1.7 0 0 0-1.7 1.7V21" />
+      <path d="M9.6 13h4.6" />
+    </>
+  ),
   bulb: (
     <>
       <path d="M9 18h6" />

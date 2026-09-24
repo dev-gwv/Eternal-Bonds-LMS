@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { Comment } from '@ipc/contracts';
 import { api, relativeTime } from '../api.ts';
+import { ConfirmButton } from './ConfirmButton.tsx';
 import { Avatar, Chip, Icon } from './primitives.tsx';
 
 /**
@@ -188,15 +189,15 @@ function CommentRow({ comment, postId, depth }: { comment: Comment; postId: stri
                   <button type="button" className="btn btn-ghost" style={{ fontSize: 10 }} onClick={() => setEditing(true)}>
                     Edit
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
+                  {/* Two presses. A comment is somebody's own words and the
+                      Delete that removes them sat one pixel from Edit. */}
+                  <ConfirmButton
+                    label="Delete"
+                    confirmLabel="Delete it"
                     style={{ fontSize: 10, color: 'var(--red)' }}
                     disabled={remove.isPending}
-                    onClick={() => remove.mutate()}
-                  >
-                    Delete
-                  </button>
+                    onConfirm={() => remove.mutate()}
+                  />
                 </>
               )}
             </div>

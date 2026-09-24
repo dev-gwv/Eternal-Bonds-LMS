@@ -73,43 +73,13 @@ export function Empty({ children }: PropsWithChildren) {
 }
 
 /**
- * Destructive actions confirm in place rather than through window.confirm —
- * a native dialog blocks the whole tab and looks nothing like the rest of it.
+ * Re-exported from the shared component.
+ *
+ * It started here and members never had it, which is how deleting a comment
+ * and cancelling an RSVP stayed one unprompted click while unpublishing a
+ * course took two.
  */
-export function ConfirmButton({
-  label,
-  confirmLabel = 'Really delete',
-  onConfirm,
-  disabled,
-}: {
-  label: string;
-  confirmLabel?: string;
-  onConfirm: () => void;
-  disabled?: boolean;
-}) {
-  const [armed, setArmed] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Disarms itself, so a half-pressed delete never sits waiting on the screen.
-  useEffect(() => {
-    if (!armed) return;
-    timer.current = setTimeout(() => setArmed(false), 4000);
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, [armed]);
-
-  return (
-    <button
-      type="button"
-      className={armed ? 'btn btn-danger' : 'btn btn-ghost'}
-      disabled={disabled}
-      onClick={() => (armed ? onConfirm() : setArmed(true))}
-    >
-      {armed ? confirmLabel : label}
-    </button>
-  );
-}
+export { ConfirmButton } from '../../shared/ui/ConfirmButton.tsx';
 
 export function Toolbar({ children }: { children: ReactNode }) {
   return <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>{children}</div>;

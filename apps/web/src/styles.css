@@ -97,13 +97,29 @@ body {
 }
 
 a { color: var(--pink-ink); text-decoration: none; }
-/* Not `.btn`. A link styled as a button carries its own colour, and this rule
-   beat it: `.btn-pink:hover` only sets filter and transform, never re-declares
-   colour, so `a:hover` at (0,1,1) won over `.btn-pink` at (0,1,0) and painted
-   the label pink on a pink gradient — invisible. It affected every
-   <Link className="btn ..."> in the app, which is most of the primary
-   actions. */
-a:not(.btn):hover { color: var(--pink-strong); }
+
+/* The default hover for a link that is only a link.
+   Wrapped in `:where()` so it carries the weight of a bare `:hover` — (0,1,0)
+   — and loses to any component class that states its own colour, which is the
+   behaviour a default should have had all along.
+
+   It was written as `a:not(.btn):hover`, and the exception list was the tell.
+   `.btn` was excluded because at (0,2,1) this rule beat `.btn-pink`, which
+   only changes filter and transform on hover and never re-declares colour, so
+   every primary action in the app turned pink-on-pink under the cursor.
+   Excluding one class fixed one symptom: the active nav pill has white text on
+   the same pink gradient and this rule repainted that too, so hovering the
+   section you were already in made its label vanish. The next component with a
+   coloured background would have been the third.
+
+   `.btn` stays in the selector as well as the wrapper. Without it a `.btn`
+   with no colour of its own — `.btn-ghost`, `.btn-soft` — would start turning
+   pink on hover, which it never did. */
+:where(a:not(.btn)):hover { color: var(--pink-strong); }
+
+/* The footer sets its own quieter colour, which the rule above no longer
+   overrides, so it needs to say what hover does. */
+.footer a:hover { color: var(--pink-ink); }
 
 button { font-family: inherit; cursor: pointer; }
 input, select, textarea { font-family: inherit; }
@@ -493,6 +509,15 @@ input, select, textarea { font-family: inherit; }
   line-height: 1.6;
   color: #7a5c0a;
 }
+/* The one callout that is good news. Yellow reads as "mind this"; finishing a
+   path you chose deserves the colour the rest of the app uses for done. */
+.callout-green {
+  background: linear-gradient(180deg, #f1fbf5, var(--green-tint));
+  border-color: #c4e8d2;
+  color: var(--green-ink);
+  display: flex;
+  flex-direction: column;
+}
 
 .promo {
   background: linear-gradient(120deg, #fcd34d, #f6b73c);
@@ -504,6 +529,20 @@ input, select, textarea { font-family: inherit; }
   flex-direction: column;
   gap: 7px;
 }
+
+/* A card that is one big link *and* has a button in it.
+   Nesting a <button> inside an <a> is invalid markup and, worse, clicking it
+   navigates. So the link covers the card from the inside — its ::after is
+   stretched over the whole positioned card — and anything interactive sits
+   above that layer instead of inside it. */
+.card-linked { position: relative; }
+.stretch-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.above-link { position: relative; z-index: 1; }
 
 /* --- footer --------------------------------------------------------------- */
 
@@ -517,17 +556,29 @@ input, select, textarea { font-family: inherit; }
   color: var(--ink-3);
 }
 .footer a { color: var(--ink-3); }
+/* Real links now, so they need a hit area and a hover. 30px is below the 44px
+   touch guidance, but these sit in a footer rather than in a flow anybody has
+   to complete, and a footer of thumb-sized buttons dominates the page. */
 .footer .social {
-  width: 22px;
-  height: 22px;
+  width: 30px;
+  height: 30px;
   border-radius: var(--r-pill);
-  background: #f3f3f7;
+  background: var(--soft);
   color: var(--ink-2);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
-  font-weight: 600;
+  flex-shrink: 0;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+.footer .social:hover {
+  background: var(--pink);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.footer .social:focus-visible {
+  outline: 2px solid var(--pink);
+  outline-offset: 2px;
 }
 
 /* --- charts --------------------------------------------------------------- */

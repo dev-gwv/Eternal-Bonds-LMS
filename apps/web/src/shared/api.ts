@@ -174,6 +174,10 @@ export const api = {
   /* Journeys — the ordered answer to "what do I do first?" */
   journeys: () => get('/v1/journeys', list(Journey)).then((r) => r.items),
   journey: (slug: string) => get(`/v1/journeys/${slug}`, JourneyDetail),
+  // Returns the whole journey so the card that was pressed re-renders from the
+  // response rather than a second round trip.
+  followJourney: (slug: string, following: boolean) =>
+    send(following ? 'POST' : 'DELETE', `/v1/journeys/${slug}/follow`, undefined, JourneyDetail),
 
   createPost: (input: CreatePost) => send('POST', '/v1/community/posts', input, Post),
   markChannelRead: (slug: string) => send<void>('POST', `/v1/community/channels/${slug}/read`),

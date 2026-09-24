@@ -4,7 +4,13 @@ import { readEnv, type Env } from './env.ts';
 import { expireMemberships, reprocessWebhooks } from './jobs/billing.ts';
 import { awardBadges, eventReminders } from './jobs/platform.ts';
 import { buildWeeklyDigest, creditWorkshopAttendance, purgeDeletedAccounts, sweepExpired } from './jobs/lifecycle.ts';
-import { announceUnlocks, nudgeOnboarding, sendLearningNudges, warnCohortDeadlines } from './jobs/learning.ts';
+import {
+  announceUnlocks,
+  celebrateJourneys,
+  nudgeOnboarding,
+  sendLearningNudges,
+  warnCohortDeadlines,
+} from './jobs/learning.ts';
 import { closeVoteCycle, openVoteCycle } from './jobs/thinktank.ts';
 import { guardPublishedCourses, pollVideoStatus } from './jobs/media.ts';
 import { deliverNotifications, drainOutbox } from './jobs/notify.ts';
@@ -151,6 +157,15 @@ export const JOBS: JobDefinition[] = [
     description: 'Tell members when the next module of their course has opened',
     everySeconds: 900,
     run: ({ db }) => announceUnlocks(db),
+  },
+  {
+    kind: 'journey.complete',
+    // Fifteen minutes, because the gap between finishing the last lesson and
+    // being told you finished the path is the whole value of the message. An
+    // hour later it reads as bookkeeping.
+    description: 'Congratulate members who finished a path they chose, once',
+    everySeconds: 900,
+    run: ({ db }) => celebrateJourneys(db),
   },
   {
     kind: 'cohort.deadline',
