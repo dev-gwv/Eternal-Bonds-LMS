@@ -98,14 +98,31 @@ export function VideoPlayer({
     };
   }, [src]);
 
-  // Resume where the member left off, once metadata says the seek is legal.
+  /**
+   * Resume where the member left off, once — and only once per source.
+   *
+   * `startAt` is `lastPositionSeconds` and changes every time progress saves,
+   * so with it in the dependency array this effect re-ran throughout playback.
+   * The 2-second guard usually made the re-run a no-op, but a save that lands
+   * late carries an older position, and then this yanks the playhead backwards
+   * mid-sentence. A resume position is an opening instruction, not a
+   * subscription.
+   */
+  const resumeAt = useRef(startAt);
+  const resumed = useRef(false);
+  useEffect(() => {
+    resumed.current = false;
+  }, [src]);
+
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !ready || startAt <= 0) return;
-    if (Math.abs(video.currentTime - startAt) > 2 && startAt < video.duration - 5) {
-      video.currentTime = startAt;
+    const at = resumeAt.current;
+    if (!video || !ready || resumed.current || at <= 0) return;
+    resumed.current = true;
+    if (Math.abs(video.currentTime - at) > 2 && at < video.duration - 5) {
+      video.currentTime = at;
     }
-  }, [ready, startAt]);
+  }, [ready, src]);
 
   // Flush progress on unmount — otherwise navigating away loses the position.
   useEffect(() => {

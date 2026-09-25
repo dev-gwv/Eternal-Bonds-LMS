@@ -61,7 +61,25 @@ export function LessonPage() {
         watchedSeconds: vars.watchedSeconds,
         completed: vars.completed,
       }),
-    onSuccess: () => {
+    /**
+     * Only refetch when something visible changed.
+     *
+     * This used to invalidate the course on every save, and a save happens
+     * every fifteen seconds of watching. So a two-hour lesson refetched the
+     * whole course about four hundred and eighty times, each refetch
+     * re-rendered the page, and the Mark complete button flickered through
+     * its pending state the entire way down — which is what "glitching"
+     * looked like. It also churned `lastPositionSeconds`, which is what used
+     * to rebuild the player.
+     *
+     * A position tick changes nothing anybody is looking at: the position is
+     * already in the player. Only completion changes the page.
+     */
+    onSuccess: (_data, vars) => {
+      // Defined, not truthy. Un-marking a lesson sends `completed: false`, and
+      // that changes the page just as much as completing it does — a truthiness
+      // check here left the button saying "Completed" after it had been undone.
+      if (vars.completed === undefined) return;
       void queryClient.invalidateQueries({ queryKey: ['course', courseSlug] });
       void queryClient.invalidateQueries({ queryKey: ['courses'] });
     },
@@ -107,6 +125,11 @@ export function LessonPage() {
   }
 
   const done = all.filter((l) => l.completed).length;
+
+  /* A save the member asked for, as opposed to the background position tick.
+     `saveProgress.variables` is the payload of the mutation currently in
+     flight; only a completion carries the `completed` flag. */
+  const marking = saveProgress.isPending && saveProgress.variables?.completed !== undefined;
 
   return (
     <Page>
@@ -183,11 +206,16 @@ export function LessonPage() {
                 )}
               </span>
             </div>
+            {/* Busy only while a *completion* is in flight. `isPending` on its
+                own is also true for the position tick the player fires every
+                fifteen seconds, so the button greyed itself out and said
+                "Saving…" four times a minute for the whole lesson, with
+                nothing being saved that anybody had asked for. */}
             <button
               type="button"
               className={current.completed ? 'btn btn-green btn-sq' : 'btn btn-pink btn-sq'}
               style={{ padding: '12px 18px' }}
-              disabled={saveProgress.isPending}
+              disabled={marking}
               onClick={() =>
                 saveProgress.mutate({
                   lessonId: current.id,
@@ -198,7 +226,7 @@ export function LessonPage() {
               }
             >
               <Icon name="check" size={15} strokeWidth={2.6} />
-              {current.completed ? 'Completed' : saveProgress.isPending ? 'Saving…' : 'Mark complete'}
+              {marking ? 'Saving…' : current.completed ? 'Completed' : 'Mark complete'}
             </button>
           </div>
 

@@ -99,6 +99,21 @@ export function YouTubePlayer({
     endedRef.current = onEnded;
   }, [onProgress, onEnded]);
 
+  /**
+   * Where to resume, read once.
+   *
+   * `startAt` is `lastPositionSeconds`, and it changes every time progress is
+   * saved. It used to be in the effect's dependency array, which meant that
+   * every fifteen seconds of watching destroyed the player and built a new
+   * one: the video stopped, the iframe reloaded, and playback restarted. On a
+   * two-hour lesson that is about eight rebuilds a minute, which is what
+   * "not playing properly" looked like.
+   *
+   * It is an *initial* position, not a live one. Held in a ref so a later save
+   * cannot reach back and restart the thing that produced it.
+   */
+  const resumeAt = useRef(startAt);
+
   useEffect(() => {
     let disposed = false;
     let ticker: ReturnType<typeof setInterval> | null = null;
@@ -122,8 +137,9 @@ export function YouTubePlayer({
           onReady: () => {
             if (disposed || !player.current) return;
             const duration = player.current.getDuration();
-            if (startAt > 2 && duration > 0 && startAt < duration - 5) {
-              player.current.seekTo(startAt, true);
+            const at = resumeAt.current;
+            if (at > 2 && duration > 0 && at < duration - 5) {
+              player.current.seekTo(at, true);
             }
           },
           onStateChange: (event: { data: number }) => {
@@ -183,7 +199,10 @@ export function YouTubePlayer({
         player.current = null;
       }
     };
-  }, [videoId, startAt, reportEverySeconds]);
+    // Only the video. Rebuilding on anything else — a new resume position, a
+    // parent re-render — interrupts playback, which is the one thing a player
+    // must never do to itself.
+  }, [videoId]);
 
   if (failed) {
     return (
