@@ -65,8 +65,45 @@ app.use('*', session);
 app.use('*', idempotency);
 app.use('/v1/*', etag());
 
+/**
+ * Postgres codes that mean the *request* was wrong, not the server.
+ *
+ * `POST /v1/admin/lessons/undefined/video` answered 500. The literal string
+ * "undefined" went from the URL into `where lessons.id = $1`, Postgres refused
+ * the cast with 22P02, and a client bug came back looking like an outage —
+ * which sends whoever sees it to the server logs instead of to the call that
+ * built the URL from a value that was never set.
+ *
+ * Caught here rather than validated per route. There are around eighty `:id`
+ * parameters in this API and the failure mode is forgetting one, which is
+ * exactly how `/directory/badges` stayed a 500 for every member for a week. A
+ * middleware cannot do it either: a `use('*')` handler sees no route params,
+ * because the wildcard pattern has none to give it. The database is the one
+ * place every id actually arrives.
+ *
+ * Only codes that are unambiguously the caller's fault. A constraint violation
+ * or a deadlock is still a 500, because those are ours.
+ */
+const BAD_REQUEST_CODES: Record<string, { title: string; detail: string }> = {
+  // invalid_text_representation — "undefined" is not a uuid, "abc" is not an int.
+  '22P02': {
+    title: 'That is not a valid id',
+    detail:
+      'Something in the address is not the shape it should be. This usually means the step that created the ' +
+      'thing failed and its id was never set.',
+  },
+  // numeric_value_out_of_range
+  '22003': { title: 'That number is out of range', detail: 'One of the values is too large to store.' },
+};
+
 app.onError((err, c) => {
   if (err instanceof HttpError) return problem(c, err.status, err.title, err.detail);
+
+  // postgres.js puts the driver error on `cause` once Drizzle has wrapped it.
+  const code = (err as { code?: string }).code ?? (err as { cause?: { code?: string } }).cause?.code;
+  const known = code ? BAD_REQUEST_CODES[code] : undefined;
+  if (known) return problem(c, 400, known.title, known.detail);
+
   console.error(JSON.stringify({ requestId: c.get('requestId'), error: String(err), stack: err.stack }));
   return problem(c, 500, 'Internal Server Error');
 });
