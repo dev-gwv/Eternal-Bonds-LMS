@@ -59,13 +59,24 @@ try {
   check('both start on the free tier', Number(memberships?.count) === 2);
 
   console.log('\nTier gating');
+  /* Counted over Diamond courses specifically, not over the whole table.
+     This used to assert that a free member sees *zero* courses, which was only
+     ever true because every seeded course happened to be Diamond. The day the
+     club published its first free course the test went red while the
+     application was behaving perfectly — it was asserting a fact about the
+     seed data rather than about the rule it is named after. */
+  const [diamondTotal] = await db.execute<{ count: number }>(
+    sql`select count(*)::int as count from courses where min_tier = 'diamond' and is_published`,
+  );
   const freeCourses = await withUser(db, alice, (tx) =>
-    tx.execute<{ count: number }>(sql`select count(*)::int as count from courses`),
+    tx.execute<{ count: number }>(
+      sql`select count(*)::int as count from courses where min_tier = 'diamond'`,
+    ),
   );
   check(
     'a free member sees no diamond courses',
     Number(freeCourses[0]?.count) === 0,
-    `saw ${freeCourses[0]?.count}`,
+    `saw ${freeCourses[0]?.count} of ${diamondTotal?.count}`,
   );
 
   await db.execute(sql`
@@ -74,12 +85,16 @@ try {
   `);
 
   const paidCourses = await withUser(db, alice, (tx) =>
-    tx.execute<{ count: number }>(sql`select count(*)::int as count from courses`),
+    tx.execute<{ count: number }>(
+      sql`select count(*)::int as count from courses where min_tier = 'diamond'`,
+    ),
   );
   check(
-    'the same member sees them once on diamond',
-    Number(paidCourses[0]?.count) > 0,
-    `saw ${paidCourses[0]?.count}`,
+    // Every published Diamond course, not merely "more than none" — an upgrade
+    // that revealed one of nine would pass the weaker assertion.
+    'the same member sees all of them once on diamond',
+    Number(paidCourses[0]?.count) === Number(diamondTotal?.count),
+    `saw ${paidCourses[0]?.count} of ${diamondTotal?.count}`,
   );
 
   console.log('\nIsolation');

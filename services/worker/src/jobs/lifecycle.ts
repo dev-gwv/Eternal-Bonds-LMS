@@ -126,9 +126,10 @@ export async function creditWorkshopAttendance(db: Db) {
 /**
  * Deletes rows whose only job was to remember something for a short while.
  *
- * Idempotency records past their 24-hour replay window and rate-limit windows
- * that have already rolled over. Neither table is read after that point, and
- * neither has a natural upper bound, so something has to collect them.
+ * Idempotency records past their 24-hour replay window, rate-limit windows
+ * that have already rolled over, and outbox rows that were delivered a week
+ * ago. None of the three is read after that point and none has a natural upper
+ * bound, so something has to collect them.
  */
 export async function sweepExpired(db: Db) {
   const [idem] = await db.execute<{ n: number }>(sql`
@@ -141,5 +142,27 @@ export async function sweepExpired(db: Db) {
       delete from rate_limits where reset_at < now() - interval '1 hour' returning 1
     ) select count(*)::int as n from deleted
   `);
-  return { idempotencyKeys: Number(idem?.n ?? 0), rateLimits: Number(limits?.n ?? 0) };
+
+  /* Processed outbox rows.
+     The outbox is append-only and nothing ever deleted from it, so it grew
+     forever — and the drain reads it every thirty seconds. A partial index now
+     keeps that read fast whatever the size, but an unbounded table is still an
+     unbounded table: it is backed up, it is vacuumed, and one day somebody
+     runs `select count(*)` on it.
+     A week, not a day. A processed row is the only record of why a
+     notification exists, and a week is long enough to answer "why did this
+     member get that" on the Monday after it happened. */
+  const [events] = await db.execute<{ n: number }>(sql`
+    with deleted as (
+      delete from outbox
+      where processed_at is not null and processed_at < now() - interval '7 days'
+      returning 1
+    ) select count(*)::int as n from deleted
+  `);
+
+  return {
+    idempotencyKeys: Number(idem?.n ?? 0),
+    rateLimits: Number(limits?.n ?? 0),
+    outboxRows: Number(events?.n ?? 0),
+  };
 }
