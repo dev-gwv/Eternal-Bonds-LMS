@@ -440,6 +440,19 @@ input, select, textarea { font-family: inherit; }
   border-radius: var(--r-pill);
   padding: 10px 18px;
   transition: transform 0.14s ease, box-shadow 0.16s ease, background 0.16s ease, color 0.16s ease;
+
+  /* A button is as wide as its label, always.
+     Without these, a button sitting in a flex row beside a growing input is a
+     shrinkable box: the input takes the space, the button is squeezed to its
+     padding, and the label wraps one letter per line. "Ask" became a pink
+     circle reading "As / k" in the lesson Q&A, and the same thing had already
+     happened once to a course card title.
+     This belongs on `.btn` rather than on the row that showed it, because
+     every row in the application is one input away from the same bug. A row
+     that cannot fit its buttons should wrap or scroll; it should never mangle
+     the words on them. */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .btn:active { transform: scale(0.97); }
 .btn-pink { background: var(--grad-brand); color: #fff; box-shadow: var(--sh-brand); }
