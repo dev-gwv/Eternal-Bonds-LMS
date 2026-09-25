@@ -532,6 +532,10 @@ export const AdminLesson = z.object({
   videoAssetId: z.string().nullable(),
   /** The provider's own words on why a transcode failed. Actionable; shown. */
   videoError: z.string().nullable(),
+  /* The lesson's own notes. It has always been in `LessonInput` and was never
+     returned, so the studio could write it once at creation and never read it
+     back — which means it could never be edited. */
+  bodyMd: z.string().nullable().default(null),
 });
 export type AdminLesson = z.infer<typeof AdminLesson>;
 

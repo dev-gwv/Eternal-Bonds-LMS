@@ -118,35 +118,61 @@ export function InlineAdd({
   hint?: string;
   grow?: boolean;
 }) {
+  const field = useRef<HTMLInputElement>(null);
+  const [nudged, setNudged] = useState(false);
+
+  /**
+   * Never a dead click.
+   *
+   * This button used to be `disabled` until the field had a name in it, and
+   * that has now been reported as "I can't add a module" three separate times.
+   * A greyed button beside an empty box does not read as "type here first"; it
+   * reads as broken software, and the person stops trusting the page rather
+   * than looking for the field.
+   *
+   * So it stays enabled and does the most useful thing it can: puts the cursor
+   * where the name goes and says what it wants. The submit itself is still
+   * guarded — this is about what the interface admits, not what it permits.
+   */
+  const press = () => {
+    if (busy) return;
+    if (!valid) {
+      setNudged(true);
+      field.current?.focus();
+      return;
+    }
+    setNudged(false);
+    onSubmit();
+  };
+
   return (
     <span style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: grow ? 1 : undefined, minWidth: 0 }}>
       <span className="inline-add">
         <input
+          ref={field}
           value={value}
           placeholder={placeholder}
           aria-label={label}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            if (nudged) setNudged(false);
+          }}
           // Enter submits, because typing a name and reaching for the mouse is
           // the slow way to add eleven modules.
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && valid && !busy) onSubmit();
+            if (e.key === 'Enter') press();
           }}
         />
-        <button
-          type="button"
-          className="btn btn-soft"
-          disabled={!valid || busy}
-          title={valid ? undefined : hint}
-          onClick={onSubmit}
-        >
+        <button type="button" className="btn btn-soft" title={valid ? undefined : hint} onClick={press}>
           <Icon name="plus" size={13} />
           {busy ? 'Adding…' : label}
         </button>
       </span>
-      {/* Only once they have started typing something too short — a hint under
-          an untouched empty field is noise on every page load. */}
-      {value.trim().length > 0 && !valid && (
-        <span style={{ fontSize: 10 }} className="dim">
+      {/* After a press with nothing in the box, or once they have typed
+          something too short. Not on every page load — a hint under an
+          untouched field is noise. */}
+      {(nudged || value.trim().length > 0) && !valid && (
+        <span style={{ fontSize: 10 }} className="dim" role="status">
           {hint}
         </span>
       )}

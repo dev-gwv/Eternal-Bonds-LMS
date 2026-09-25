@@ -150,6 +150,20 @@ export async function attachVideo(
     assetId = id;
   }
 
+  if (direct && /^https?:\/\//i.test(input.key.trim())) {
+    /* A pasted link with no provider configured.
+       This used to fall through to the key-ownership check below and come back
+       as "That key does not belong to this lesson", which sends whoever reads
+       it looking for a permissions problem that does not exist. The real
+       answer is that the deployment has `VIDEO_PROVIDER=none`, and no message
+       in the studio said so. */
+    throw new HttpError(
+      409,
+      'No video provider is configured',
+      'This deployment has VIDEO_PROVIDER=none, so a pasted link cannot be attached. Set it to youtube, cloudflare or bunny and deploy.',
+    );
+  }
+
   if (direct && !input.key.startsWith(`lessons/${lessonId}/`)) {
     // The key came from the client, so it is not trusted. Without this check
     // an admin could point one lesson at another's asset.
@@ -303,6 +317,7 @@ const toAdminLesson = (row: typeof lessons.$inferSelect): AdminLesson => ({
   videoStatus: row.videoStatus,
   videoAssetId: row.videoAssetId,
   videoError: row.videoError,
+    bodyMd: row.summaryMd ?? null,
 });
 
 /** Counts lessons still waiting, so the studio can show a live badge. */

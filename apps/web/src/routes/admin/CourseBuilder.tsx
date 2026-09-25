@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { LessonInput, type AdminCourseDetail, type AdminLesson, type AdminModule, type Tier } from '@ipc/contracts';
 import { adminApi, fetchViewer, uploadLessonVideo } from '../../shared/admin-api.ts';
 import { QuizEditor } from './QuizEditor.tsx';
+import { LessonEditor } from './LessonEditor.tsx';
 import { CoverPicker } from '../../shared/ui/CoverPicker.tsx';
 import { clock } from '../../shared/api.ts';
 import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
@@ -218,6 +219,7 @@ function LessonRow({
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(lesson.title);
   const [quizOpen, setQuizOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['admin', 'course', courseId] });
 
   // The row is the source of truth while it is being edited; once the server
@@ -273,11 +275,29 @@ function LessonRow({
 
       <VideoCell lesson={lesson} courseId={courseId} />
 
+      {/* The rest of the lesson: its address, its length, its notes. All of
+          it was writable only at creation and never afterwards, and the notes
+          were never even read back. */}
+      <button
+        type="button"
+        className={editOpen ? 'btn btn-pink' : 'btn btn-ghost'}
+        style={editOpen ? { color: '#fff', fontSize: 10 } : { fontSize: 10 }}
+        onClick={() => {
+          setEditOpen((v) => !v);
+          setQuizOpen(false);
+        }}
+      >
+        Edit
+      </button>
+
       <button
         type="button"
         className={quizOpen ? 'btn btn-pink' : 'btn btn-ghost'}
         style={quizOpen ? { color: '#fff', fontSize: 10 } : { fontSize: 10 }}
-        onClick={() => setQuizOpen((v) => !v)}
+        onClick={() => {
+          setQuizOpen((v) => !v);
+          setEditOpen(false);
+        }}
       >
         Quiz
       </button>
@@ -287,6 +307,12 @@ function LessonRow({
       {/* Full width under the row, and only when asked for. A quiz is three
           questions with four options each; there is no version of that which
           fits in a table cell, and most lessons will never have one. */}
+      {editOpen && (
+        <div style={{ gridColumn: '1 / -1', paddingTop: 10 }}>
+          <LessonEditor lesson={lesson} courseId={courseId} onClose={() => setEditOpen(false)} />
+        </div>
+      )}
+
       {quizOpen && (
         <div style={{ gridColumn: '1 / -1', paddingTop: 10 }}>
           <QuizEditor lessonId={lesson.id} />

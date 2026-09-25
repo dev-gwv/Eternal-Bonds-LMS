@@ -30,7 +30,12 @@
   "vars": {
     "NODE_ENV": "production",
     "STORAGE_BUCKET": "ipc-media",
-    "VIDEO_PROVIDER": "none",
+    // YouTube: the club hosts its course videos there and pastes the link.
+    // It needs no credentials — no API key, no account, nothing to rotate —
+    // because attaching is link parsing and playing is the IFrame player.
+    // `none` was the placeholder, and with it set the attach endpoint treats a
+    // pasted URL as a storage key and refuses it.
+    "VIDEO_PROVIDER": "youtube",
 
     // Where links in emails and push notifications point.
     "APP_URL": "https://eternal-bonds-web.dev-d9b.workers.dev",
