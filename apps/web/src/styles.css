@@ -1325,8 +1325,29 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
 .nav-toggle { display: none; }
 
 /* Six pills plus a wordmark plus search is a full bar; let the nav take the
-   slack and wrap rather than pushing the actions off the edge. */
-.nav { flex: 1; justify-content: center; }
+   slack rather than pushing the actions off the edge.
+
+   `safe center`, not `center`. A centred flex line whose content is wider than
+   its box overflows *both* ends equally — so between about 720px and 1150px,
+   where six pills no longer fit, the first pill rendered on top of the
+   wordmark. "Eternal Bonds" became "Eter" with Dashboard sitting over it.
+   `safe` means "centre when it fits, start-align when it does not", which is
+   the behaviour anybody writing `center` here actually wanted. A browser that
+   does not understand it drops the line and keeps the plain `center` above.
+
+   And once it cannot fit, it has to be reachable: `overflow-x: auto` turns the
+   overflow into a swipe instead of pills hidden under the logo. Below 720px
+   the nav already gets its own full-width row; this covers the band between. */
+.nav {
+  flex: 1;
+  justify-content: center;
+  justify-content: safe center;
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.nav::-webkit-scrollbar { display: none; }
+.nav-pill { flex-shrink: 0; }
 
 .sidebar-scrim { display: none; }
 
