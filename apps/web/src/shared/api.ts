@@ -389,16 +389,10 @@ export const hoursMinutes = (minutes: number) => ({
   minutes: minutes % 60,
 });
 
-/** mm:ss for the player and lesson lists. */
-export const clock = (seconds: number) => {
-  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
-};
-
-export const durationLabel = (minutes: number) =>
-  minutes >= 60 ? `${Math.round(minutes / 60)}h` : `${minutes}m`;
+/* Re-exported so every existing call site keeps working. They live in
+   `format.ts` because they are pure and this module is not — importing a
+   number-to-string function should not drag in the auth client. */
+export { clock, durationLabel } from './format.ts';
 
 export const xpLabel = (xp: number) =>
   xp >= 100000 ? `${(xp / 100000).toFixed(xp % 100000 === 0 ? 0 : 2)}L` : `${Math.round(xp / 1000)}K`;
