@@ -53,12 +53,21 @@ function CourseCard({ course }: { course: Course }) {
           alt=""
           loading="lazy"
           decoding="async"
-          style={{ height: 104, width: '100%', objectFit: 'cover', borderRadius: 11, display: 'block' }}
+          /* 16:9, not a fixed 104px.
+             At a card width of ~370px a 104px slot is three and a half to one,
+             so `cover` threw away the top and bottom half of every image — and
+             a course cover is usually a 16:9 YouTube thumbnail with words on
+             it, which is exactly the thing that does not survive being cropped
+             to a letterbox. Matching the box to the shape the covers actually
+             are means nothing is cropped at all. */
+          style={{ aspectRatio: '16 / 9', width: '100%', objectFit: 'cover', borderRadius: 11, display: 'block' }}
         />
       ) : (
         <div
           style={{
-            height: 104,
+            // The fallback matches, so a shelf of covered and uncovered
+            // courses still lines up.
+            aspectRatio: '16 / 9',
             borderRadius: 11,
             background: tone.gradient,
             display: 'flex',
