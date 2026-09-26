@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import type { CourseDetail, Lesson } from '@ipc/contracts';
-import { api, clock } from '../shared/api.ts';
+import { api, clock, durationLabel } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { VideoPlayer } from '../shared/ui/VideoPlayer.tsx';
 import { YouTubePlayer } from '../shared/ui/YouTubePlayer.tsx';
@@ -94,6 +94,25 @@ export function LessonPage() {
     [current?.id],
   );
 
+  /**
+   * The only moment anything learns how long a YouTube lesson is.
+   *
+   * There is no upload and no provider webhook for one, so the catalogue
+   * carried 0:00 and "0h" until somebody pressed play. Sent only when the
+   * stored length is still zero — the endpoint enforces that too, but there is
+   * no reason to make the request at all once it is known.
+   */
+  const handleDuration = useCallback(
+    (seconds: number) => {
+      if (!current || current.durationSeconds > 0) return;
+      void api.reportLessonDuration(current.id, seconds).then(() => {
+        void queryClient.invalidateQueries({ queryKey: ['course', courseSlug] });
+        void queryClient.invalidateQueries({ queryKey: ['courses'] });
+      });
+    },
+    [current?.id, current?.durationSeconds, courseSlug],
+  );
+
   const handleEnded = useCallback(() => {
     if (!current || current.completed) return;
     // Reaching the end counts as done, in addition to the manual toggle.
@@ -177,6 +196,7 @@ export function LessonPage() {
               title={current.title}
               onProgress={handleProgress}
               onEnded={handleEnded}
+              onDurationKnown={handleDuration}
             />
           ) : (
             <VideoPlayer
@@ -200,7 +220,8 @@ export function LessonPage() {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{current.title}</h2>
               <span style={{ fontSize: 11 }} className="dim">
-                {current.moduleTitle} · {clock(current.durationSeconds)}
+                {current.moduleTitle}
+                {current.durationSeconds > 0 ? ` · ${clock(current.durationSeconds)}` : ''}
                 {current.lastPositionSeconds > 0 && !current.completed && (
                   <> · resuming at {clock(current.lastPositionSeconds)}</>
                 )}
@@ -266,7 +287,8 @@ export function LessonPage() {
             <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--rule)' }}>
               <div style={{ fontSize: 13, fontWeight: 600 }}>{course.data.title}</div>
               <div style={{ fontSize: 10, marginTop: 2 }} className="dim">
-                {all.length} lessons · {Math.round(course.data.durationMinutes / 60)}h
+                {all.length} lesson{all.length === 1 ? '' : 's'}
+                {course.data.durationMinutes > 0 ? ` · ${durationLabel(course.data.durationMinutes)}` : ''}
               </div>
             </div>
 
@@ -440,7 +462,14 @@ function LessonRow({
         {lesson.title}
       </span>
       {lesson.isPreview && !lesson.completed && <Chip tone="blue">Free</Chip>}
-      <span style={{ fontSize: 10 }} className="dim">{clock(lesson.durationSeconds)}</span>
+      {/* Nothing rather than "0:00". A length of zero means nobody has opened
+          the lesson yet, not that it is empty, and printing a confident 0:00
+          is worse than leaving the space quiet until it is known. */}
+      {lesson.durationSeconds > 0 && (
+        <span style={{ fontSize: 10 }} className="dim">
+          {clock(lesson.durationSeconds)}
+        </span>
+      )}
     </>
   );
 

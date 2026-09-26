@@ -217,6 +217,10 @@ export const api = {
       registered ? 'POST' : 'DELETE',
       `/v1/workshops/${workshopId}/registration`,
     ),
+  /* The player telling us how long the video is. Only ever fills a zero —
+     see `report_lesson_duration`. */
+  reportLessonDuration: (lessonId: string, seconds: number) =>
+    send('POST', `/v1/lessons/${lessonId}/duration`, { seconds }, z.object({ durationSeconds: z.int() })),
   saveProgress: (lessonId: string, input: ProgressUpdate) =>
     send<{ lessonId: string; completed: boolean; courseProgress: number }>(
       'PUT',

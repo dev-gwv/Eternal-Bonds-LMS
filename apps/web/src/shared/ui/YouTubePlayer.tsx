@@ -90,11 +90,16 @@ export function YouTubePlayer({
   title,
   onProgress,
   onEnded,
+  onDurationKnown,
   reportEverySeconds = 15,
 }: {
   videoId: string;
   startAt: number;
   title: string;
+  /* Called once, when YouTube first reports a length. Nothing else knows it:
+     there is no upload and no webhook for a YouTube lesson, so without this
+     the catalogue says 0:00 forever. */
+  onDurationKnown?: (seconds: number) => void;
   reportEverySeconds?: number;
 } & PlayerHandle) {
   const frame = useRef<HTMLDivElement>(null);
@@ -121,10 +126,16 @@ export function YouTubePlayer({
   // the effect does not need to tear the player down when a parent re-renders.
   const progressRef = useRef(onProgress);
   const endedRef = useRef(onEnded);
+  const durationRef = useRef(onDurationKnown);
   useEffect(() => {
     progressRef.current = onProgress;
     endedRef.current = onEnded;
-  }, [onProgress, onEnded]);
+    durationRef.current = onDurationKnown;
+  }, [onProgress, onEnded, onDurationKnown]);
+
+  // Reported once per mount. The duration does not change mid-video, and the
+  // endpoint ignores a second report anyway — this just avoids the request.
+  const durationReported = useRef(false);
 
   /**
    * Where to resume, read once.
@@ -174,6 +185,10 @@ export function YouTubePlayer({
             if (disposed || !player.current) return;
             const total = player.current.getDuration();
             setDuration(total);
+            if (total > 0 && !durationReported.current) {
+              durationReported.current = true;
+              durationRef.current?.(Math.round(total));
+            }
             setMuted(player.current.isMuted());
             const at = resumeAt.current;
             if (at > 2 && total > 0 && at < total - 5) {
@@ -192,6 +207,12 @@ export function YouTubePlayer({
             if (state === window.YT.PlayerState.PLAYING) {
               const total = player.current.getDuration();
               if (total > 0) setDuration(total);
+              // `getDuration()` is commonly 0 at onReady and only real once
+              // playback starts, so this is usually the report that lands.
+              if (total > 0 && !durationReported.current) {
+                durationReported.current = true;
+                durationRef.current?.(Math.round(total));
+              }
             }
 
             if (state === window.YT.PlayerState.ENDED) {

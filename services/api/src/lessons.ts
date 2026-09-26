@@ -207,3 +207,47 @@ export function saveSeedProgress(lessonId: string, positionSeconds: number, comp
     courseProgress: Math.round((done / siblings.length) * 100),
   };
 }
+
+/**
+ * Records how long a lesson's video is, once, from the browser that loaded it.
+ *
+ * `videoDurationSource` already distinguishes where a length came from — a
+ * provider webhook, or the browser. This is the browser case, and it exists
+ * because a YouTube lesson has neither an upload nor a webhook: nothing on the
+ * server ever learns the length, so a two-hour course reported "0h" forever
+ * and every estimate built on it was wrong.
+ *
+ * The write is conditional in SQL rather than checked first. Only a lesson
+ * whose duration is still zero is filled, so:
+ *
+ *   - the first person to open it fixes it for everyone
+ *   - a member cannot rewrite a length that is already known, which is what
+ *     makes it safe to accept this from any authenticated caller rather than
+ *     from admins only
+ *   - two people opening the lesson at the same moment cannot race, because
+ *     the condition and the update are one statement
+ *
+ * A provider-sourced length is never overwritten either: those arrive with a
+ * non-zero value, so the `= 0` guard excludes them by construction.
+ */
+export async function setDuration(
+  env: Env,
+  userId: string | null,
+  lessonId: string,
+  seconds: number,
+): Promise<{ durationSeconds: number }> {
+  const db = getDb(env);
+  if (!db || !userId) return { durationSeconds: 0 };
+
+  /* Through a definer function, because `lessons` is admin-write only and
+     correctly so — a member cannot be allowed to edit the catalogue. Written
+     as a plain update here it would have affected zero rows for every member
+     and silently done nothing, which is the failure this whole endpoint exists
+     to stop. */
+  return withUser(db, userId, async (tx) => {
+    const [row] = await tx.execute<{ report_lesson_duration: number }>(
+      sql`select public.report_lesson_duration(${lessonId}::uuid, ${seconds})`,
+    );
+    return { durationSeconds: Number(row?.report_lesson_duration ?? 0) };
+  });
+}
