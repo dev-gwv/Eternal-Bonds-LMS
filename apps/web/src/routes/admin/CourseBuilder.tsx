@@ -604,14 +604,21 @@ function Settings({ course }: { course: AdminCourseDetail }) {
         />
       </Field>
       <Toolbar>
-        <button type="button" className="btn btn-pink" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
+        <button
+          type="button"
+          className="btn btn-pink"
+          disabled={!dirty || save.isPending}
+          title={dirty ? undefined : 'Nothing has changed yet'}
+          onClick={() => save.mutate()}
+        >
           {save.isPending ? 'Saving…' : 'Save changes'}
         </button>
-        {dirty && (
-          <span style={{ fontSize: 10 }} className="dim">
-            Unsaved changes
-          </span>
-        )}
+        {/* Both states, not just the interesting one. A greyed Save with
+            nothing beside it reads as broken; "Everything saved" reads as
+            done, which is the same fact told the other way round. */}
+        <span style={{ fontSize: 11 }} className={dirty ? 'unsaved' : 'dim'}>
+          {save.isPending ? 'Saving…' : dirty ? 'Unsaved changes' : 'Everything saved'}
+        </span>
       </Toolbar>
     </Card>
   );

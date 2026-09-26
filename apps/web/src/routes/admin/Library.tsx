@@ -258,6 +258,13 @@ function NewCategory({ onDone }: { onDone: () => void }) {
         <button type="button" className="btn btn-ghost" onClick={onDone}>
           Cancel
         </button>
+        <span style={{ flex: 1 }} />
+        {/* Never a grey button with no reason beside it. */}
+        {!parsed.success && name.trim() !== '' && (
+          <span style={{ fontSize: 10.5, textAlign: 'right' }} className="dim">
+            {parsed.error.issues[0]?.message}
+          </span>
+        )}
       </Toolbar>
     </Card>
   );

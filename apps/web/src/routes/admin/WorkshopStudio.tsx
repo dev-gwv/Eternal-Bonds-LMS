@@ -154,6 +154,12 @@ function WorkshopForm({
         <button type="button" className="btn btn-ghost" onClick={onCancel}>
           Cancel
         </button>
+        {/* Which field is wrong, rather than a button that will not press. */}
+        {!parsed.success && draft.title.trim() !== '' && (
+          <span style={{ fontSize: 10.5 }} className="dim">
+            {parsed.error.issues[0]?.message}
+          </span>
+        )}
         <Switch
           label="Part of a recurring series"
           checked={draft.recurring}
