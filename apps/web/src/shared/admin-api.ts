@@ -33,6 +33,7 @@ import {
   type GrantTier,
   type ModuleInput,
   type QuizQuestionInput,
+  type SetRole,
   type SetSuspended,
   type WorkshopInput,
 } from '@ipc/contracts';
@@ -139,6 +140,8 @@ export const adminApi = {
     call('POST', `/v1/admin/members/${id}/tier`, { body, schema: AdminMemberDetail }),
   setSuspended: (id: string, body: SetSuspended) =>
     call('POST', `/v1/admin/members/${id}/suspension`, { body, schema: AdminMemberDetail }),
+  setRole: (id: string, body: SetRole) =>
+    call('POST', `/v1/admin/members/${id}/role`, { body, schema: AdminMemberDetail }),
 
   /* Cohorts. One start date, and the schedule falls out of it. */
   revenue: (days = 90) => call('GET', `/v1/admin/revenue?days=${days}`, { schema: Revenue }),

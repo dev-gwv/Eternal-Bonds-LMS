@@ -1376,6 +1376,20 @@ export const SetSuspended = z.object({
 });
 export type SetSuspended = z.infer<typeof SetSuspended>;
 
+/**
+ * Changing what somebody is allowed to do.
+ *
+ * The most dangerous write in the application, so it carries a reason like a
+ * suspension does — the audit log is the only record of why somebody has the
+ * keys, and "who made this person an admin, and when" is a question that gets
+ * asked exactly once, urgently.
+ */
+export const SetRole = z.object({
+  role: z.enum(['member', 'instructor', 'admin']),
+  reason: z.string().trim().min(3).max(300),
+});
+export type SetRole = z.infer<typeof SetRole>;
+
 /* ── Member media uploads ────────────────────────────────────────────────
    Posts and wins share one shape. The browser asks for a ticket, PUTs the
    file straight at storage, then tells the API the key it used — the file

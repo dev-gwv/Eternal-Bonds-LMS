@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { GrantTier, SetSuspended } from '@ipc/contracts';
+import { GrantTier, SetRole, SetSuspended } from '@ipc/contracts';
 import type { AppEnv } from '../context.ts';
 import { problem } from '../lib/problem.ts';
-import { getMember, grantTier, listMembers, setSuspended } from '../members.ts';
+import { getMember, grantTier, listMembers, setRole, setSuspended } from '../members.ts';
 import { requireAdmin } from '../middleware/auth.ts';
 
 /**
@@ -50,5 +50,13 @@ export const membersRoutes = new Hono<AppEnv>()
 
   .post('/:id/suspension', zValidator('json', SetSuspended, invalid as never), async (c) => {
     await setSuspended(c.env, c.get('userId') ?? '', c.req.param('id'), c.req.valid('json'));
+    return c.json(await getMember(c.env, c.get('userId') ?? '', c.req.param('id')));
+  })
+
+  /* Promoting somebody. The guards are in `setRole` rather than here, because
+     the last-admin check has to be part of the update statement and not a
+     read-then-write in a handler. */
+  .post('/:id/role', zValidator('json', SetRole, invalid as never), async (c) => {
+    await setRole(c.env, c.get('userId') ?? '', c.req.param('id'), c.req.valid('json'));
     return c.json(await getMember(c.env, c.get('userId') ?? '', c.req.param('id')));
   });

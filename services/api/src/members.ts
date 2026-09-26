@@ -5,6 +5,7 @@ import type {
   AdminMemberPage,
   GrantTier,
   MemberRisk,
+  SetRole,
   SetSuspended,
 } from '@ipc/contracts';
 import type { Env } from './env.ts';
@@ -296,6 +297,79 @@ export async function grantTier(
     insert into public.audit_log (actor_id, action, target_type, target_id, meta)
     values (${adminId}::uuid, 'member.tier_granted', 'user', ${memberId}::uuid,
             ${JSON.stringify({ tier: input.tier, months: input.months, reason: input.reason })}::jsonb)
+  `);
+}
+
+/**
+ * Promoting somebody, or taking it back.
+ *
+ * Until now this could only be done with a SQL console, which meant either the
+ * club waits for a developer or a developer keeps production credentials to
+ * hand. Neither is a good answer for "make my co-founder an admin".
+ *
+ * Three guards, and the third is the one that matters:
+ *
+ * **Not yourself.** Not because self-promotion is possible — you already have
+ * to be an admin to reach this — but because self-*demotion* is one misclick
+ * from locking yourself out of the console you are standing in.
+ *
+ * **The target must exist**, so a stale page reports a missing member rather
+ * than silently updating nothing.
+ *
+ * **Never the last admin.** A club with zero admins cannot appoint one: every
+ * route that could is behind `requireAdmin`, and every policy that could is
+ * behind `is_admin()`. The only way back is a SQL console, which is precisely
+ * the thing this function exists to avoid needing. Counted in the same
+ * statement as the update so two admins demoting each other at once cannot
+ * both pass the check.
+ */
+export async function setRole(
+  env: Env,
+  adminId: string,
+  memberId: string,
+  input: SetRole,
+): Promise<void> {
+  const db = requireDb(env);
+
+  if (memberId === adminId) {
+    throw new HttpError(
+      409,
+      'You cannot change your own role',
+      'Ask another admin to do it — this is what stops somebody locking themselves out.',
+    );
+  }
+
+  const [target] = await db.execute<{ role: string }>(
+    sql`select role::text as role from public.users where id = ${memberId}::uuid`,
+  );
+  if (!target) throw new HttpError(404, 'Member not found');
+  if (target.role === input.role) return;
+
+  const [updated] = await db.execute<{ id: string }>(sql`
+    update public.users set role = ${input.role}::public.role
+    where id = ${memberId}::uuid
+      -- Demoting an admin is allowed only while another one remains. Evaluated
+      -- inside the update, so the count and the write are one atomic step.
+      and (
+        ${input.role} = 'admin'
+        or role <> 'admin'
+        or (select count(*) from public.users where role = 'admin' and not is_suspended) > 1
+      )
+    returning id
+  `);
+
+  if (!updated) {
+    throw new HttpError(
+      409,
+      'That is the only admin left',
+      'Promote somebody else first. A club with no admins cannot appoint one without a database console.',
+    );
+  }
+
+  await db.execute(sql`
+    insert into public.audit_log (actor_id, action, target_type, target_id, meta)
+    values (${adminId}::uuid, 'member.role_changed', 'user', ${memberId}::uuid,
+            ${JSON.stringify({ from: target.role, to: input.role, reason: input.reason })}::jsonb)
   `);
 }
 

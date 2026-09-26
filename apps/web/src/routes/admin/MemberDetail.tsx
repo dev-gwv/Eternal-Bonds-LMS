@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { AdminMemberDetail, Tier } from '@ipc/contracts';
+import { RoleForm } from './RoleForm.tsx';
 import { adminApi } from '../../shared/admin-api.ts';
 import { relativeTime } from '../../shared/api.ts';
 import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
@@ -133,6 +134,7 @@ export function MemberDetailPage() {
   const { id } = useParams({ from: '/admin/members/$id' });
   const queryClient = useQueryClient();
   const [granting, setGranting] = useState(false);
+  const [roleOpen, setRoleOpen] = useState(false);
 
   const member = useQuery({ queryKey: ['admin', 'member', id], queryFn: () => adminApi.member(id) });
 
@@ -179,6 +181,11 @@ export function MemberDetailPage() {
               <Icon name="edit" size={13} />
               Grant tier
             </button>
+            {/* The only way to make somebody an admin without a SQL console. */}
+            <button type="button" className="btn btn-soft" onClick={() => setRoleOpen((r) => !r)}>
+              <Icon name="people" size={13} />
+              Role
+            </button>
             {m.suspended ? (
               <button
                 type="button"
@@ -202,6 +209,7 @@ export function MemberDetailPage() {
 
       <ErrorNote error={suspend.error} />
       {granting && <TierForm member={m} onDone={() => setGranting(false)} />}
+      {roleOpen && <RoleForm member={m} onDone={() => setRoleOpen(false)} />}
 
       <div className="content">
         <div className="col col-main">
