@@ -323,6 +323,10 @@ export const api = {
     get(`/v1/learning/lessons/${lessonId}/questions`, z.object({ items: z.array(LessonQuestion) })).then((r) => r.items),
   askQuestion: (lessonId: string, bodyMd: string, parentId?: string) =>
     send('POST', `/v1/learning/lessons/${lessonId}/questions`, { bodyMd, parentId: parentId ?? null }),
+  resolveQuestion: (id: string, resolved: boolean) =>
+    send('POST', `/v1/learning/questions/${id}/resolve`, { resolved },
+      z.object({ id: z.uuid(), resolved: z.boolean() })),
+  deleteQuestion: (id: string) => send<void>('DELETE', `/v1/learning/questions/${id}`),
   lessonNote: (lessonId: string) => get(`/v1/learning/lessons/${lessonId}/notes`, LessonNote),
   saveNote: (lessonId: string, bodyMd: string) => send('PUT', `/v1/learning/lessons/${lessonId}/notes`, { bodyMd }),
   lessonResources: (lessonId: string) =>

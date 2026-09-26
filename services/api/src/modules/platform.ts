@@ -125,7 +125,8 @@ export const learningRoutes = new Hono<AppEnv>()
         const node = byId.get(r.q.id)!;
         if (r.q.parentId && byId.has(r.q.parentId)) {
           byId.get(r.q.parentId)!.replies.push({
-            id: node.id, bodyMd: node.bodyMd, authorName: node.author.name, createdAt: node.createdAt,
+            id: node.id, bodyMd: node.bodyMd, authorName: node.author.name,
+            createdAt: node.createdAt, mine: node.mine,
           });
         } else roots.push(node);
       }
@@ -148,11 +149,39 @@ export const learningRoutes = new Hono<AppEnv>()
         return c.json({ id: row.id }, 201);
       });
     })
-  .post('/questions/:id/resolve', requireAuth, async (c) => {
+  /* Marking a thread answered, both ways.
+     It only ever set `true`, so a thread resolved by mistake stayed resolved —
+     and the UI never called it at all, which is why the "Resolved" chip could
+     never appear. RLS restricts the write to the question's author or an
+     admin, so a passer-by cannot close somebody else's thread. */
+  .post('/questions/:id/resolve', requireAuth,
+    zValidator('json', z.object({ resolved: z.boolean() }), invalid),
+    async (c) => {
+      const db = needDb(c.env);
+      return withUser(db, c.get('userId'), async (tx) => {
+        const rows = await tx.update(lessonQuestions)
+          .set({ resolved: c.req.valid('json').resolved })
+          .where(and(eq(lessonQuestions.id, c.req.param('id')), sql`${lessonQuestions.deletedAt} is null`))
+          .returning({ id: lessonQuestions.id, resolved: lessonQuestions.resolved });
+        // Zero rows means RLS refused it — somebody else's thread.
+        if (!rows[0]) throw new HttpError(404, 'That question is not yours to resolve');
+        return c.json(rows[0]);
+      });
+    })
+
+  /* Removing your own question or answer.
+     `deleted_at` has been on this table from the start with nothing able to
+     set it. Soft, because a deleted answer leaves a reply above it that stops
+     making sense, and the panel already renders a tombstone for one. */
+  .delete('/questions/:id', requireAuth, async (c) => {
     const db = needDb(c.env);
     return withUser(db, c.get('userId'), async (tx) => {
-      await tx.update(lessonQuestions).set({ resolved: true }).where(eq(lessonQuestions.id, c.req.param('id')));
-      return c.json({ ok: true });
+      const rows = await tx.update(lessonQuestions)
+        .set({ deletedAt: new Date() })
+        .where(and(eq(lessonQuestions.id, c.req.param('id')), sql`${lessonQuestions.deletedAt} is null`))
+        .returning({ id: lessonQuestions.id });
+      if (!rows[0]) throw new HttpError(404, 'That question is not yours to delete');
+      return c.body(null, 204);
     });
   })
   .get('/lessons/:id/notes', requireAuth, async (c) => {

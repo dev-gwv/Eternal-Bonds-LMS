@@ -9,6 +9,7 @@ import { YouTubePlayer } from '../shared/ui/YouTubePlayer.tsx';
 import { Card, Chip, Icon } from '../shared/ui/primitives.tsx';
 import { useToast } from '../shared/ui/Toast.tsx';
 import { LessonQuiz } from '../shared/ui/LessonQuiz.tsx';
+import { LessonDiscussion } from '../shared/ui/LessonDiscussion.tsx';
 
 type Tab = 'notes' | 'files' | 'qa';
 
@@ -256,7 +257,7 @@ export function LessonPage() {
               [
                 ['notes', 'Notes'],
                 ['files', 'Files'],
-                ['qa', 'Q&A'],
+                ['qa', 'Discussion'],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -279,7 +280,7 @@ export function LessonPage() {
 
           {tab === 'notes' && <LessonNotesPanel lessonId={current.id} />}
           {tab === 'files' && <LessonFilesPanel lessonId={current.id} title={current.title} />}
-          {tab === 'qa' && <LessonQaPanel lessonId={current.id} />}
+          {tab === 'qa' && <LessonDiscussion lessonId={current.id} />}
         </div>
 
         <aside className="col rail">
@@ -491,7 +492,7 @@ function LessonRow({
   );
 }
 
-/* ── Lesson panels: notes, files, Q&A — backed by /v1/learning ────────── */
+/* ── Lesson panels: notes and files. Discussion lives in shared/ui. ───── */
 
 function LessonNotesPanel({ lessonId }: { lessonId: string }) {
   const qc = useQueryClient();
@@ -527,38 +528,6 @@ function LessonFilesPanel({ lessonId, title }: { lessonId: string; title: string
           <span style={{ flex: 1, fontSize: 12 }}>{f.title}</span>
           <Chip>{f.mime.split('/')[1]?.toUpperCase() ?? 'FILE'}</Chip>
           <a className="btn btn-blue btn-sq" href={f.url} download>Download</a>
-        </div>
-      ))}
-    </Card>
-  );
-}
-
-function LessonQaPanel({ lessonId }: { lessonId: string }) {
-  const qc = useQueryClient();
-  const [draft, setDraft] = useState('');
-  const questions = useQuery({ queryKey: ['questions', lessonId], queryFn: () => api.lessonQuestions(lessonId) });
-  const ask = useMutation({
-    mutationFn: () => api.askQuestion(lessonId, draft),
-    onSuccess: () => { setDraft(''); qc.invalidateQueries({ queryKey: ['questions', lessonId] }); },
-  });
-  return (
-    <Card>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input className="input" placeholder="Ask at the point of confusion…" value={draft}
-          onChange={(e) => setDraft(e.target.value)} aria-label="Ask a question" />
-        <button className="btn btn-pink" disabled={draft.trim().length < 4 || ask.isPending}
-          onClick={() => ask.mutate()}>Ask</button>
-      </div>
-      {questions.data?.map((q) => (
-        <div key={q.id} style={{ padding: '8px 0', borderTop: '1px solid var(--line)' }}>
-          <span style={{ fontSize: 12, fontWeight: 600 }}>{q.author.name}</span>
-          {q.resolved && <Chip tone="green">Resolved</Chip>}
-          <p style={{ fontSize: 12, margin: '4px 0' }}>{q.bodyMd}</p>
-          {q.replies.map((r) => (
-            <p key={r.id} style={{ fontSize: 11, marginLeft: 16 }} className="muted">
-              <strong>{r.authorName}:</strong> {r.bodyMd}
-            </p>
-          ))}
         </div>
       ))}
     </Card>

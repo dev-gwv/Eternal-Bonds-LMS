@@ -33,6 +33,35 @@ async function fanOut(db: Db, row: Outbox): Promise<number> {
   const p = row.payload;
 
   switch (row.topic) {
+    /* Somebody answered a question under a lesson.
+       The one part of the discussion pipeline that was missing, and the part
+       that decides whether anybody asks a second question: a question answered
+       into silence may as well not have been. */
+    case 'lesson.answered': {
+      const askerId = p.askerId as string | undefined;
+      if (!askerId) return 0;
+      const inserted = await db.execute<{ id: string }>(sql`
+        insert into notifications (user_id, kind, title, body, link, subject_type, subject_id)
+        select
+          ${askerId}::uuid,
+          'lesson.answered',
+          coalesce(u.full_name, 'Someone') || ' answered your question',
+          left(q.body_md, 140),
+          '/learn/' || c.slug || '/' || l.slug,
+          'lesson',
+          l.id
+        from lesson_questions q
+        join users u on u.id = q.author_id
+        join lessons l on l.id = q.lesson_id
+        join modules m on m.id = l.module_id
+        join courses c on c.id = m.course_id
+        where q.id = ${p.answerId as string}::uuid
+        on conflict do nothing
+        returning id
+      `);
+      return inserted.length;
+    }
+
     case 'post.replied': {
       const authorId = p.authorId as string | undefined;
       if (!authorId) return 0;

@@ -59,7 +59,9 @@ for (const file of apiFiles) {
       continue;
     }
     for (const m of block.matchAll(/\.(get|post|put|patch|delete)\(\s*'([^']+)'/g)) {
-      if (m[2] === 'userId') continue;
+      // `c.get('requestId')` is a context read, not a route. A route path
+      // always starts with a slash; a bare word never does.
+      if (!m[2]!.startsWith('/')) continue;
       routes.push({ file, verb: m[1]!.toUpperCase(), path: m[2]!, router: routerName! });
     }
   }
@@ -81,15 +83,30 @@ function callablePath(r: Route): string {
   return chain.join('') + (r.path === '/' ? '' : r.path);
 }
 
-/** The first literal segment of a path is enough to find a call site. */
-const searchable = (p: string) => p.split('/:')[0]!.replace(/\{[^}]*\}/g, '');
+/**
+ * The literal segments of a path, so a caller can be recognised.
+ *
+ * This used to take only the first segment, which made
+ * `POST /questions/:id/resolve` look called: the word "questions" appears in
+ * `api.lessonQuestions`, an unrelated read. The resolve endpoint existed for
+ * weeks with nothing calling it and this audit reported it as fine — the
+ * "Resolved" chip in the lesson panel could never turn on and nothing said so.
+ *
+ * Matching every literal segment fixes that class: `resolve` has to appear
+ * somewhere too, not merely `questions`.
+ */
+const literalSegments = (p: string) =>
+  p
+    .split('/')
+    .filter((seg) => seg && !seg.startsWith(':'))
+    .map((seg) => seg.replace(/\{[^}]*\}/g, ''))
+    .filter((seg) => seg.length >= 3);
 
 const uncalled = routes.filter((r) => {
-  const tail = searchable(r.path);
-  if (tail === '' || tail === '/') return false;
-  const needle = tail.replace(/^\//, '');
-  if (needle.length < 3) return false;
-  return !webSrc.includes(needle) && !otherSrc.includes(needle);
+  const segments = literalSegments(r.path);
+  if (segments.length === 0) return false;
+  // Called only if *every* literal segment turns up somewhere a caller lives.
+  return !segments.every((seg) => webSrc.includes(seg) || otherSrc.includes(seg));
 });
 
 /* ── 2. Tables nothing touches ─────────────────────────────────────────── */

@@ -727,6 +727,7 @@ export const NotificationKind = z.enum([
   'challenge.open',
   'challenge.ending',
   'challenge.won',
+  'lesson.answered',
 ]);
 export type NotificationKind = z.infer<typeof NotificationKind>;
 
@@ -1219,6 +1220,9 @@ export const LessonQuestion = z.object({
   createdAt: z.iso.datetime(),
   replies: z.array(z.object({
     id: z.uuid(), bodyMd: z.string(), authorName: z.string(), createdAt: z.iso.datetime(),
+    /* So a reply can offer its own delete. Without it the panel could show
+       the control on somebody else's answer and only find out from a 404. */
+    mine: z.boolean().default(false),
   })).default([]),
 });
 export type LessonQuestion = z.infer<typeof LessonQuestion>;
