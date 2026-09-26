@@ -623,6 +623,23 @@ input, select, textarea { font-family: inherit; }
    than the viewport gives the whole page a horizontal scrollbar, and on a
    phone that turns every vertical swipe into a fight. */
 
+/* Reserve the scrollbar's width on every page, scrolling or not.
+   The document is the scroll container, so a page whose content overflows gets
+   a ~15px scrollbar and a page that fits does not. Navigating between the two
+   changes the usable width — measured here as 1905px against 1920px — and
+   everything centred moves sideways. The header links are the widest centred
+   thing on the page, so they move most, and it reads as the layout snapping.
+
+   `scrollbar-gutter: stable` is the modern way to say this and is kept for the
+   platforms where it is the better mechanism, including the overlay-scrollbar
+   ones where it correctly reserves nothing. It is not what fixes it here: with
+   this document's overflow set-up Chrome reserved no gutter in any combination
+   I measured, while `overflow-y: scroll` reserved the full 15px on every page.
+   So the old, blunt, universally supported rule is the one doing the work, and
+   the cost is an empty scrollbar track on short pages — cheaper than the whole
+   interface jumping every time somebody clicks a nav link. */
+html { scrollbar-gutter: stable; overflow-y: scroll; }
+
 html, body { overflow-x: hidden; }
 img, svg, video { max-width: 100%; }
 
