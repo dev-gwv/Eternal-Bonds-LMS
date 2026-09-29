@@ -212,28 +212,38 @@ function CourseRow({ course }: { course: AdminCourse }) {
         <Chip>{course.minTier}</Chip>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11 }} className="muted">
-        <span>/{course.slug}</span>
-        <span>·</span>
-        <span>{course.lessonCount} lessons</span>
-        <span>·</span>
-        <span>{durationLabel(course.durationMinutes)}</span>
-        <span style={{ flex: 1 }} />
-        <Link to="/admin/courses/$id" params={{ id: course.id }} className="btn btn-soft">
-          <Icon name="edit" size={13} />
-          Edit
-        </Link>
-        <button
-          type="button"
-          className={course.isPublished ? 'btn btn-soft' : 'btn btn-green'}
-          disabled={publish.isPending}
-          onClick={() => publish.mutate(!course.isPublished)}
-        >
-          {course.isPublished ? 'Unpublish' : 'Publish'}
-        </button>
-        {!course.isPublished && (
-          <ConfirmButton label="Delete" onConfirm={() => remove.mutate()} disabled={remove.isPending} />
-        )}
+      <div className="split">
+        <div className="split-meta">
+          <span>/{course.slug}</span>
+          <span className="dot-sep">·</span>
+          <span>{course.lessonCount} lessons</span>
+          <span className="dot-sep">·</span>
+          <span>{durationLabel(course.durationMinutes)}</span>
+        </div>
+        <div className="split-actions">
+          <Link to="/admin/courses/$id" params={{ id: course.id }} className="btn btn-soft">
+            <Icon name="edit" size={13} />
+            Edit
+          </Link>
+          <button
+            type="button"
+            className={course.isPublished ? 'btn btn-soft' : 'btn btn-green'}
+            disabled={publish.isPending}
+            onClick={() => publish.mutate(!course.isPublished)}
+          >
+            {course.isPublished ? 'Unpublish' : 'Publish'}
+          </button>
+          {/* Published rows keep an invisible Delete in the same slot, so the
+              Edit and Publish buttons sit in the same columns on every row
+              instead of shifting wherever a draft happens to be. */}
+          {course.isPublished ? (
+            <span aria-hidden="true" className="slot-hidden">
+              <span className="btn btn-ghost">Delete</span>
+            </span>
+          ) : (
+            <ConfirmButton label="Delete" onConfirm={() => remove.mutate()} disabled={remove.isPending} />
+          )}
+        </div>
       </div>
 
       <ErrorNote error={publish.error ?? remove.error} />

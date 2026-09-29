@@ -388,6 +388,29 @@ input, select, textarea { font-family: inherit; }
 }
 .card-row.lift:hover { transform: translateY(-2px); box-shadow: var(--sh-md); }
 .card-title { font-size: 14px; font-weight: 600; letter-spacing: 0.005em; }
+
+/* --- split rows ------------------------------------------------------------
+   Meta on the left, actions on the right, wrapping gracefully on narrow
+   screens. This replaces the old "meta text · meta text <spacer> buttons" rows
+   where buttons shared a baseline with 11px text, conditional buttons shifted
+   their siblings every other row, and the whole row overflowed on a phone. */
+.split { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
+.split-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 240px;
+  min-width: 0;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.split-meta .dot-sep { color: var(--ink-4); }
+.split-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+/* Reserves the slot of a conditional button so its siblings do not shift
+   between rows that have it and rows that do not. */
+.slot-hidden { visibility: hidden; }
+.slot-hidden > * { pointer-events: none; }
 .section-label {
   display: flex;
   align-items: center;

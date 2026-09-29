@@ -223,29 +223,36 @@ function WorkshopRow({ workshop }: { workshop: AdminWorkshop }) {
         hint="16:9. Shown on the workshops page, which is otherwise a list of dates."
         invalidate={[['admin', 'workshops'], ['workshops']]}
       />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11 }} className="muted">
-        <span>{dayHeading(workshop.startsAt)}</span>
-        <span>·</span>
-        <span>{timeRange(workshop.startsAt, workshop.endsAt)}</span>
-        <span>·</span>
-        <span>
-          {workshop.registrationCount} registered
-          {workshop.capacity !== null ? ` of ${workshop.capacity}` : ''}
-        </span>
-        {!workshop.joinUrl && (
-          <>
-            <span>·</span>
-            <span style={{ color: 'var(--yellow-ink)' }}>No join link yet</span>
-          </>
-        )}
-        <span style={{ flex: 1 }} />
-        <button type="button" className="btn btn-soft" onClick={() => setEditing(true)}>
-          <Icon name="edit" size={13} />
-          Edit
-        </button>
-        {workshop.registrationCount === 0 && (
-          <ConfirmButton label="Delete" onConfirm={() => remove.mutate()} disabled={remove.isPending} />
-        )}
+      <div className="split">
+        <div className="split-meta">
+          <span>{dayHeading(workshop.startsAt)}</span>
+          <span className="dot-sep">·</span>
+          <span>{timeRange(workshop.startsAt, workshop.endsAt)}</span>
+          <span className="dot-sep">·</span>
+          <span>
+            {workshop.registrationCount} registered
+            {workshop.capacity !== null ? ` of ${workshop.capacity}` : ''}
+          </span>
+          {!workshop.joinUrl && (
+            <>
+              <span className="dot-sep">·</span>
+              <span style={{ color: 'var(--yellow-ink)' }}>No join link yet</span>
+            </>
+          )}
+        </div>
+        <div className="split-actions">
+          <button type="button" className="btn btn-soft" onClick={() => setEditing(true)}>
+            <Icon name="edit" size={13} />
+            Edit
+          </button>
+          {workshop.registrationCount === 0 ? (
+            <ConfirmButton label="Delete" onConfirm={() => remove.mutate()} disabled={remove.isPending} />
+          ) : (
+            <span aria-hidden="true" className="slot-hidden">
+              <span className="btn btn-ghost">Delete</span>
+            </span>
+          )}
+        </div>
       </div>
       <ErrorNote error={remove.error} />
     </div>

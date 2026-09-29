@@ -193,7 +193,7 @@ export function MemberPage() {
             }
           >
             {(courses.data ?? []).slice(0, 4).map((course) => (
-              <div key={course.id} className="card-row">
+              <div key={course.id} className="card-row" style={{ flexWrap: 'wrap', rowGap: 8 }}>
                 <Tile size={40} tone={course.status === 'completed' ? 'blue' : 'pink'}>
                   <span style={{ fontSize: 11, fontWeight: 600 }}>
                     {course.title.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
