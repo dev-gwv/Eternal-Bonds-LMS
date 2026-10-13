@@ -1,10 +1,10 @@
 # Deploying
 
-Everything runs on **Cloudflare Workers**.
+The API and background jobs run on **Cloudflare Workers**. The web app runs on **Vercel**.
 
 | Piece | What it is |
 |---|---|
-| `apps/web` | The member app and studio — a static bundle served from the edge |
+| `apps/web` | The member app and studio — a static bundle on Vercel |
 | `services/api` | The Hono app, as a real Worker (`services/api/src/worker.ts`) |
 | Background jobs | The same Worker's `scheduled()` handler, on a Cron Trigger |
 
@@ -195,20 +195,43 @@ plus a rollup job in the same isolate can exceed 10ms, and Hyperdrive needs it.
 Start free; move when a `scheduled()` run shows up as an exceeded-CPU error in
 `wrangler tail`.
 
-## The web app → Cloudflare Workers
+## The web app → Vercel
 
-```bash
-VITE_API_URL=https://eternal-bonds-api.<your-subdomain>.workers.dev VITE_SUPABASE_URL=https://xxxx.supabase.co VITE_SUPABASE_ANON_KEY=sb_publishable_… bun run deploy:web
-```
+Live at **https://eternal-bonds.vercel.app**. Vercel's Git integration builds
+and deploys it on every push to `main`, with a preview for every other branch.
+There is no web job in `deploy.yml`.
 
-`apps/web/wrangler.jsonc` serves `dist/` with
-`not_found_handling: "single-page-application"`, because TanStack Router owns
-the URL space — a deep link like `/admin/courses/<id>` has to reach the bundle
-rather than 404 at the edge.
+Project settings:
 
-Then set `ALLOWED_ORIGINS` on the API to this URL, or every request the browser
-makes is blocked before it arrives and the app looks broken for no visible
-reason.
+| Setting | Value |
+|---|---|
+| Root Directory | `apps/web` |
+| Framework preset | Vite |
+| Install Command | `cd ../.. && bun install --frozen-lockfile` (workspace packages live at the root) |
+| Build Command | `bun run build` |
+| Output Directory | `dist` |
+
+Environment variables (Production and Preview): `VITE_API_URL`,
+`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and optionally
+`VITE_SUPPORT_EMAIL` and `VITE_SOCIAL_*`. Never `VITE_DEV_LOGIN_*` in Production.
+
+`apps/web/vercel.json` rewrites every path except `/assets/*` to
+`index.html`, because TanStack Router owns the URL space — a deep link like
+`/admin/courses/<id>` has to reach the bundle rather than 404. Hashed assets
+are cached for a year.
+
+Three things outside Vercel have to name this domain, or the app looks broken
+for no visible reason:
+
+- **`ALLOWED_ORIGINS`** on the API Worker (a secret), or the browser blocks every API call.
+- **Supabase → Authentication → URL Configuration**: Site URL and Redirect URLs, or Google sign-in and magic links return to the wrong host.
+- **`APP_URL`** in `services/api/wrangler.jsonc`, which links in emails and notifications use.
+
+Preview deployments get a new URL each time and are not in `ALLOWED_ORIGINS`,
+so their API calls are blocked by CORS.
+
+`bun run deploy:web` and `apps/web/wrangler.jsonc` still deploy the old
+Cloudflare Workers build if it is ever needed again.
 
 ---
 

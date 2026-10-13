@@ -6,7 +6,7 @@ behind the top navigation members already know.
 - **Build status**: [`docs/status.md`](docs/status.md) — what is real and what is stubbed, per feature
 - **Architecture**: [`PLAN.md`](PLAN.md) — stack, schema, milestones, gaps and risks
 - **API conventions**: [`docs/api-conventions.md`](docs/api-conventions.md) — auth, errors, pagination, and why this API is ready for a native client
-- **Deploying**: [`docs/deploy.md`](docs/deploy.md) — API and web on Cloudflare Workers, secrets, CI
+- **Deploying**: [`docs/deploy.md`](docs/deploy.md) — API on Cloudflare Workers, web on Vercel, secrets, CI
 - **Video**: [`docs/video.md`](docs/video.md) — Cloudflare Stream, Bunny, and why uploads never touch the API
 - **Portability rules**: [`docs/portability-contract.md`](docs/portability-contract.md)
 - **Design**: [`docs/design-tokens.md`](docs/design-tokens.md) · canvas: https://claude.ai/artifact/R4ggoUTePf62pdFeukPLqK

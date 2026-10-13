@@ -38,7 +38,7 @@
     "VIDEO_PROVIDER": "youtube",
 
     // Where links in emails and push notifications point.
-    "APP_URL": "https://eternal-bonds-web.dev-d9b.workers.dev",
+    "APP_URL": "https://eternal-bonds.vercel.app",
 
     // `console` logs what it would have sent. Do not switch to `resend` before
     // SPF, DKIM and DMARC exist for the sending domain — the first send from
