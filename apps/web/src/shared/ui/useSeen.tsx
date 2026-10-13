@@ -24,14 +24,23 @@ export function useSeen() {
   const observer = useRef<IntersectionObserver | null>(null);
 
   const flush = () => {
-    const batch = [...pending.current].filter((id) => !reported.current.has(id));
-    pending.current.clear();
-    if (batch.length === 0) return;
+    const queued = [...pending.current].filter((id) => !reported.current.has(id));
+    if (queued.length === 0) {
+      pending.current.clear();
+      return;
+    }
+    // The server caps a batch at 50. Only what is sent counts as reported;
+    // the rest stays queued for the next flush instead of being dropped.
+    const batch = queued.slice(0, 50);
+    pending.current = new Set(queued.slice(50));
     for (const id of batch) reported.current.add(id);
-    // The server caps a batch at 50.
-    void api.recordPostViews(batch.slice(0, 50)).catch(() => {
+    void api.recordPostViews(batch).catch(() => {
       // Deliberately silent: the count is a nicety, the feed is the point.
     });
+    if (pending.current.size > 0) {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(flush, 1200);
+    }
   };
 
   useEffect(() => {

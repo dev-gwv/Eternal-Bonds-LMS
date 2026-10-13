@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import type { Insight } from '@ipc/contracts';
 import { api, relativeTime } from '../shared/api.ts';
+import { ErrorState } from '../shared/ui/ErrorState.tsx';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Avatar, Card, Chip, EmptyState, Hero, Icon } from '../shared/ui/primitives.tsx';
-import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
+import { SkeletonCard } from '../shared/ui/Skeleton.tsx';
 import { CoverPicker } from '../shared/ui/CoverPicker.tsx';
 import { useDraft } from '../shared/ui/useDraft.ts';
 
@@ -181,7 +182,7 @@ export function ThinkTankPage() {
 
       <span className="section-label">This week's insights</span>
       {insights.isPending ? <><SkeletonCard /><SkeletonCard /></> :
-        insights.isError ? <LoadingLabel>Something went wrong</LoadingLabel> :
+        insights.isError ? <ErrorState onRetry={insights.refetch} retrying={insights.isFetching} /> :
         insights.data.items.length === 0 ? (
           // The empty state has to know why it is empty. "No insights yet"
           // under an active Saved filter reads as "the club has written
@@ -215,7 +216,12 @@ export function ShareInsightPage() {
   const [madeId, setMadeId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // A ref as well as state: two clicks inside one frame both see `busy`
+  // false, and each one published the insight.
+  const inFlight = useRef(false);
   const save = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setError(null);
     setBusy(true);
     try {
@@ -226,6 +232,7 @@ export function ShareInsightPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save');
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
@@ -266,7 +273,9 @@ export function ShareInsightPage() {
         <label style={{ fontSize: 12 }}>Situation<textarea className="input" value={form.situationMd} onChange={set('situationMd')} rows={4} /></label>
         <label style={{ fontSize: 12 }}>Big idea<textarea className="input" value={form.bigIdeaMd} onChange={set('bigIdeaMd')} rows={4} /></label>
         {error && <p role="alert" style={{ color: 'var(--danger)', fontSize: 12 }}>{error}</p>}
-        <button className="btn btn-pink" onClick={save}>Publish to this week's vote</button>
+        <button className="btn btn-pink" onClick={save} disabled={busy} aria-busy={busy}>
+          {busy ? 'Publishing…' : "Publish to this week's vote"}
+        </button>
       </Card>
     </Page>
   );

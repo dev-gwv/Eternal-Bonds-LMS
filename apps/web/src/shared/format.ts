@@ -30,3 +30,24 @@ export const clock = (seconds: number) => {
 /** "45m", "2h" — the rough length on a card, where precision is noise. */
 export const durationLabel = (minutes: number) =>
   minutes >= 60 ? `${Math.round(minutes / 60)}h` : `${minutes}m`;
+
+/**
+ * Compact XP: "90", "1.5K", "12K", "1.25L".
+ *
+ * It used to round every value under a lakh to whole thousands, so a member
+ * with 90 XP read "0K XP" on the leaderboard. Under a thousand there is
+ * nothing to compact; above, one decimal while it still carries meaning.
+ */
+export const xpLabel = (xp: number) => {
+  if (!Number.isFinite(xp)) return '0';
+  const n = Math.round(xp);
+  const sign = n < 0 ? '-' : '';
+  const a = Math.abs(n);
+  const trim = (s: string) => s.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+  if (a < 1000) return `${sign}${a}`;
+  if (a < 100000) {
+    const k = a / 1000;
+    return `${sign}${trim(k < 10 ? (Math.floor(k * 10) / 10).toFixed(1) : String(Math.floor(k)))}K`;
+  }
+  return `${sign}${trim((Math.floor(a / 1000) / 100).toFixed(2))}L`;
+};

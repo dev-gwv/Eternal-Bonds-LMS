@@ -80,6 +80,9 @@ jobs:
       - run: bun run build
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+          # A compile check, not the bundle that ships: Vercel builds that, and its
+          # build refuses an empty VITE_API_URL. Here an unset variable is allowed.
+          VITE_ALLOW_SAME_ORIGIN_API: "1"
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
           VITE_SUPPORT_EMAIL: ${{ vars.VITE_SUPPORT_EMAIL }}

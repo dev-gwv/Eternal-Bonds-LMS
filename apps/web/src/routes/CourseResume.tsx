@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useParams } from '@tanstack/react-router';
 import { api } from '../shared/api.ts';
+import { ErrorState, isNotFound } from '../shared/ui/ErrorState.tsx';
 import { Page } from '../shared/layout/AppShell.tsx';
 import { Card } from '../shared/ui/primitives.tsx';
 
@@ -17,6 +18,26 @@ export function CourseResumePage() {
     return (
       <Page>
         <p className="muted" style={{ fontSize: 12 }}>Opening course…</p>
+      </Page>
+    );
+  }
+
+  // A failed request is not an empty course. Only a real 404 falls through.
+  if (course.isError && !isNotFound(course.error)) {
+    return (
+      <Page>
+        <ErrorState onRetry={course.refetch} retrying={course.isFetching} />
+      </Page>
+    );
+  }
+
+  if (course.isError) {
+    return (
+      <Page>
+        <Card>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Course not found</span>
+          <Link to="/courses" style={{ fontSize: 12 }}>Back to courses</Link>
+        </Card>
       </Page>
     );
   }

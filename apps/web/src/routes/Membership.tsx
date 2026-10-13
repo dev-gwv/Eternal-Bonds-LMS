@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { OrderTicket, Plan } from '@ipc/contracts';
 import { api } from '../shared/api.ts';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
@@ -133,12 +133,30 @@ export function MembershipPage() {
    * normal Razorpay round trip, and at that point the honest thing is to say
    * it is taking longer than usual rather than to keep pretending.
    */
-  const paidTier = membership.data?.tier;
+  /* What the membership looked like when checkout started. "Any paid tier"
+     used to count as confirmed, so upgrading from one paid tier to another
+     (or renewing) stopped polling at once and showed the old plan. Now it
+     waits until the tier — or, for a renewal of the same tier, the expiry —
+     actually differs from this snapshot. */
+  const startedFrom = useRef<{ tier: string; expiresAt: string | null } | null>(null);
+  const currentTier = membership.data?.tier;
+  const currentExpiry = membership.data?.expiresAt ?? null;
   useEffect(() => {
     if (!confirming) return;
-    if (paidTier && paidTier !== 'free') {
+    const from = startedFrom.current;
+    const changed = from
+      ? Boolean(currentTier) && (currentTier !== from.tier || currentExpiry !== from.expiresAt)
+      : // No snapshot (the state had not loaded when checkout began).
+        Boolean(currentTier) && currentTier !== 'free';
+    if (changed) {
       setConfirming(false);
       setStatus(null);
+      startedFrom.current = null;
+      // The tier gates courses, lessons and the studio; every view that was
+      // read under the old one is now wrong.
+      for (const key of ['viewer', 'me', 'courses', 'course', 'playback', 'dashboard', 'stats', 'workshops']) {
+        void queryClient.invalidateQueries({ queryKey: [key] });
+      }
       return;
     }
     const giveUp = setTimeout(() => {
@@ -148,7 +166,7 @@ export function MembershipPage() {
       );
     }, 90_000);
     return () => clearTimeout(giveUp);
-  }, [confirming, paidTier]);
+  }, [confirming, currentTier, currentExpiry, queryClient]);
 
   const checkout = useMutation({
     mutationFn: async (planId: string) => {
@@ -197,6 +215,9 @@ export function MembershipPage() {
     setError(null);
     setStatus(null);
     setBusyPlan(planId);
+    startedFrom.current = membership.data
+      ? { tier: membership.data.tier, expiresAt: membership.data.expiresAt }
+      : null;
     checkout.mutate(planId);
   };
 

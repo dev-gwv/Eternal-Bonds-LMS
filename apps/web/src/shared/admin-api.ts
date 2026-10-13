@@ -40,6 +40,7 @@ import {
 import { z } from 'zod';
 
 import { accessToken } from './supabase.ts';
+import { ApiError } from './api.ts';
 
 /**
  * The studio's client.
@@ -72,7 +73,7 @@ async function call<T>(
   if (!res.ok) {
     // problem+json carries the detail the studio shows next to the form.
     const problem = (await res.json().catch(() => null)) as { title?: string; detail?: string } | null;
-    throw new Error(problem?.detail ?? problem?.title ?? `${res.status} ${res.statusText}`);
+    throw new ApiError(problem?.detail ?? problem?.title ?? `${res.status} ${res.statusText}`, res.status);
   }
   if (res.status === 204) return undefined as T;
 
@@ -242,12 +243,22 @@ export async function uploadLibraryFile(file: File): Promise<{ key: string; mime
   return { key: ticket.key, mime: file.type || 'application/octet-stream' };
 }
 
-/** Anonymous is a normal answer here, not an error — the shell asks on load. */
+/**
+ * Anonymous is a normal answer here, not an error — the shell asks on load.
+ *
+ * Only a 401 means anonymous. Everything else (a timeout, a 500, a parse
+ * failure) used to become "a free member" too, and with a five-minute
+ * staleTime an admin on a flaky connection lost the studio for five minutes.
+ * Those now throw, so the query retries and reports an error instead.
+ */
 export async function fetchViewer(): Promise<Viewer> {
   try {
     return await call('GET', '/v1/me/viewer', { schema: Viewer });
-  } catch {
-    return { userId: null, role: 'member', tier: 'free', canAuthor: false, videoProvider: 'none' };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      return { userId: null, role: 'member', tier: 'free', canAuthor: false, videoProvider: 'none' };
+    }
+    throw error;
   }
 }
 

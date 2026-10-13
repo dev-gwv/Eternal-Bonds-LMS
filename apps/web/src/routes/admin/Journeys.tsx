@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Journey, JourneyInput, Tier } from '@ipc/contracts';
 import { adminApi } from '../../shared/admin-api.ts';
 import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
@@ -176,16 +176,32 @@ export function AdminJourneyBuilderPage() {
   const [pick, setPick] = useState('');
   const [note, setNote] = useState('');
 
+  /* Seeded once per journey, then only re-seeded from the server while the
+     form is clean. It used to reset on every refetch, so adding a step (which
+     refetches the journey) wiped an unsaved title or description. */
+  const seeded = useRef<{ id: string; values: JourneyInput } | null>(null);
+  const draftNow = useRef(draft);
+  draftNow.current = draft;
   useEffect(() => {
     if (!journey.data) return;
-    setDraft({
+    const next: JourneyInput = {
       slug: journey.data.slug,
       title: journey.data.title,
       promise: journey.data.promise,
       descriptionMd: journey.data.descriptionMd,
       minTier: journey.data.minTier,
       isPublished: journey.data.isPublished,
-    });
+    };
+    const prev = seeded.current;
+    const dirty =
+      prev !== null &&
+      prev.id === journey.data.id &&
+      JSON.stringify(draftNow.current) !== JSON.stringify(prev.values) &&
+      // Not dirty any more once the server has caught up with it (a save).
+      JSON.stringify(draftNow.current) !== JSON.stringify(next);
+    if (dirty) return;
+    seeded.current = { id: journey.data.id, values: next };
+    setDraft(next);
   }, [journey.data]);
 
   const refresh = () => {

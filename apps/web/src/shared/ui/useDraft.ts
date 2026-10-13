@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { draftOwner, useSession } from '../session.tsx';
 
 /**
  * A form that survives the phone ringing.
@@ -16,14 +17,21 @@ import { useEffect, useRef, useState } from 'react';
  * is the same person on the same device coming back within the hour.
  *
  * Debounced, because writing on every keystroke of an eight-hundred-word form
- * is a synchronous main-thread write per character.
+ * is a synchronous main-thread write per character. The pending write is
+ * flushed, not dropped, on unmount — otherwise the last half-second of typing
+ * before a navigation was lost.
+ *
+ * Keyed by the signed-in user, so on a shared device one member never opens
+ * another's half-written insight. Sign-out removes every draft (session.tsx).
  */
 export function useDraft<T extends Record<string, unknown>>(
   key: string,
   initial: T,
   { debounceMs = 600, maxAgeMs = 7 * 86_400_000 } = {},
 ): [T, React.Dispatch<React.SetStateAction<T>>, () => void] {
-  const storageKey = `eb-draft-${key}`;
+  const { session, demo } = useSession();
+  const userId = session?.user.id ?? (demo ? 'demo' : 'anon');
+  const storageKey = `eb-draft-${userId}-${key}`;
 
   const [value, setValue] = useState<T>(() => {
     try {
@@ -47,6 +55,23 @@ export function useDraft<T extends Record<string, unknown>>(
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(false);
+  // The value and key a pending write will store, for the unmount flush.
+  const pending = useRef<{ key: string; data: T } | null>(null);
+
+  const write = (target: { key: string; data: T }) => {
+    // Only for the person signed in now (or a session with no user at all):
+    // a flush that lands after sign-out must not resurrect the draft.
+    const keyOwner = target.key.slice('eb-draft-'.length).split('-')[0];
+    const now = draftOwner();
+    if (now !== null && !target.key.startsWith(`eb-draft-${now}-`)) return;
+    if (now === null && keyOwner !== 'anon' && keyOwner !== 'demo') return;
+    try {
+      localStorage.setItem(target.key, JSON.stringify({ at: Date.now(), data: target.data }));
+    } catch {
+      // Quota, private mode, disabled storage. Losing autosave must never
+      // stop somebody typing.
+    }
+  };
 
   useEffect(() => {
     // Skip the write caused by the initial render, or every visit rewrites the
@@ -55,22 +80,32 @@ export function useDraft<T extends Record<string, unknown>>(
       dirty.current = true;
       return;
     }
+    pending.current = { key: storageKey, data: value };
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify({ at: Date.now(), data: value }));
-      } catch {
-        // Quota, private mode, disabled storage. Losing autosave must never
-        // stop somebody typing.
-      }
+      timer.current = null;
+      if (pending.current) write(pending.current);
+      pending.current = null;
     }, debounceMs);
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
   }, [value, storageKey, debounceMs]);
+
+  // On unmount, write what is pending now instead of cancelling it.
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
+      if (pending.current) write(pending.current);
+      pending.current = null;
+    },
+    [],
+  );
 
   /** Called on successful submit — the draft has become a real thing. */
   const clear = () => {
+    // A write still waiting would otherwise put it straight back.
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    pending.current = null;
     try {
       localStorage.removeItem(storageKey);
     } catch {

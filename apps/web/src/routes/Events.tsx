@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, getRouteApi } from '@tanstack/react-router';
 import { api, relativeTime, timeRange } from '../shared/api.ts';
+import { ErrorState, isNotFound } from '../shared/ui/ErrorState.tsx';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Card, Chip, EmptyState, Hero } from '../shared/ui/primitives.tsx';
 import { ConfirmButton } from '../shared/ui/ConfirmButton.tsx';
@@ -25,7 +26,7 @@ export function EventsPage() {
         sub="The weekly featured-insight session, workshops and calls — RSVP and the join link appears here."
       />
       <span className="section-label">Upcoming</span>
-      {events.isPending ? <SkeletonCard /> : events.isError ? <LoadingLabel>Something went wrong</LoadingLabel> :
+      {events.isPending ? <SkeletonCard /> : events.isError ? <ErrorState onRetry={events.refetch} retrying={events.isFetching} /> :
         events.data.length === 0 ? <EmptyState title="No sessions scheduled" hint="The weekly featured-insight session appears here." /> :
         events.data.map((e) => (
           <Card key={e.id}>
@@ -119,7 +120,13 @@ export function WinDetailPage() {
       {win.isPending ? (
         <SkeletonCard />
       ) : win.isError ? (
-        <LoadingLabel>Something went wrong</LoadingLabel>
+        isNotFound(win.error) ? (
+          <Card>
+            <EmptyState icon="heart" title="That win is not here" />
+          </Card>
+        ) : (
+          <ErrorState onRetry={win.refetch} retrying={win.isFetching} />
+        )
       ) : (
         <>
           <Card>
@@ -212,7 +219,13 @@ export function InsightDetailPage() {
   return (
     <Page>
       <PageHeader title="Insight" crumbs={[{ label: 'Think Tank', to: '/think-tank' }, { label: slug }]} />
-      {insight.isPending ? <SkeletonCard /> : insight.isError ? <LoadingLabel>Something went wrong</LoadingLabel> : (
+      {insight.isPending ? <SkeletonCard /> : insight.isError ? (
+        isNotFound(insight.error) ? (
+          <Card><EmptyState title="That insight is not here" /></Card>
+        ) : (
+          <ErrorState onRetry={insight.refetch} retrying={insight.isFetching} />
+        )
+      ) : (
         <Card>
           <h2 style={{ marginTop: 0 }}>{insight.data.title}</h2>
           <p style={{ fontSize: 12 }} className="muted">By {insight.data.author.name} · ▲ {insight.data.votes}</p>
@@ -258,6 +271,14 @@ export function EventDetailPage() {
     return (
       <Page>
         <SkeletonCard />
+      </Page>
+    );
+  }
+  if (event.isError && !isNotFound(event.error)) {
+    return (
+      <Page>
+        <PageHeader title="Session" back="/events" crumbs={[{ label: 'Events', to: '/events' }, { label: slug }]} />
+        <ErrorState onRetry={event.refetch} retrying={event.isFetching} />
       </Page>
     );
   }

@@ -6,11 +6,18 @@ import { Motion } from './shared/ui/motion.tsx';
 import { RouterProvider } from '@tanstack/react-router';
 import { router } from './app/router.tsx';
 import { SessionProvider } from './shared/session.tsx';
+import { isNotFound } from './shared/api.ts';
 import './styles.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 },
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+      // One retry for a flaky connection; none for a 404, which will not
+      // change on a second ask and only delays the "not found" page.
+      retry: (failures, error) => !isNotFound(error) && failures < 1,
+    },
   },
 });
 

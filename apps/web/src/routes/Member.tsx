@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { api, durationLabel, hoursMinutes } from '../shared/api.ts';
+import { ErrorState } from '../shared/ui/ErrorState.tsx';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { ActivityChart, ProgressRing, ScoreGauge, TrendLine } from '../shared/ui/charts.tsx';
 import { Card, Chip, Dropdown, Icon, Tile } from '../shared/ui/primitives.tsx';
@@ -26,6 +27,17 @@ export function MemberPage() {
   const watched = (activity.data ?? []).reduce((s, d) => s + d.courses + d.workshops + d.library, 0);
   const { hours, minutes } = hoursMinutes(watched);
   const member = me.data;
+  // The profile is the page: without it there is nothing honest to show.
+  // The other sections fail independently and say so in one place.
+  const failed = [activity, performance, courses].filter((q) => q.isError);
+
+  if (me.isError) {
+    return (
+      <Page>
+        <ErrorState onRetry={me.refetch} retrying={me.isFetching} />
+      </Page>
+    );
+  }
 
   return (
     <Page>
@@ -34,6 +46,14 @@ export function MemberPage() {
         back="/"
         crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Members', to: '/' }, { label: 'Member Details' }]}
       />
+
+      {failed.length > 0 && (
+        <ErrorState
+          message="Some of your activity couldn't load. Check your connection and try again."
+          onRetry={() => Promise.all(failed.map((q) => q.refetch()))}
+          retrying={failed.some((q) => q.isFetching)}
+        />
+      )}
 
       <div className="content">
         {/* Profile column */}

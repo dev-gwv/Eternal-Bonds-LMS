@@ -129,7 +129,7 @@ const BOTTOM: NavItem[] = [
   { to: '/think-tank', label: 'Think Tank', icon: 'bulb' },
 ];
 
-function BottomNav() {
+function BottomNav({ onMenu, menuOpen }: { onMenu: () => void; menuOpen: boolean }) {
   const pathname = useRouterState({ select: (st) => st.location.pathname });
   return (
     <nav className="bottomnav" aria-label="Primary">
@@ -148,21 +148,41 @@ function BottomNav() {
           </Link>
         );
       })}
+      {/* Everything else — Workshops, Library, and each section's own pages —
+          lives one tap away in the drawer, rather than in a second row of
+          pills along the top of a phone. */}
+      <button
+        type="button"
+        className={menuOpen ? 'bottomnav-item is-on' : 'bottomnav-item'}
+        aria-expanded={menuOpen}
+        aria-controls="nav-drawer"
+        onClick={onMenu}
+      >
+        <Icon name="grid" size={19} strokeWidth={menuOpen ? 2.1 : 1.7} />
+        <span>Menu</span>
+      </button>
     </nav>
   );
 }
 
-function TopBar({ onMenu, hasSub }: { onMenu: () => void; hasSub: boolean }) {
+function TopBar({ onMenu, menuOpen }: { onMenu: () => void; menuOpen: boolean }) {
   const pathname = useRouterState({ select: (st) => st.location.pathname });
   const current = sectionFor(pathname);
 
   return (
     <header className="topbar">
-      {hasSub && (
-        <button type="button" className="icon-btn nav-toggle" aria-label="Open section menu" onClick={onMenu}>
-          <Icon name="grid" />
-        </button>
-      )}
+      {/* Shown below 960px on every page, not only where a section has
+          sub-pages: the drawer it opens is now the whole map of the club. */}
+      <button
+        type="button"
+        className="icon-btn nav-toggle"
+        aria-label="Open menu"
+        aria-expanded={menuOpen}
+        aria-controls="nav-drawer"
+        onClick={onMenu}
+      >
+        <Icon name="grid" />
+      </button>
 
       <Link to="/" className="wordmark" style={{ color: 'inherit' }} aria-label="Eternal Bonds, home">
         <Wordmark />
@@ -238,6 +258,60 @@ function Sidebar({
   );
 }
 
+/**
+ * The small-screen menu: every section, each with its own pages under it.
+ *
+ * Below 960px the in-section sidebar has nowhere to sit, and below 720px the
+ * top pills give way to the bottom bar. One drawer that holds the whole map
+ * replaces both, so nothing in the app depends on a control that is not on
+ * screen.
+ */
+function NavDrawer({ open, onNavigate }: { open: boolean; onNavigate: () => void }) {
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
+  const current = sectionFor(pathname);
+  return (
+    <nav
+      id="nav-drawer"
+      className={open ? 'drawer is-open' : 'drawer'}
+      aria-label="Menu"
+      // Hidden from assistive tech and the tab order while closed; it is
+      // still in the DOM so the slide-in can animate.
+      aria-hidden={!open}
+      inert={!open ? true : undefined}
+    >
+      {SECTIONS.map((sec) => {
+        const sectionActive = sec.to === '/' ? pathname === '/' : current.to === sec.to;
+        const items = sec.sub.length > 0 ? sec.sub : [{ to: sec.to, label: sec.label, icon: sec.icon }];
+        return (
+          <div key={sec.to} className="drawer-group">
+            {sec.sub.length > 0 && (
+              <div className={sectionActive ? 'drawer-label is-current' : 'drawer-label'}>{sec.label}</div>
+            )}
+            {items.map((item) => {
+              const active =
+                item.to === '/'
+                  ? pathname === '/'
+                  : pathname === item.to || pathname.startsWith(`${item.to}/`);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={onNavigate}
+                  aria-current={active ? 'page' : undefined}
+                  className={active ? 'side-link is-active' : 'side-link'}
+                >
+                  <Icon name={item.icon} size={17} strokeWidth={active ? 2 : 1.7} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
+
 const srOnly = {
   position: 'absolute',
   width: 1,
@@ -272,7 +346,7 @@ export function PageHeader({
         <h1>{title}</h1>
         <div className="crumb">
           {crumbs.map((c, i) => (
-            <span key={c.label} style={{ display: 'inline-flex', gap: 5 }}>
+            <span key={`${i}-${c.label}`} style={{ display: 'inline-flex', gap: 5 }}>
               {i > 0 && <span className="sep">/</span>}
               {c.to ? <Link to={c.to}>{c.label}</Link> : <span className="here">{c.label}</span>}
             </span>
@@ -339,6 +413,16 @@ export function AppShell() {
   // Close the drawer on navigation. Without this, tapping a link on a phone
   // leaves the overlay covering the page you just asked for.
   useEffect(() => setNavOpen(false), [pathname]);
+
+  // Escape closes the drawer, as it does every other overlay in the app.
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNavOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [navOpen]);
 
   const sub = sectionFor(pathname).sub;
 
@@ -416,7 +500,7 @@ function Shell({
     <div className="app">
       <a href="#main" className="skip-link">Skip to content</a>
       <div className="panel">
-        <TopBar onMenu={() => setNavOpen((o) => !o)} hasSub={sub.length > 0} />
+        <TopBar onMenu={() => setNavOpen((o) => !o)} menuOpen={navOpen} />
         <OfflineBanner />
         {demo && (
           <div className="callout" role="status">
@@ -438,7 +522,8 @@ function Shell({
           </div>
         )}
         <div className="shell">
-          <Sidebar items={sub} open={navOpen} onNavigate={() => setNavOpen(false)} />
+          <Sidebar items={sub} open={false} onNavigate={() => setNavOpen(false)} />
+          <NavDrawer open={navOpen} onNavigate={() => setNavOpen(false)} />
 
           {/* Only rendered while the drawer is open, so it cannot intercept
               clicks on a desktop where the sidebar is always visible. */}
@@ -459,7 +544,7 @@ function Shell({
           </main>
         </div>
       </div>
-      <BottomNav />
+      <BottomNav onMenu={() => setNavOpen((o) => !o)} menuOpen={navOpen} />
     </div>
   );
 }

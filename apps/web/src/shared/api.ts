@@ -71,6 +71,20 @@ import { accessToken } from './supabase.ts';
  */
 const BASE = import.meta.env.VITE_API_URL ?? '';
 
+/** A non-2xx answer from the API, carrying the status so callers can tell a
+ *  genuine 404 from a dropped connection. The message is unchanged. */
+export class ApiError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+    this.name = 'ApiError';
+  }
+}
+
+/** True only for an API 404 — "this does not exist", not "this did not load". */
+export const isNotFound = (error: unknown) => error instanceof ApiError && error.status === 404;
+
 async function get<T>(path: string, schema: z.ZodType<T>): Promise<T> {
   // Bearer, never a cookie: the same client code works in a Capacitor WebView.
   const token = await accessToken();
@@ -84,7 +98,7 @@ async function get<T>(path: string, schema: z.ZodType<T>): Promise<T> {
   if (!res.ok) {
     // The API answers with RFC 9457 problem+json, so surface its title.
     const body = (await res.json().catch(() => null)) as { title?: string } | null;
-    throw new Error(body?.title ? `${body.title} (${res.status})` : `${res.status} ${res.statusText}`);
+    throw new ApiError(body?.title ? `${body.title} (${res.status})` : `${res.status} ${res.statusText}`, res.status);
   }
   return schema.parse(await res.json());
 }
@@ -112,7 +126,7 @@ async function send<T>(
   });
   if (!res.ok) {
     const problem = (await res.json().catch(() => null)) as { title?: string; detail?: string } | null;
-    throw new Error(problem?.detail ?? problem?.title ?? `${res.status} ${res.statusText}`);
+    throw new ApiError(problem?.detail ?? problem?.title ?? `${res.status} ${res.statusText}`, res.status);
   }
   // 204 has no body; parsing it would throw on a perfectly good response.
   if (res.status === 204) return undefined as T;
@@ -261,7 +275,23 @@ export const api = {
   scheduleDeletion: (reason?: string) =>
     send('POST', '/v1/me/deletion', { confirm: 'DELETE', reason }, DeletionState),
   cancelDeletion: () => send('DELETE', '/v1/me/deletion', undefined, DeletionState),
-  exportUrl: `${BASE}/v1/me/export`,
+  /** The member's data export. Fetched (not linked) so the Bearer token goes
+   *  with it — a plain <a href> sends no Authorization header and got a 401. */
+  exportData: async (): Promise<Blob> => {
+    const token = await accessToken();
+    const res = await fetch(`${BASE}/v1/me/export`, {
+      headers: {
+        accept: 'application/json',
+        'x-client': 'web',
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!res.ok) {
+      const problem = (await res.json().catch(() => null)) as { title?: string; detail?: string } | null;
+      throw new ApiError(problem?.detail ?? problem?.title ?? `${res.status} ${res.statusText}`, res.status);
+    }
+    return res.blob();
+  },
 
   /* Think Tank. Cursor pages: pass nextCursor back as cursor. */
   /** The open voting cycle, or null between weeks. Drives the countdown. */
@@ -400,10 +430,7 @@ export const hoursMinutes = (minutes: number) => ({
 /* Re-exported so every existing call site keeps working. They live in
    `format.ts` because they are pure and this module is not — importing a
    number-to-string function should not drag in the auth client. */
-export { clock, durationLabel } from './format.ts';
-
-export const xpLabel = (xp: number) =>
-  xp >= 100000 ? `${(xp / 100000).toFixed(xp % 100000 === 0 ? 0 : 2)}L` : `${Math.round(xp / 1000)}K`;
+export { clock, durationLabel, xpLabel } from './format.ts';
 
 const IST = 'Asia/Kolkata';
 

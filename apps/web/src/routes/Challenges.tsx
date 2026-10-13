@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import type { Challenge } from '@ipc/contracts';
 import { api, relativeTime } from '../shared/api.ts';
+import { ErrorState, isNotFound } from '../shared/ui/ErrorState.tsx';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Avatar, Card, Chip, EmptyState, Hero, Icon } from '../shared/ui/primitives.tsx';
 import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
@@ -109,7 +110,11 @@ export function ChallengesPage() {
         </>
       )}
 
-      {!challenges.isPending && items.length === 0 && (
+      {challenges.isError && (
+        <ErrorState onRetry={challenges.refetch} retrying={challenges.isFetching} />
+      )}
+
+      {challenges.isSuccess && items.length === 0 && (
         <Card>
           <EmptyState
             icon="heart"
@@ -156,6 +161,13 @@ export function ChallengeDetailPage() {
       <Page>
         <SkeletonCard />
         <SkeletonCard lines={4} />
+      </Page>
+    );
+  }
+  if (challenge.isError && !isNotFound(challenge.error)) {
+    return (
+      <Page>
+        <ErrorState onRetry={challenge.refetch} retrying={challenge.isFetching} />
       </Page>
     );
   }

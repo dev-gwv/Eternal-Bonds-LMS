@@ -13,7 +13,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const dir = 'apps/web/dist/assets';
+// Relative to this file, not the working directory: it runs from the repo
+// root (`bun run check:no-dev-login`) and from apps/web (its build script).
+const dir = join(import.meta.dir, '..', 'apps', 'web', 'dist', 'assets');
 const MARKERS = ['REMOVE BEFORE LAUNCH', 'Skip login'];
 
 let files: string[];

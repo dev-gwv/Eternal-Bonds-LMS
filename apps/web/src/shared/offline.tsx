@@ -1,4 +1,9 @@
 import { useEffect, useState } from 'react';
+import { accessToken } from './supabase.ts';
+
+// The same base the API client uses. A relative path posted to the web host,
+// not the API, in every deployment where they are different origins.
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 /** Honest offline state: queued progress writes flush on reconnect. */
 export function useOnline(): boolean {
@@ -27,13 +32,21 @@ export function OfflineBanner() {
 
 /** Fire-and-forget product analytics via the API proxy (never blocks UI). */
 export function track(event: string, properties?: Record<string, unknown>): void {
-  try {
-    fetch('/v1/analytics/track', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ event, properties }),
-      keepalive: true,
-    }).catch(() => null);
-  } catch { /* analytics never breaks the app */ }
+  void accessToken()
+    .catch(() => null)
+    .then((token) =>
+      fetch(`${API_BASE}/v1/analytics/track`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-client': 'web',
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ event, properties }),
+        keepalive: true,
+      }),
+    )
+    .catch(() => null); /* analytics never breaks the app */
 }
 
 /** Last-viewed course cache: the course page renders instantly, then refreshes. */

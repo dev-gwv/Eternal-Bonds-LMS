@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { Link, useSearch } from '@tanstack/react-router';
 import { SubmitWin, type Win } from '@ipc/contracts';
 import { api, relativeTime } from '../shared/api.ts';
+import { ErrorState } from '../shared/ui/ErrorState.tsx';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Avatar, Card, Chip, EmptyState, Hero } from '../shared/ui/primitives.tsx';
-import { SkeletonCard, LoadingLabel } from '../shared/ui/Skeleton.tsx';
+import { SkeletonCard } from '../shared/ui/Skeleton.tsx';
 import { Gallery } from '../shared/ui/Gallery.tsx';
 import { PickerButton, PickerStrip, usePicker } from '../shared/ui/ImagePicker.tsx';
 import { ReportButton } from '../shared/ui/ReportButton.tsx';
@@ -99,7 +100,7 @@ export function WinsPage() {
           <SkeletonCard />
         </>
       ) : wins.isError ? (
-        <LoadingLabel>Something went wrong</LoadingLabel>
+        <ErrorState onRetry={wins.refetch} retrying={wins.isFetching} />
       ) : wins.data.items.length === 0 ? (
         <EmptyState title="No wins yet" hint="Post the first one — members copy the shape of what they see." />
       ) : (

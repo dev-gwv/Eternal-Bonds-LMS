@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { CreatePost, type Post } from '@ipc/contracts';
 import { api, relativeTime, xpLabel } from '../shared/api.ts';
+import { ErrorState } from '../shared/ui/ErrorState.tsx';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Avatar, Card, Chip, EmptyState, Icon, Tile } from '../shared/ui/primitives.tsx';
 import { CommentThread } from '../shared/ui/Comments.tsx';
@@ -258,7 +259,8 @@ export function CommunityPage() {
 
       <div className="content">
         <div className="col side-column" style={{ width: 226, flexShrink: 0 }}>
-          <div className="card" style={{ padding: 12, gap: 3 }}>
+          <div className="card channel-list" style={{ padding: 12, gap: 4 }}>
+            <span className="section-label" style={{ padding: '2px 4px 6px' }}>Channels</span>
             <button
               type="button"
               className="nav-pill"
@@ -266,7 +268,7 @@ export function CommunityPage() {
               onClick={() => openChannel(undefined)}
             >
               <Icon name="dashboard" size={15} strokeWidth={1.9} />
-              <span style={{ flex: 1, textAlign: 'left' }}>Feed</span>
+              <span style={{ flex: 1, textAlign: 'left' }}>All posts</span>
               {totalUnread > 0 && (
                 <span
                   aria-label={`${totalUnread} unread in total`}
@@ -279,10 +281,6 @@ export function CommunityPage() {
                 </span>
               )}
             </button>
-          </div>
-
-          <div className="card" style={{ padding: 12, gap: 4, flex: 1 }}>
-            <span className="section-label" style={{ padding: '2px 4px 6px' }}>Channels</span>
             {(channels.data ?? []).map((ch) => {
               const meta = CHANNEL_ICON[ch.slug] ?? { icon: 'comment', tone: 'blue' as const };
               const active = channel === ch.slug;
@@ -402,10 +400,10 @@ export function CommunityPage() {
           )}
 
           {posts.isError && (
-            <div className="alert">{(posts.error as Error).message}</div>
+            <ErrorState onRetry={posts.refetch} retrying={posts.isFetching} />
           )}
 
-          {!posts.isPending && (posts.data ?? []).length === 0 && (
+          {posts.isSuccess && posts.data.length === 0 && (
             <Card>
               <EmptyState
                 icon={channel ? 'comment' : 'community'}
@@ -436,16 +434,19 @@ export function CommunityPage() {
           <NextUp />
 
           <Card title="Leaderboard" style={{ flex: 1 }}>
-            {(leaderboard.data ?? []).length === 0 && !leaderboard.isPending && (
+            {leaderboard.isError && (
+              <ErrorState onRetry={leaderboard.refetch} retrying={leaderboard.isFetching} />
+            )}
+            {(leaderboard.data ?? []).length === 0 && leaderboard.isSuccess && (
               <EmptyState
                 icon="chart"
                 title="No rankings yet"
                 hint="XP is earned by finishing lessons, posting, and attending workshops. The board fills in as members get going."
               />
             )}
-            {(leaderboard.data ?? []).slice(0, 4).map((row) => (
+            {(leaderboard.data ?? []).slice(0, 4).map((row, i) => (
               <div
-                key={row.rank}
+                key={`${i}-${row.rank}-${row.name}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

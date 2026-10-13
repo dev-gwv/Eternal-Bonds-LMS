@@ -42,10 +42,10 @@ export function Avatar({
   ring?: boolean;
 }) {
   const tones = {
-    pink: { background: 'linear-gradient(135deg, #fbd3e3, #f5a8c6)', color: 'var(--pink-deep)' },
-    yellow: { background: 'linear-gradient(135deg, #fde9b8, #f9d976)', color: '#7a5c0a' },
-    blue: { background: 'linear-gradient(135deg, #d5e5fb, #aecdf3)', color: '#2c4f86' },
-    grey: { background: 'linear-gradient(135deg, #f3f3f7, #e2e2ea)', color: 'var(--ink-2)' },
+    pink: { background: '#fbe3ed', color: 'var(--pink-deep)' },
+    yellow: { background: '#fbefcc', color: '#6b4e00' },
+    blue: { background: '#e2ecfa', color: '#2c4f86' },
+    grey: { background: '#efedf2', color: 'var(--ink-2)' },
   } as const;
   const core = src ? (
     <img
@@ -94,10 +94,10 @@ export function Tile({
   tone = 'pink',
 }: PropsWithChildren<{ size?: number; tone?: 'pink' | 'yellow' | 'blue' | 'green' }>) {
   const tones = {
-    pink: { background: 'linear-gradient(135deg, #fbd3e3, #f5a8c6)', color: 'var(--pink-deep)' },
-    yellow: { background: 'linear-gradient(135deg, #fde9b8, #f9d976)', color: '#7a5c0a' },
-    blue: { background: 'linear-gradient(135deg, #d5e5fb, #aecdf3)', color: '#2c4f86' },
-    green: { background: 'linear-gradient(135deg, #cdeeda, #a3d9ba)', color: '#1f6340' },
+    pink: { background: '#fbe3ed', color: 'var(--pink-deep)' },
+    yellow: { background: '#fbefcc', color: '#6b4e00' },
+    blue: { background: '#e2ecfa', color: '#2c4f86' },
+    green: { background: '#dcf1e4', color: '#1f6340' },
   } as const;
   return (
     <span className="tile" style={{ width: size, height: size, ...tones[tone] }}>

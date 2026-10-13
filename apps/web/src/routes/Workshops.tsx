@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { Workshop } from '@ipc/contracts';
 import { api, dayHeading, timeRange } from '../shared/api.ts';
+import { ErrorState } from '../shared/ui/ErrorState.tsx';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { NextUp } from '../shared/ui/NextUp.tsx';
 import { LoadingLabel, Skeleton, SkeletonRow } from '../shared/ui/Skeleton.tsx';
@@ -118,7 +119,10 @@ export function WorkshopsPage() {
               <SkeletonRow />
             </>
           )}
-          {groups.length === 0 && !workshops.isPending && (
+          {workshops.isError && (
+            <ErrorState onRetry={workshops.refetch} retrying={workshops.isFetching} />
+          )}
+          {groups.length === 0 && workshops.isSuccess && (
             <Card>
               <span style={{ fontSize: 13, fontWeight: 600 }}>No {scope} workshops</span>
               <span style={{ fontSize: 11 }} className="muted">

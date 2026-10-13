@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { Course } from '@ipc/contracts';
 import { api, durationLabel } from '../shared/api.ts';
+import { ErrorState } from '../shared/ui/ErrorState.tsx';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 import { ProgressRing } from '../shared/ui/charts.tsx';
@@ -216,7 +217,7 @@ export function CoursesPage() {
           </div>
         </>
       )}
-      {courses.isError && <p style={{ fontSize: 12, color: 'var(--red)' }}>Could not load courses.</p>}
+      {courses.isError && <ErrorState onRetry={courses.refetch} retrying={courses.isFetching} />}
 
       <div className="grid grid-4" style={{ alignContent: 'start' }}>
         {rows.map((c) => <CourseCard key={c.id} course={c} />)}

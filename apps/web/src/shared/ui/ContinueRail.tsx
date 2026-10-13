@@ -31,7 +31,12 @@ function subtitle(item: ContinueItem) {
   return `${where} · ${relativeTime(item.lastActivityAt)} ago`;
 }
 
-export function ContinueRail({ items }: { items: ContinueItem[] }) {
+export function ContinueRail({ items: raw }: { items: ContinueItem[] }) {
+  // One card per course. GET /v1/me/dashboard `continueLearning` has returned
+  // the same course several times for an admin (the enrollments query relies
+  // on RLS, and the admin read policy shows every member's enrolment), which
+  // rendered duplicate cards and a duplicate-key warning.
+  const items = dedupeByCourse(raw);
   if (items.length === 0) return null;
   const [first, ...rest] = items;
   if (!first) return null;
@@ -90,4 +95,13 @@ export function ContinueRail({ items }: { items: ContinueItem[] }) {
       )}
     </>
   );
+}
+
+function dedupeByCourse(items: ContinueItem[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.courseId)) return false;
+    seen.add(item.courseId);
+    return true;
+  });
 }

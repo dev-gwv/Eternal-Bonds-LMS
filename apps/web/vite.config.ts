@@ -1,9 +1,28 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   // envDir is the repo root, so this reads the same .env the app does.
   const env = loadEnv(mode, '../../', 'VITE_');
+
+  /*
+   * A production build with no API URL calls `/v1/...` on the web host. That
+   * is only right when something on that origin proxies to the API; anywhere
+   * else every request 404s (or hits the SPA fallback) and the app looks
+   * empty rather than broken. Refuse it unless somebody opts in.
+   */
+  if (
+    command === 'build' &&
+    mode === 'production' &&
+    !(env.VITE_API_URL ?? '').trim() &&
+    env.VITE_ALLOW_SAME_ORIGIN_API !== '1'
+  ) {
+    throw new Error(
+      'VITE_API_URL is empty for a production build. Set it to the API origin ' +
+        '(e.g. https://api.example.com), or set VITE_ALLOW_SAME_ORIGIN_API=1 if ' +
+        'the web host proxies /v1 to the API on the same origin.',
+    );
+  }
 
   return {
     plugins: [react()],

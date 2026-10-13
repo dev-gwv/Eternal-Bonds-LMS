@@ -154,11 +154,17 @@ export function YouTubePlayer({
   useEffect(() => {
     let disposed = false;
     let ticker: ReturnType<typeof setInterval> | null = null;
+    /* The instance, whether or not it is ready. `player.current` is only set
+       in onReady: before that the object YouTube hands back has none of its
+       methods yet (they are attached when the iframe reports in), so the
+       ticker and the controls calling `getCurrentTime()` on it threw
+       "getCurrentTime is not a function" on every lesson load. */
+    let instance: YTPlayer | null = null;
 
     void loadApi().then(() => {
       if (disposed || !host.current || !window.YT) return;
 
-      player.current = new window.YT.Player(host.current, {
+      instance = new window.YT.Player(host.current, {
         videoId,
         playerVars: {
           // The bar below is ours. See the file comment for what this can and
@@ -182,7 +188,8 @@ export function YouTubePlayer({
         },
         events: {
           onReady: () => {
-            if (disposed || !player.current) return;
+            if (disposed || !instance) return;
+            player.current = instance;
             const total = player.current.getDuration();
             setDuration(total);
             if (total > 0 && !durationReported.current) {
@@ -242,7 +249,7 @@ export function YouTubePlayer({
       lastTick.current = 0;
       ticker = setInterval(() => {
         const p = player.current;
-        if (!p) return;
+        if (disposed || !p || typeof p.getCurrentTime !== 'function') return;
         const now = p.getCurrentTime();
         const delta = now - lastTick.current;
         if (delta > 0 && delta < 1) watched.current += delta;
@@ -261,6 +268,7 @@ export function YouTubePlayer({
       if (ticker) clearInterval(ticker);
       // Flush on the way out, or navigating away loses the position entirely.
       const p = player.current;
+      player.current = null;
       if (p) {
         try {
           const at = p.getCurrentTime();
@@ -269,9 +277,14 @@ export function YouTubePlayer({
           // The iframe may already be gone; losing one report is not worth an
           // error in the console on every navigation.
         }
-        p.destroy();
-        player.current = null;
       }
+      // Destroy the instance even if it never became ready.
+      try {
+        instance?.destroy();
+      } catch {
+        // Not ready yet: there is nothing in the iframe to tear down.
+      }
+      instance = null;
     };
     // Only the video. Rebuilding on anything else — a new resume position, a
     // parent re-render — interrupts playback, which is the one thing a player

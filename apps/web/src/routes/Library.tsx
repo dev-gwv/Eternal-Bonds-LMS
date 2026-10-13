@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { LibraryCategory } from '@ipc/contracts';
 import { api } from '../shared/api.ts';
+import { ErrorState } from '../shared/ui/ErrorState.tsx';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Card, EmptyState, Icon, Tile } from '../shared/ui/primitives.tsx';
 import { LoadingLabel } from '../shared/ui/Skeleton.tsx';
@@ -76,6 +77,7 @@ function ItemList({ slug }: { slug: string }) {
   const items = useQuery({ queryKey: ['library-items', slug], queryFn: () => api.libraryItems(slug) });
 
   if (items.isPending) return <LoadingLabel>Loading resources</LoadingLabel>;
+  if (items.isError) return <ErrorState onRetry={items.refetch} retrying={items.isFetching} />;
   if (items.data?.length === 0) {
     return (
       <Card>
@@ -228,7 +230,11 @@ export function LibraryPage() {
         {needle ? `Matching “${needle}”` : 'Browse category'}
       </span>
 
-      {shown.length === 0 ? (
+      {categories.isPending ? (
+        <LoadingLabel>Loading categories</LoadingLabel>
+      ) : categories.isError ? (
+        <ErrorState onRetry={categories.refetch} retrying={categories.isFetching} />
+      ) : shown.length === 0 ? (
         <Card>
           <EmptyState
             icon="library"

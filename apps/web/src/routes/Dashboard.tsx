@@ -10,6 +10,7 @@ import { MyPath } from '../shared/ui/MyPath.tsx';
 import { OpenChallenge } from '../shared/ui/OpenChallenge.tsx';
 import { Card, DateBadge, EmptyState, Hero, Icon, StatTile } from '../shared/ui/primitives.tsx';
 import { LoadingLabel, Skeleton, SkeletonCard } from '../shared/ui/Skeleton.tsx';
+import { ErrorState } from '../shared/ui/ErrorState.tsx';
 
 const TONES = ['pink', 'yellow', 'blue', 'green'] as const;
 
@@ -53,11 +54,6 @@ export function DashboardPage() {
       <PageHeader
         title="Dashboard"
         crumbs={[{ label: 'Home', to: '/' }, { label: 'Dashboard' }]}
-        actions={
-          <Link to="/courses" className="btn btn-pink" style={{ color: '#fff' }}>
-            Continue learning
-          </Link>
-        }
       />
 
       <Hero
@@ -110,6 +106,12 @@ export function DashboardPage() {
               lesson they stopped on, not a chart of how little they did. */}
           <ContinueRail items={inFlight} />
 
+          {dashboard.isError && (
+            <ErrorState onRetry={dashboard.refetch} retrying={dashboard.isFetching} />
+          )}
+
+          {!dashboard.isError && (
+          <>
           {/* A member's four numbers, not the organiser's. These used to be
               total workshops, registrations, attendees and attendance rate —
               facts about the club, on the landing page of one person in it. */}
@@ -128,7 +130,10 @@ export function DashboardPage() {
                   value={String(stats?.lessonsCompleted ?? 0)}
                 />
                 <StatTile
-                  label={learned.hours > 0 ? 'Learning time · 30 days' : 'Learning time'}
+                  // Always say the window. The activity card below is the last
+                  // 7 days, so "50m" here beside "0 minutes" there read as a
+                  // contradiction whenever the label dropped its "30 days".
+                  label="Learning time · 30 days"
                   tone="yellow"
                   icon={<Icon name="clock" size={18} strokeWidth={1.9} />}
                   value={learned.hours > 0 ? `${learned.hours}h ${learned.minutes}m` : `${learned.minutes}m`}
@@ -171,11 +176,13 @@ export function DashboardPage() {
               <ActivityChart days={activityDays} />
             )}
           </Card>
+          </>
+          )}
         </div>
 
         <div className="col rail">
           <Card title="Upcoming" action={<Link to="/workshops" style={{ fontSize: 11 }}>See all</Link>}>
-            {workshopList.length === 0 && !dashboard.isPending && (
+            {workshopList.length === 0 && dashboard.isSuccess && (
               <EmptyState icon="workshops" title="Nothing scheduled" hint="Live sessions show up here." />
             )}
             {workshopList.slice(0, 3).map((w, i) => (
@@ -190,7 +197,7 @@ export function DashboardPage() {
           </Card>
 
           <Card title="Leaderboard" style={{ flex: 1 }}>
-            {board.length === 0 && !dashboard.isPending && (
+            {board.length === 0 && dashboard.isSuccess && (
               <EmptyState
                 icon="chart"
                 title="No rankings yet"
@@ -199,9 +206,10 @@ export function DashboardPage() {
             )}
             {/* The API returns the top 50 so the gap promo can find the member
                 directly above anyone at a realistic rank; the rail shows ten. */}
-            {board.slice(0, 10).map((row) => (
+            {board.slice(0, 10).map((row, i) => (
               <div
-                key={row.rank}
+                // Rank ties (two members on the same XP) share a rank.
+                key={`${i}-${row.rank}-${row.name}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

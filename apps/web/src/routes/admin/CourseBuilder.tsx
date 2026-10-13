@@ -520,8 +520,14 @@ function Settings({ course }: { course: AdminCourseDetail }) {
     instructorName: course.instructorName ?? '',
   });
 
+  /* Seeded once per course, then only re-seeded from the server while the
+     form is clean. Resetting on every refetch meant that any other change on
+     this page (a lesson added, a cover set) wiped unsaved settings. */
+  const seeded = useRef<{ id: string; values: typeof draft } | null>(null);
+  const draftNow = useRef(draft);
+  draftNow.current = draft;
   useEffect(() => {
-    setDraft({
+    const next = {
       title: course.title,
       slug: course.slug,
       category: course.category,
@@ -530,7 +536,21 @@ function Settings({ course }: { course: AdminCourseDetail }) {
       minTier: course.minTier,
       summaryMd: course.summaryMd ?? '',
       instructorName: course.instructorName ?? '',
-    });
+    };
+    const prev = seeded.current;
+    if (prev === null) {
+      // The useState initialiser already holds these values.
+      seeded.current = { id: course.id, values: next };
+      return;
+    }
+    const dirty =
+      prev.id === course.id &&
+      JSON.stringify(draftNow.current) !== JSON.stringify(prev.values) &&
+      // Not dirty any more once the server has caught up with it (a save).
+      JSON.stringify(draftNow.current) !== JSON.stringify(next);
+    if (dirty) return;
+    seeded.current = { id: course.id, values: next };
+    setDraft(next);
   }, [course]);
 
   const save = useMutation({

@@ -1,14 +1,26 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { ErrorState } from '../shared/ui/ErrorState.tsx';
 import { api } from '../shared/api.ts';
 import { Page } from '../shared/layout/AppShell.tsx';
 import { Avatar, Card, EmptyState, Hero, Icon } from '../shared/ui/primitives.tsx';
-import { SkeletonCard, LoadingLabel } from '../shared/ui/Skeleton.tsx';
+import { SkeletonCard } from '../shared/ui/Skeleton.tsx';
 import { Link } from '@tanstack/react-router';
 
 export function DirectoryPage() {
   const [q, setQ] = useState('');
-  const members = useQuery({ queryKey: ['directory', q], queryFn: () => api.directory(q || undefined) });
+  // One request per pause in typing, not per keystroke; the previous results
+  // stay on screen meanwhile instead of flashing back to a skeleton.
+  const [query, setQuery] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(q.trim()), 250);
+    return () => clearTimeout(t);
+  }, [q]);
+  const members = useQuery({
+    queryKey: ['directory', query],
+    queryFn: () => api.directory(query || undefined),
+    placeholderData: keepPreviousData,
+  });
   const badges = useQuery({ queryKey: ['badges'], queryFn: api.badges });
   return (
     <Page>
@@ -30,7 +42,7 @@ export function DirectoryPage() {
         )}
       </div>
       <span className="section-label">Directory</span>
-      {members.isPending ? <SkeletonCard /> : members.isError ? <LoadingLabel>Something went wrong</LoadingLabel> :
+      {members.isPending ? <SkeletonCard /> : members.isError ? <ErrorState onRetry={members.refetch} retrying={members.isFetching} /> :
         members.data.length === 0 ? <EmptyState title="No members found" hint="Try a different search." /> :
         members.data.map((m) => (
           // The directory listed people it could not take you to. Each row is

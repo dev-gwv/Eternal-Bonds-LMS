@@ -10,6 +10,7 @@ import { Card, Chip, Icon } from '../shared/ui/primitives.tsx';
 import { useToast } from '../shared/ui/Toast.tsx';
 import { LessonQuiz } from '../shared/ui/LessonQuiz.tsx';
 import { LessonDiscussion } from '../shared/ui/LessonDiscussion.tsx';
+import { ErrorState, isNotFound } from '../shared/ui/ErrorState.tsx';
 
 type Tab = 'notes' | 'files' | 'qa';
 
@@ -133,6 +134,16 @@ export function LessonPage() {
     );
   }
 
+  // A failed request is not a missing lesson. Only a real 404 (or a slug the
+  // course does not contain) says "not found"; anything else offers a retry.
+  if (course.isError && !isNotFound(course.error)) {
+    return (
+      <Page>
+        <ErrorState onRetry={course.refetch} retrying={course.isFetching} />
+      </Page>
+    );
+  }
+
   if (!course.data || !current) {
     return (
       <Page>
@@ -192,6 +203,9 @@ export function LessonPage() {
               than dropping in an iframe. */}
           {playback.data?.kind === 'youtube' ? (
             <YouTubePlayer
+              // Keyed per lesson: resume position, the progress throttle and
+              // watched time are per-lesson state and must not carry over.
+              key={current.id}
               videoId={playback.data.url}
               startAt={current.lastPositionSeconds}
               title={current.title}
@@ -201,6 +215,7 @@ export function LessonPage() {
             />
           ) : (
             <VideoPlayer
+              key={current.id}
               src={playback.data?.url ?? null}
               startAt={current.lastPositionSeconds}
               title={current.title}
@@ -278,9 +293,9 @@ export function LessonPage() {
             ))}
           </div>
 
-          {tab === 'notes' && <LessonNotesPanel lessonId={current.id} />}
-          {tab === 'files' && <LessonFilesPanel lessonId={current.id} title={current.title} />}
-          {tab === 'qa' && <LessonDiscussion lessonId={current.id} />}
+          {tab === 'notes' && <LessonNotesPanel key={current.id} lessonId={current.id} />}
+          {tab === 'files' && <LessonFilesPanel key={current.id} lessonId={current.id} title={current.title} />}
+          {tab === 'qa' && <LessonDiscussion key={current.id} lessonId={current.id} />}
         </div>
 
         <aside className="col rail">
@@ -333,7 +348,7 @@ export function LessonPage() {
               ever issued one, so every profile showed an empty shelf. */}
           {/* Under the player and above "up next": the moment a lesson ends is
               the only moment somebody will answer three questions about it. */}
-          <LessonQuiz lessonId={current.id} />
+          <LessonQuiz key={current.id} lessonId={current.id} />
 
           {!next && done === all.length && all.length > 0 && <CourseFinished courseId={course.data!.id} />}
 

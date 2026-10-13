@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import type { NotificationPrefs } from '@ipc/contracts';
 import { api, relativeTime } from '../shared/api.ts';
+import { ErrorState } from '../shared/ui/ErrorState.tsx';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Card, Chip, Icon } from '../shared/ui/primitives.tsx';
 import { splitLink } from '../shared/links.ts';
@@ -69,7 +70,7 @@ export function NotificationsPage() {
       <div className="content">
         <div className="col col-main">
           {feed.isLoading && <span style={{ fontSize: 12 }} className="muted">Loading…</span>}
-          {feed.error && <div className="alert">{(feed.error as Error).message}</div>}
+          {feed.isError && <ErrorState onRetry={feed.refetch} retrying={feed.isFetching} />}
 
           {feed.data?.items.length === 0 && (
             <div className="empty">

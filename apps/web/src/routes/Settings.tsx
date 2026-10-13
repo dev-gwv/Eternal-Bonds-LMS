@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useRouterState } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { NotificationPrefs } from '@ipc/contracts';
 import { api } from '../shared/api.ts';
 import { useSession } from '../shared/session.tsx';
@@ -96,8 +96,12 @@ export function SettingsProfilePage() {
   const [fullName, setFullName] = useState('');
   const [city, setCity] = useState('');
 
+  // Seeded once per member, not on every refetch: a background refetch (or
+  // the one a save triggers) used to overwrite whatever was being typed.
+  const seededFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!me.data) return;
+    if (!me.data || seededFor.current === me.data.id) return;
+    seededFor.current = me.data.id;
     setFullName(me.data.fullName);
     setCity(me.data.city ?? '');
   }, [me.data]);
@@ -284,6 +288,22 @@ export function SettingsPrivacyPage() {
 
   const deletion = useQuery({ queryKey: ['deletion'], queryFn: api.deletionState });
 
+  const download = useMutation({
+    mutationFn: api.exportData,
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'eternal-bonds-export.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // After the click has had a chance to start the download.
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    },
+    onError: toast.error,
+  });
+
   const schedule = useMutation({
     mutationFn: () => api.scheduleDeletion(reason || undefined),
     onSuccess: () => {
@@ -313,10 +333,17 @@ export function SettingsPrivacyPage() {
               Everything the club holds about you — profile, posts, progress, registrations and
               activity — as a single JSON file.
             </span>
-            <a href={api.exportUrl} download className="btn btn-blue btn-sq" style={{ alignSelf: 'flex-start' }}>
+            <button
+              type="button"
+              className="btn btn-blue btn-sq"
+              style={{ alignSelf: 'flex-start' }}
+              disabled={download.isPending}
+              aria-busy={download.isPending}
+              onClick={() => download.mutate()}
+            >
               <Icon name="file" size={14} strokeWidth={1.9} />
-              Download my data
-            </a>
+              {download.isPending ? 'Preparing…' : 'Download my data'}
+            </button>
           </Card>
 
           <Card title="Delete account">

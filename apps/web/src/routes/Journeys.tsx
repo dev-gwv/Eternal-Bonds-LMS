@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import type { Journey, JourneyStep } from '@ipc/contracts';
 import { api } from '../shared/api.ts';
+import { ErrorState, isNotFound } from '../shared/ui/ErrorState.tsx';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Card, Chip, EmptyState, Hero, Icon } from '../shared/ui/primitives.tsx';
 import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
@@ -186,6 +187,10 @@ export function JourneysPage() {
         </>
       )}
 
+      {journeys.isError && (
+        <ErrorState onRetry={journeys.refetch} retrying={journeys.isFetching} />
+      )}
+
       {journeys.data?.length === 0 && (
         <Card>
           <EmptyState
@@ -298,6 +303,13 @@ export function JourneyDetailPage() {
       <Page>
         <SkeletonCard />
         <SkeletonCard lines={4} />
+      </Page>
+    );
+  }
+  if (journey.isError && !isNotFound(journey.error)) {
+    return (
+      <Page>
+        <ErrorState onRetry={journey.refetch} retrying={journey.isFetching} />
       </Page>
     );
   }
