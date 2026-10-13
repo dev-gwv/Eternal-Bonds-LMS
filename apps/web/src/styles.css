@@ -166,15 +166,22 @@ input, select, textarea { font-family: inherit; }
   gap: 14px;
   padding: 12px 0;
   min-height: 64px;
+}
+/* Full-bleed: the bar's colour spans the window while its content stays in
+   the centred column. It is painted by a layer behind the bar rather than by
+   a clip on the bar itself — a clip-path here once cut off every dropdown
+   that opens from the header (account menu, notifications, search results),
+   leaving only a sliver of each under the bar's bottom edge. */
+.topbar::before {
+  content: '';
+  position: absolute;
+  inset: 0 -100vmax;
+  z-index: -1;
   background: color-mix(in srgb, var(--panel) 92%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--hair);
-  /* Full-bleed: the bar spans the window while its content stays in the
-     centred column. The shadow paints the colour out to the edges and the
-     clip keeps it from spilling above or below. */
-  box-shadow: 0 0 0 100vmax color-mix(in srgb, var(--panel) 92%, transparent);
-  clip-path: inset(0 -100vmax);
+  pointer-events: none;
 }
 
 .wordmark { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }

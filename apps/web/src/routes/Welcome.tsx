@@ -88,11 +88,31 @@ export function WelcomePage() {
   const index = ORDER.indexOf(step);
   const next = () => setStep(ORDER[Math.min(index + 1, ORDER.length - 1)]!);
 
-  const finish = (dismiss: boolean) => {
+  /**
+   * Leaves setup, and makes sure it does not come straight back.
+   *
+   * The dashboard sends a member here when nothing is done and setup was
+   * neither finished nor dismissed. "Go to my dashboard" used to record
+   * nothing, so a member who had skipped every step was bounced back into
+   * setup the moment they arrived — they had to go through it twice.
+   * Leaving now always records the dismissal (the server only stamps the
+   * first one, and "completed" is still set separately once every step is
+   * done), and the cached answer is updated before navigating, so neither a
+   * slow refetch nor a failed request can send them round again.
+   */
+  const finish = () => {
     const done = async () => {
-      if (dismiss) await api.dismissOnboarding();
-      await queryClient.invalidateQueries({ queryKey: ['onboarding'] });
-      await queryClient.invalidateQueries({ queryKey: ['me'] });
+      queryClient.setQueryData<{ dismissed: boolean } | undefined>(['onboarding'], (old) =>
+        old ? { ...old, dismissed: true } : old,
+      );
+      try {
+        await api.dismissOnboarding();
+      } catch {
+        // The dashboard checklist still offers every step; worst case the
+        // wizard reappears on a later cold start, which beats a dead button.
+      }
+      void queryClient.invalidateQueries({ queryKey: ['onboarding'] });
+      void queryClient.invalidateQueries({ queryKey: ['me'] });
       navigate({ to: '/' });
     };
     void done();
@@ -316,7 +336,7 @@ export function WelcomePage() {
               Anything you skipped is still on your dashboard as a short checklist, and it disappears
               once it is done.
             </span>
-            <Actions primary="Go to my dashboard" onPrimary={() => finish(false)} />
+            <Actions primary="Go to my dashboard" onPrimary={finish} />
           </>
         );
     }
@@ -380,7 +400,7 @@ export function WelcomePage() {
             type="button"
             className="btn btn-ghost"
             style={{ alignSelf: 'center', fontSize: 11 }}
-            onClick={() => finish(true)}
+            onClick={finish}
           >
             Skip setup — I will do this later
           </button>
