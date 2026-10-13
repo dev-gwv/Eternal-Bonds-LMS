@@ -230,8 +230,9 @@ for no visible reason:
 Preview deployments get a new URL each time and are not in `ALLOWED_ORIGINS`,
 so their API calls are blocked by CORS.
 
-`bun run deploy:web` and `apps/web/wrangler.jsonc` still deploy the old
-Cloudflare Workers build if it is ever needed again.
+The old Cloudflare frontend (`eternal-bonds-web`) was deleted on 13 Oct 2026.
+`bun run deploy:web` and `apps/web/wrangler.jsonc` would recreate it, so do
+not run them unless you mean to move the frontend back.
 
 ---
 
