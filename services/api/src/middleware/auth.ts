@@ -1,4 +1,5 @@
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+import type { Context } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import type { AppEnv } from '../context.ts';
 import type { Env } from '../env.ts';
@@ -72,9 +73,24 @@ export const session = createMiddleware<AppEnv>(async (c, next) => {
  * When Supabase is not configured the API is running on seed data for local
  * development, and there is no session to require; the guard steps aside so a
  * clean checkout still works. It is active the moment SUPABASE_URL is set.
+ *
+ * Production never steps aside. EnvSchema already refuses to boot there without
+ * SUPABASE_URL; this is the second lock, so a config bug answers 503 instead of
+ * opening every member route to anonymous callers.
  */
+function seedModeGuard(c: Context<AppEnv>): Response | 'seed' | null {
+  if (c.env.SUPABASE_URL) return null;
+  if (c.env.NODE_ENV === 'production') {
+    console.error(JSON.stringify({ auth: 'refused', reason: 'SUPABASE_URL unset in production' }));
+    return problem(c, 503, 'Service misconfigured', 'Authentication is not configured. This has been logged.');
+  }
+  return 'seed';
+}
+
 export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
-  if (!c.env.SUPABASE_URL) return next();
+  const guard = seedModeGuard(c);
+  if (guard === 'seed') return next();
+  if (guard) return guard;
   if (!c.get('userId')) {
     c.header('WWW-Authenticate', 'Bearer realm="ipc", error="invalid_token"');
     return problem(c, 401, 'Not authenticated', 'Send a Supabase access token as `Authorization: Bearer <token>`.');
@@ -91,7 +107,9 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
  * one round trip saved.
  */
 export const requireAdmin = createMiddleware<AppEnv>(async (c, next) => {
-  if (!c.env.SUPABASE_URL) return next(); // Local seed mode; nothing real to protect.
+  const guard = seedModeGuard(c);
+  if (guard === 'seed') return next(); // Local seed mode; nothing real to protect.
+  if (guard) return guard;
 
   const userId = c.get('userId');
   if (!userId) {

@@ -162,10 +162,18 @@ bun run deploy:api
 curl https://eternal-bonds-api.<your-subdomain>.workers.dev/health
 ```
 
-`/health` answers `"source": "supabase"` when `DATABASE_URL` arrived and
-`"source": "seed"` when it did not. If you see `seed` in production the secret
-is missing — the API serves fixtures rather than crashing, which is right on a
-laptop and wrong on a server, so check it every time.
+`/health` answers `"source": "supabase"` when `DATABASE_URL` arrived.
+
+**Production fails closed.** With `NODE_ENV=production` (set in
+`wrangler.jsonc`) the API refuses to run unless `DATABASE_URL` and
+`SUPABASE_URL` are set and `CRON_SECRET` is set to something other than the
+development default (`productionConfigProblems` in `services/api/src/env.ts`).
+The Worker then answers every request with a `503` problem+json titled
+"Service misconfigured" and logs the names of the missing keys (never their
+values) — check `bun run cf:tail`. The Bun server exits at boot with the same
+message. Seed mode — fixtures, no auth — exists only outside production.
+Use a long random `CRON_SECRET` (`openssl rand -hex 32`); length is not yet
+enforced because the deployed secret predates the check.
 
 `ALLOWED_ORIGINS` is a secret rather than a var purely so it can be changed
 without a redeploy. It is not sensitive.
@@ -303,7 +311,7 @@ Two workflows, both in `.github/workflows/`:
 
 **`ci.yml`** — on every push and pull request.
 
-1. `check` — typecheck every workspace, run the 31 unit tests, build.
+1. `check` — typecheck every workspace, run the unit tests (`bun test tests/`), build.
 2. `database` — applies migrations to a **staging** project, then runs
    `verify-supabase`, `test-rls`, `test-studio` and `test-engagement` against
    it. These create and delete real rows; never point them at production.
@@ -313,11 +321,13 @@ Two workflows, both in `.github/workflows/`:
 
 ```
 verify ──► migrations ──► api
-    └────────────────────► web
 ```
 
-Both go to Cloudflare. Background jobs ride along with the API on a Cron
-Trigger, so there is no third thing to deploy. If you switch to Fly, swap the
+The API goes to Cloudflare Workers; background jobs ride along with it on a
+Cron Trigger, so there is no separate jobs deploy. The **web app is not in this
+workflow**: Vercel's Git integration builds and deploys `apps/web` on every push
+to `main` (see *The web app → Vercel* above). `verify` still builds the web
+bundle, so a change that breaks it fails here before the API ships. If you switch to Fly, swap the
 `api` job's `bun run deploy:api` for `flyctl deploy` and add a `worker` job —
 `deploy.yml` has a comment where that goes.
 
@@ -346,11 +356,11 @@ nobody has created a Fly app yet.
 |---|---|---|
 | Secret | `DATABASE_URL` | production migrations |
 | Secret | `STAGING_DATABASE_URL` | the database suites in CI |
-| Secret | `CLOUDFLARE_API_TOKEN` | API and web deploys |
-| Secret | `CLOUDFLARE_ACCOUNT_ID` | API and web deploys |
-| Variable | `VITE_API_URL` | the web build |
-| Variable | `VITE_SUPABASE_URL` | the web build |
-| Variable | `VITE_SUPABASE_ANON_KEY` | the web build |
+| Secret | `CLOUDFLARE_API_TOKEN` | the API deploy (the web is on Vercel and needs no Cloudflare token) |
+| Secret | `CLOUDFLARE_ACCOUNT_ID` | the API deploy |
+| Variable | `VITE_API_URL` | the CI build check (Vercel has its own copy) |
+| Variable | `VITE_SUPABASE_URL` | the CI build check |
+| Variable | `VITE_SUPABASE_ANON_KEY` | the CI build check |
 | Variable | `API_URL` | the post-deploy health check (optional) |
 
 The `VITE_*` three are **variables, not secrets**, on purpose: they end up in a

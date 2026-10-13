@@ -31,7 +31,6 @@ const routes = [
   '/v1/wins',
   '/v1/wins/first-1-2l-package',
   '/v1/events',
-  '/v1/photolancer/briefs',
   '/v1/directory',
   '/v1/me/dashboard',
   '/v1/moderation/flags',

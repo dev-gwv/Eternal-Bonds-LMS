@@ -161,7 +161,7 @@ export const meRoutes = new Hono<AppEnv>()
     c.header('content-disposition', 'attachment; filename="ipc-account-export.json"');
     return c.json(data);
   })
-  .get('/deletion', (c) => c.json(deletionState(c.env)))
+  .get('/deletion', async (c) => c.json(await deletionState(c.env, c.get('userId'))))
   .post(
     '/deletion',
     rateLimit({ name: 'deletion', limit: 5, windowSeconds: 3600 }),

@@ -105,13 +105,15 @@ export async function getStats(env: Env, userId: string | null): Promise<Dashboa
           where e.user_id = ${userId}::uuid and e.completed_at is null
         ) as courses_in_progress,
 
-        -- The same 30-day window the activity chart draws, so the headline
-        -- number and the graph under it cannot disagree.
+        -- The last 30 IST days, today included (hence - 29; - 30 was 31 days).
+        -- Deliberately NOT the activity chart's window: that chart is the last
+        -- 7 days (getActivity), so the two numbers differ by design and the
+        -- client labels this one "· 30 days".
         (
           select coalesce(sum(courses_minutes + workshops_minutes + library_minutes), 0)::int
           from daily_activity
           where user_id = ${userId}::uuid
-            and day >= (now() at time zone 'Asia/Kolkata')::date - 30
+            and day >= (now() at time zone 'Asia/Kolkata')::date - 29
         ) as minutes_learned,
 
         coalesce(st.current_days, 0)::int as streak_days,
@@ -212,7 +214,12 @@ export async function getContinueLearning(env: Env, userId: string | null): Prom
         left join lesson_progress lp on lp.lesson_id = l.id and lp.user_id = ${userId}::uuid
         where m.course_id = c.id
       ) counts on true
-      where e.completed_at is null
+      -- Scope to this member explicitly. RLS is not a filter here: admins
+      -- read every enrolment (enrollments_admin_read), so for an admin this
+      -- returned one row per member enrolled in each course — the same course
+      -- several times, filling the limit and pushing their own courses out.
+      where e.user_id = ${userId}::uuid
+        and e.completed_at is null
         and counts.total > 0
       -- Anything touched, most recent first; untouched courses fall to the end.
       order by counts.last_at desc nulls last, e.enrolled_at desc
@@ -258,7 +265,7 @@ export async function getPerformance(env: Env, userId: string | null): Promise<P
       select
         (select count(*)::int from daily_activity
           where user_id = ${userId}::uuid
-            and day >= (now() at time zone 'Asia/Kolkata')::date - 30
+            and day >= (now() at time zone 'Asia/Kolkata')::date - 29
             and (courses_minutes + workshops_minutes + library_minutes) > 0) as active_days,
         (select count(*)::int from lesson_progress where user_id = ${userId}::uuid) as started,
         (select count(*)::int from lesson_progress

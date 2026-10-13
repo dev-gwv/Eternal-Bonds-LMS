@@ -46,8 +46,13 @@ import {
 const API = process.env.API_URL ?? 'https://eternal-bonds-api.dev-d9b.workers.dev';
 const SUPABASE = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? '';
 const ANON = process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? '';
-const EMAIL = process.env.TEST_EMAIL ?? 'tester@eternalbonds.test';
-const PASSWORD = process.env.TEST_PASSWORD ?? 'EternalBondsTest2026!';
+// Credentials come from the environment only. A password committed here is a
+// password for a production account that anyone with the repo can use.
+const EMAIL = process.env.TEST_EMAIL ?? '';
+const PASSWORD = process.env.TEST_PASSWORD ?? '';
+// Or hand over a session directly — useful on a network that cannot reach
+// supabase.co (some Indian ISPs block it), where the token is fetched elsewhere.
+const PRESET_TOKEN = process.env.TEST_ACCESS_TOKEN ?? '';
 
 let failures = 0;
 const pass = (label: string, detail = '') => console.log(`  ok    ${label}${detail ? ` — ${detail}` : ''}`);
@@ -58,8 +63,8 @@ const fail = (label: string, detail = '') => {
 
 /* ── Sign in ───────────────────────────────────────────────────────────────*/
 
-let token = '';
-if (SUPABASE && ANON) {
+let token = PRESET_TOKEN;
+if (!token && SUPABASE && ANON && EMAIL && PASSWORD) {
   const res = await fetch(`${SUPABASE}/auth/v1/token?grant_type=password`, {
     method: 'POST',
     headers: { apikey: ANON, 'content-type': 'application/json' },

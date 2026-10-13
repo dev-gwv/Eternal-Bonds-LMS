@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
   activityEvents,
   channels,
@@ -287,15 +287,63 @@ export async function cancelDeletion(env: Env, userId: string | null): Promise<D
   if (!userId) throw new HttpError(401, 'Not authenticated');
 
   return withUser(db, userId, async (tx) => {
+    // Only undo what scheduling did. Without a pending deletion this is a
+    // no-op, so it can never lift a suspension an admin imposed.
+    const pending = await pendingDeletion(tx, userId);
+    if (!pending.scheduled) return { scheduled: false, purgeAt: null };
+
     await tx.update(users).set({ isSuspended: false }).where(eq(users.id, userId));
+    // The purge job skips any schedule followed by a cancellation; the outbox
+    // trigger turns this row into the "deletion cancelled" email.
+    await tx.insert(activityEvents).values({
+      userId,
+      kind: 'account.deletion_cancelled',
+      payload: { purgeAt: pending.purgeAt },
+    });
     return { scheduled: false, purgeAt: null };
   });
 }
 
-export function deletionState(env: Env): DeletionState {
-  if (!getDb(env)) return { scheduled: Boolean(seedDeletion.purgeAt), purgeAt: seedDeletion.purgeAt };
-  // With a database the state lives on the user row; read it in the route.
-  return { scheduled: false, purgeAt: null };
+/**
+ * Scheduling writes two things: `users.is_suspended = true` and an
+ * `account.deletion_scheduled` event carrying `purgeAt`; cancelling clears the
+ * flag and writes `account.deletion_cancelled`. A deletion is pending when the
+ * newest of those two events is a schedule and the account is still suspended.
+ */
+async function pendingDeletion(
+  tx: Parameters<Parameters<typeof withUser>[2]>[0],
+  userId: string,
+): Promise<DeletionState> {
+  const [user] = await tx
+    .select({ isSuspended: users.isSuspended })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  const [latest] = await tx
+    .select({ kind: activityEvents.kind, payload: activityEvents.payload })
+    .from(activityEvents)
+    .where(
+      and(
+        eq(activityEvents.userId, userId),
+        inArray(activityEvents.kind, ['account.deletion_scheduled', 'account.deletion_cancelled']),
+      ),
+    )
+    .orderBy(desc(activityEvents.occurredAt))
+    .limit(1);
+
+  if (!user?.isSuspended || latest?.kind !== 'account.deletion_scheduled') {
+    return { scheduled: false, purgeAt: null };
+  }
+  const raw = (latest.payload as { purgeAt?: unknown } | null)?.purgeAt;
+  const purgeAt = typeof raw === 'string' && !Number.isNaN(Date.parse(raw)) ? new Date(raw).toISOString() : null;
+  return { scheduled: true, purgeAt };
+}
+
+export async function deletionState(env: Env, userId: string | null): Promise<DeletionState> {
+  const db = getDb(env);
+  if (!db) return { scheduled: Boolean(seedDeletion.purgeAt), purgeAt: seedDeletion.purgeAt };
+  if (!userId) throw new HttpError(401, 'Not authenticated');
+  return withUser(db, userId, (tx) => pendingDeletion(tx, userId));
 }
 
 /** Everything the member has given us, as one JSON document. DPDP portability. */

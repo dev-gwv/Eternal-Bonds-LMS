@@ -4,7 +4,7 @@ import { z } from 'zod';
  * Config is parsed once, at the edge of the process, and passed in.
  * Bad config fails at boot — loudly — instead of at 3am in a handler.
  */
-export const EnvSchema = z.object({
+const BaseEnvSchema = z.object({
   PORT: z.coerce.number().default(8080),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
@@ -67,6 +67,61 @@ export const EnvSchema = z.object({
   APP_URL: z.string().default('http://localhost:5173'),
 
   CRON_SECRET: z.string().default('dev-cron-secret'),
+
+  /* Product analytics (lib/analytics.ts). Unset = events are logged and
+     dropped. Declared here because the schema strips unknown keys — reading
+     them off the raw bindings never worked. */
+  POSTHOG_KEY: z.string().default(''),
+  POSTHOG_HOST: z.string().default(''),
+});
+
+/** The placeholder a clean checkout runs with. Never acceptable in production. */
+export const DEV_CRON_SECRET = 'dev-cron-secret';
+
+/**
+ * Production fails closed. Every default above exists so a clean checkout runs
+ * on seed data; in production those same defaults would mean "no auth, no
+ * database, a guessable cron secret" — so their absence is a boot error, not a
+ * quiet fallback. Returns the names of what is wrong, never the values.
+ */
+export function productionConfigProblems(env: z.infer<typeof BaseEnvSchema>): string[] {
+  if (env.NODE_ENV !== 'production') return [];
+  const problems: string[] = [];
+  // Length is not enforced: the deployed secret predates this check and its
+  // length is unknown. Rotate to >= 32 random characters, then tighten this.
+  if (!env.CRON_SECRET.trim() || env.CRON_SECRET === DEV_CRON_SECRET) {
+    problems.push('CRON_SECRET must be set to a non-default value');
+  }
+  if (!env.SUPABASE_URL.trim()) problems.push('SUPABASE_URL must be set');
+  if (!env.DATABASE_URL.trim()) problems.push('DATABASE_URL must be set');
+  return problems;
+}
+
+export const EnvSchema = BaseEnvSchema.superRefine((env, ctx) => {
+  for (const message of productionConfigProblems(env)) {
+    ctx.addIssue({ code: 'custom', message });
+  }
 });
 
 export type Env = z.infer<typeof EnvSchema>;
+
+/** Thrown by parseEnv. The message names keys only — safe to log. */
+export class ConfigError extends Error {
+  constructor(readonly problems: string[]) {
+    super(`Invalid configuration: ${problems.join('; ')}`);
+    this.name = 'ConfigError';
+  }
+}
+
+/**
+ * The one way both entrypoints read config. Wraps Zod's error so neither
+ * entrypoint can accidentally log an input value: each problem is the key path
+ * plus Zod's message, which in v4 does not echo the input.
+ */
+export function parseEnv(source: Record<string, unknown>): Env {
+  const result = EnvSchema.safeParse(source);
+  if (result.success) return result.data;
+  throw new ConfigError(
+    result.error.issues.map((i) => (i.path.length ? `${i.path.join('.')}: ${i.message}` : i.message)),
+  );
+}

@@ -9,15 +9,17 @@
  * are logged and dropped — analytics must never break the app.
  */
 
+import type { Env } from '../env.ts';
+
 export type AnalyticsEvent = {
   userId?: string;
   event: string;
   properties?: Record<string, unknown>;
 };
 
-export async function track(env: Record<string, string | undefined>, e: AnalyticsEvent): Promise<void> {
+export async function track(env: Pick<Env, 'POSTHOG_KEY' | 'POSTHOG_HOST'>, e: AnalyticsEvent): Promise<void> {
   const key = env.POSTHOG_KEY;
-  const host = env.POSTHOG_HOST ?? 'https://app.posthog.com';
+  const host = (env.POSTHOG_HOST || 'https://app.posthog.com').replace(/\/+$/, '');
   if (!key) {
     console.log(JSON.stringify({ analytics: e.event, userId: e.userId ?? null }));
     return;

@@ -58,7 +58,7 @@ bun run db:verify          # schema, RLS, policies, functions, storage bucket, e
 bun run db:test-rls        # two throwaway members cannot see each other
 bun run db:test-studio     # only an admin can author; a member is refused by the database
 bun run db:test-engagement # likes, threads, notifications, membership grants
-bun test                   # 31 unit tests, no database needed
+bun test tests/            # 121 unit tests, no database needed
 ```
 
 ### Getting into the studio
@@ -78,7 +78,7 @@ Sign in once first, so the profile row exists (the `on_auth_user_created` trigge
 |---|---|
 | Design system | Tokens in `apps/web/src/styles.css`, primitives and charts in `src/shared/ui` |
 | App shell | Top nav, page header, footer — identical on every page |
-| Pages | Dashboard (hero + stats), Think Tank, Wins, Courses, Events, Community, Workshops, Library, Members directory, Member Details, Photolancer, Legal |
+| Pages | Dashboard (hero + stats), Think Tank, Wins, Courses, Events, Community, Workshops, Library, Members directory, Member Details, Legal |
 | API | `/health`, `/v1/{courses,workshops,community,library,lessons,me}` and `/v1/admin/*` over Supabase, with a seed fallback |
 | Studio | `/admin` — create courses, build modules and lessons, upload video, schedule workshops. Admins only |
 | Video | Cloudflare Stream, Bunny Stream, or signed MP4 from Supabase Storage — one interface, chosen by env |
@@ -88,9 +88,12 @@ Sign in once first, so the profile row exists (the `on_auth_user_created` trigge
 | Schema | Drizzle tables for identity, memberships, courses, progress, workshops, posts, library, activity, outbox |
 | Charts | Grouped pill bars, score gauge, trend line, progress rings — inline SVG, no chart library |
 
-Not built yet, in rough order: auth (M1), account deletion and DPDP consent (M1), the lesson
-player and progress writes (M2), instructor studio (M3), events and notifications (M6). See
-`PLAN.md` §8.
+Auth, account deletion and export, the lesson player and progress writes, the studio, events,
+notifications and channel unread counts are built. Still missing or stubbed: support
+impersonation (API stub, no UI), a working account-purge job, a verified email domain, push
+on a real device, and browser-level tests. Photolancer was removed. The web app is hosted on
+Vercel; the API on Cloudflare Workers. The full, current list is
+[`docs/status.md`](docs/status.md).
 
 ## Conventions worth knowing
 
