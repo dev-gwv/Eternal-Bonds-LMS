@@ -8,7 +8,6 @@ import {
   signInWithGoogle,
   supabase,
 } from '../shared/supabase.ts';
-import { Icon } from '../shared/ui/primitives.tsx';
 
 type Step = 'phone' | 'code' | 'sent';
 
@@ -49,6 +48,45 @@ function useCountdown(until: number | null): number {
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 /**
+ * The country code is its own control.
+ *
+ * It used to be "+91" pre-typed into the number box, which a member could
+ * backspace away, type twice ("+91 +91 98…") or paste a full number over —
+ * and every one of those sent a malformed number to the SMS provider. A
+ * picker cannot be half-deleted. India first: it is where the club is.
+ */
+const COUNTRIES = [
+  { code: '+91', name: 'India', digits: 10 },
+  { code: '+971', name: 'UAE', digits: 9 },
+  { code: '+977', name: 'Nepal', digits: 10 },
+  { code: '+880', name: 'Bangladesh', digits: 10 },
+  { code: '+94', name: 'Sri Lanka', digits: 9 },
+  { code: '+65', name: 'Singapore', digits: 8 },
+  { code: '+44', name: 'UK', digits: 10 },
+  { code: '+1', name: 'US / Canada', digits: 10 },
+  { code: '+61', name: 'Australia', digits: 9 },
+] as const;
+
+/** Digits only, and no trunk zero: "098220 41552" is dialled as 98220 41552. */
+const nationalDigits = (raw: string) => raw.replace(/\D/g, '').replace(/^0+/, '');
+
+/** 98220 41552 for a ten-digit Indian number; anything else as typed. */
+const prettyNumber = (country: string, digits: string) =>
+  country === '+91' && digits.length === 10 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
+
+/** Google's mark, for the one button members recognise by it. */
+function GoogleMark() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
+  );
+}
+
+/**
  * Supabase's own wording, in the member's terms.
  *
  * Its rate-limit error is "For security purposes, you can only request this
@@ -77,7 +115,13 @@ function friendlyAuthError(message: string): string {
  */
 export function SignInPage() {
   const [step, setStep] = useState<Step>('phone');
-  const [phone, setPhone] = useState('+91');
+  const [country, setCountry] = useState<string>('+91');
+  const [localNumber, setLocalNumber] = useState('');
+  const digits = nationalDigits(localNumber);
+  const expectedDigits = COUNTRIES.find((c) => c.code === country)?.digits ?? 10;
+  const phoneValid = digits.length === expectedDigits;
+  /** E.164, which is what the SMS provider wants: +919822041552. */
+  const phone = `${country}${digits}`;
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -106,6 +150,10 @@ export function SignInPage() {
   const sendCode = () => {
     const sb = supabase;
     if (!sb) return;
+    if (!phoneValid) {
+      setError(`Enter the ${expectedDigits}-digit mobile number, without the country code.`);
+      return;
+    }
     void run(
       () => sb.auth.signInWithOtp({ phone }),
       () => {
@@ -117,14 +165,12 @@ export function SignInPage() {
   };
 
   return (
-    <div className="app" style={{ display: 'grid', placeItems: 'center' }}>
-      <div className="panel signin-panel" style={{ maxWidth: 430, minHeight: 0, padding: 30, gap: 18 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <LogoMark size={52} title="Eternal Bonds" />
-          <div style={{ textAlign: 'center' }}>
-            <div className="signin-brand">Eternal Bonds</div>
-            <div style={{ fontSize: 12 }} className="muted">The club for photographers who want more</div>
-          </div>
+    <div className="app" style={{ display: 'grid', placeItems: 'center', padding: '24px 16px' }}>
+      <div className="panel signin-panel">
+        <div className="signin-head">
+          <LogoMark size={48} title="Eternal Bonds" />
+          <h1 className="signin-brand">Welcome to Eternal Bonds</h1>
+          <p className="signin-sub">Sign in or join with your mobile number. New here? The same steps create your account.</p>
         </div>
 
         {!authConfigured && (
@@ -172,18 +218,54 @@ export function SignInPage() {
               sendCode();
             }}
           >
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 500 }}>Phone number</span>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+91 98220 41552"
-                style={inputStyle}
-                required
-              />
-            </label>
-            <button type="submit" className="btn btn-pink" disabled={busy || !authConfigured} style={{ padding: 12 }}>
+            <div className="signin-field">
+              <label className="signin-label" htmlFor="signin-phone">Mobile number</label>
+              <div className="phone-row">
+                <select
+                  aria-label="Country code"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="phone-country"
+                >
+                  {COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code} {c.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  id="signin-phone"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  value={localNumber}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    // A pasted full number ("+91 98220 41552") moves its code
+                    // into the picker instead of doubling it up.
+                    if (raw.trim().startsWith('+')) {
+                      const compact = raw.replace(/[^\d+]/g, '');
+                      const match = [...COUNTRIES]
+                        .sort((a, b) => b.code.length - a.code.length)
+                        .find((c) => compact.startsWith(c.code));
+                      if (match) {
+                        setCountry(match.code);
+                        setLocalNumber(compact.slice(match.code.length));
+                        return;
+                      }
+                    }
+                    setLocalNumber(raw.replace(/[^\d\s-]/g, '').slice(0, 16));
+                  }}
+                  placeholder={country === '+91' ? '98220 41552' : 'Mobile number'}
+                  aria-describedby="signin-phone-hint"
+                  required
+                />
+              </div>
+              <span id="signin-phone-hint" className="signin-hint">
+                We'll text you a 6-digit code. No password needed.
+              </span>
+            </div>
+            <button type="submit" className="btn btn-pink signin-cta" disabled={busy || !authConfigured || !phoneValid}>
               {busy ? 'Sending…' : 'Send code'}
             </button>
           </form>
@@ -200,7 +282,9 @@ export function SignInPage() {
             }}
           >
             <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 500 }}>Code sent to {phone}</span>
+              <span className="signin-label">
+                Code sent to {country} {prettyNumber(country, digits)}
+              </span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -284,24 +368,32 @@ export function SignInPage() {
           </div>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ flex: 1, height: 1, background: 'var(--rule)' }} />
-          <span style={{ fontSize: 10 }} className="dim">or</span>
-          <span style={{ flex: 1, height: 1, background: 'var(--rule)' }} />
+        {/* Right under the form that caused it, not at the foot of the card
+            where it read as a problem with the email box. */}
+        {error && (
+          <div className="signin-error" role="alert">
+            {error}
+          </div>
+        )}
+
+        <div className="signin-or">
+          <span />
+          <span>or continue with</span>
+          <span />
         </div>
 
         <button
           type="button"
-          className="btn btn-soft btn-sq"
-          style={{ padding: 12 }}
+          className="btn btn-soft signin-google"
           disabled={busy || !authConfigured}
           onClick={() => void signInWithGoogle()}
         >
+          <GoogleMark />
           Continue with Google
         </button>
 
         <form
-          style={{ display: 'flex', gap: 8 }}
+          className="signin-field"
           onSubmit={(e) => {
             e.preventDefault();
             const sb = supabase;
@@ -312,41 +404,34 @@ export function SignInPage() {
             );
           }}
         >
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@email.com"
-            style={{ ...inputStyle, flex: 1 }}
-            required
-          />
-          <button type="submit" className="btn btn-blue btn-sq" disabled={busy || !authConfigured}>
-            Email link
-          </button>
+          <label className="signin-label" htmlFor="signin-email">Email instead</label>
+          <div className="email-row">
+            <input
+              id="signin-email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@email.com"
+              required
+            />
+            <button type="submit" className="btn btn-soft" disabled={busy || !authConfigured || !email.includes('@')}>
+              Send link
+            </button>
+          </div>
         </form>
 
-        {error && (
-          <div style={{ fontSize: 11, color: 'var(--red)', display: 'flex', gap: 7, alignItems: 'center' }}>
-            <Icon name="bell" size={13} color="var(--red)" />
-            {error}
-          </div>
-        )}
-
-        <p style={{ margin: 0, fontSize: 10, lineHeight: 1.5 }} className="dim">
-          By continuing you agree to the club's terms and privacy policy. Your number is used to
-          sign you in and to send session reminders.
+        <p className="signin-terms">
+          By continuing you agree to the club's terms and privacy policy. Your number is only used
+          to sign you in and to send session reminders.
         </p>
       </div>
     </div>
   );
 }
 
+/** The code box; everything else uses the app's input baseline. */
 const inputStyle: React.CSSProperties = {
-  fontSize: 14,
-  color: 'var(--ink)',
-  background: 'var(--soft)',
-  border: '1px solid var(--hair)',
-  borderRadius: 'var(--r-ctl)',
-  padding: '12px 14px',
-  outline: 'none',
+  fontSize: 18,
+  minHeight: 48,
 };
