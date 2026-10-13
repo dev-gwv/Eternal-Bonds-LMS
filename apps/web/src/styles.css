@@ -1282,21 +1282,12 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
    surface of its own (the page is), so the card states its own. */
 .signin-panel {
   position: relative;
-  overflow: hidden;
   background: var(--panel);
   border: 1px solid var(--hair);
+  border-top: 4px solid var(--accent);
   border-radius: var(--r-panel);
   box-shadow: var(--sh-md);
   width: 100%;
-}
-.signin-panel::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: var(--accent);
 }
 .signin-panel {
   max-width: 440px;
@@ -1334,23 +1325,17 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
 /* Country picker and number side by side, the same height, one row. */
 .phone-row {
   display: grid;
-  grid-template-columns: minmax(0, 132px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 104px) minmax(0, 1fr);
   gap: 8px;
 }
-.phone-row select,
+.phone-row .select-trigger,
 .phone-row input,
 .email-row input { min-height: 48px; font-size: 15px; }
 .phone-row input { letter-spacing: 0.02em; }
-.phone-country {
-  /* A native select: the phone's own picker, which is the best one there is
-     on a small screen. The arrow is drawn here because appearance is off. */
-  padding-right: 28px !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b6272' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  text-overflow: ellipsis;
-  cursor: pointer;
-}
+/* The trigger is narrow (just "+91"); the open list is wide enough to name
+   the country beside each code without wrapping. */
+.phone-row .select-list { right: auto; width: 230px; }
+.phone-row .select-option { font-size: 14px; }
 .signin-cta { min-height: 48px; font-size: 14.5px; }
 
 .signin-error {
@@ -1389,7 +1374,7 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
 
 @media (max-width: 460px) {
   .signin-panel { padding: 28px 20px 22px; border-radius: 18px; }
-  .phone-row { grid-template-columns: minmax(0, 112px) minmax(0, 1fr); }
+  .phone-row { grid-template-columns: minmax(0, 96px) minmax(0, 1fr); }
 }
 
 /* --- accessibility ---------------------------------------------------------
@@ -1958,6 +1943,19 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
   }
   .bottomnav-item.is-on { color: var(--pink-strong); background: var(--pink-tint); }
   .bottomnav-item:active { background: var(--soft); }
+
+  /* The notifications panel hangs from the bell's right edge, and on a phone
+     the bell is not at the screen's right edge (the avatar is), so a 340px
+     panel started 6px off the left of a 390px screen. Here it spans the
+     screen with a gutter instead. !important because its box is inline. */
+  .notif-panel {
+    position: fixed !important;
+    top: 60px !important;
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    max-height: calc(100vh - 160px) !important;
+  }
 
   /* Room for the bar, so the last card in a page is not sitting under it. */
   .panel { padding-bottom: calc(74px + env(safe-area-inset-bottom)); }

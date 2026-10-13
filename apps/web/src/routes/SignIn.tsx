@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { LogoMark } from '../shared/ui/Logo.tsx';
+import { Select } from '../shared/ui/Select.tsx';
 import {
   authConfigured,
   devLoginEmail,
@@ -66,6 +67,9 @@ const COUNTRIES = [
   { code: '+1', name: 'US / Canada', digits: 10 },
   { code: '+61', name: 'Australia', digits: 9 },
 ] as const;
+
+/** The closed picker shows just the code; the open list names the country. */
+const COUNTRY_OPTIONS = COUNTRIES.map((c) => ({ value: c.code, label: c.code, hint: c.name }));
 
 /** Digits only, and no trunk zero: "098220 41552" is dialled as 98220 41552. */
 const nationalDigits = (raw: string) => raw.replace(/\D/g, '').replace(/^0+/, '');
@@ -221,18 +225,15 @@ export function SignInPage() {
             <div className="signin-field">
               <label className="signin-label" htmlFor="signin-phone">Mobile number</label>
               <div className="phone-row">
-                <select
+                {/* The app's own listbox, not a native <select>: the open
+                    list of a native one is an OS popup — system font, square
+                    corners, a flat blue highlight — that no CSS can reach. */}
+                <Select
                   aria-label="Country code"
                   value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  className="phone-country"
-                >
-                  {COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.code} {c.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setCountry}
+                  options={COUNTRY_OPTIONS}
+                />
                 <input
                   id="signin-phone"
                   type="tel"

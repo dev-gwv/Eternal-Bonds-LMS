@@ -94,6 +94,7 @@ export function NotificationBell() {
 
       {open && (
         <div
+          className="notif-panel"
           role="dialog"
           aria-label="Notifications"
           style={{

@@ -66,8 +66,16 @@ export function Select<T extends string>({
   useLayoutEffect(() => {
     if (!open || !trigger.current) return;
     const box = trigger.current.getBoundingClientRect();
-    const below = window.innerHeight - box.bottom;
-    const needed = Math.min(items.length * 34 + 12, 280);
+    // The usable bottom is the top of the phone's bottom bar when it is on
+    // screen, not the window edge: a list measured against the window opened
+    // downward and slid underneath the bar, half of it untappable.
+    const bar = document.querySelector<HTMLElement>('.bottomnav');
+    const barTop = bar && bar.offsetParent !== null ? bar.getBoundingClientRect().top : window.innerHeight;
+    const below = Math.min(window.innerHeight, barTop) - box.bottom;
+    // Options with a second line are taller; underestimating them is what
+    // let a list run off the bottom instead of flipping.
+    const rowHeight = items.some((o) => o.hint) ? 48 : 34;
+    const needed = Math.min(items.length * rowHeight + 12, 280);
     setDrop(below < needed && box.top > below ? 'up' : 'down');
   }, [open, items.length]);
 
