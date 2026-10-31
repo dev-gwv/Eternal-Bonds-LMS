@@ -1322,20 +1322,7 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
 .signin-label { font-size: 13px; font-weight: 600; color: var(--ink); }
 .signin-hint { font-size: 12.5px; color: var(--ink-3); }
 
-/* Country picker and number side by side, the same height, one row. */
-.phone-row {
-  display: grid;
-  grid-template-columns: minmax(0, 104px) minmax(0, 1fr);
-  gap: 8px;
-}
-.phone-row .select-trigger,
-.phone-row input,
 .email-row input { min-height: 48px; font-size: 15px; }
-.phone-row input { letter-spacing: 0.02em; }
-/* The trigger is narrow (just "+91"); the open list is wide enough to name
-   the country beside each code without wrapping. */
-.phone-row .select-list { right: auto; width: 230px; }
-.phone-row .select-option { font-size: 14px; }
 .signin-cta { min-height: 48px; font-size: 14.5px; }
 
 .signin-error {
@@ -1374,7 +1361,6 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
 
 @media (max-width: 460px) {
   .signin-panel { padding: 28px 20px 22px; border-radius: 18px; }
-  .phone-row { grid-template-columns: minmax(0, 96px) minmax(0, 1fr); }
 }
 
 /* --- accessibility ---------------------------------------------------------

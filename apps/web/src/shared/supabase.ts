@@ -27,11 +27,6 @@ export async function accessToken(): Promise<string | null> {
   return data.session?.access_token ?? null;
 }
 
-export async function signInWithOtp(phone: string) {
-  if (!supabase) throw new Error('Supabase is not configured');
-  return supabase.auth.signInWithOtp({ phone });
-}
-
 export async function signInWithGoogle() {
   if (!supabase) throw new Error('Supabase is not configured');
   return supabase.auth.signInWithOAuth({
@@ -45,7 +40,7 @@ export async function signOut() {
 }
 
 /* ── Test sign-in ──────────────────────────────────────────────────────────
-   A shortcut for clicking around a deployed build without waiting for an OTP.
+   A shortcut for clicking around a deployed build without waiting for a sign-in email.
 
    It is **not** an auth bypass, and that is the whole design. It signs in to a
    real Supabase account and gets a real session, so RLS decides what that

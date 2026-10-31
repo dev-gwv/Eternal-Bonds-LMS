@@ -161,7 +161,7 @@ export function SettingsProfilePage() {
               value={me.data?.email ?? '—'}
               why="Changing it changes how you sign in, so it goes through support."
             />
-            <Row label="Phone" value={me.data?.phone ?? '—'} why="Used for sign-in codes." />
+            <Row label="Phone" value={me.data?.phone ?? '—'} why="Kept on your profile. Sign-in is by Google or email." />
             <Row label="Membership" value={me.data?.tier ?? '—'} why="Set by your plan." />
           </Card>
         </div>
