@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Session } from '@supabase/supabase-js';
-import { authConfigured, supabase } from './supabase.ts';
+import { arrivedFromRecoveryLink, authConfigured, supabase } from './supabase.ts';
 
 /**
  * One source of truth for "is someone signed in".
@@ -17,7 +17,20 @@ type SessionState = {
   demo: boolean;
 };
 
-const SessionContext = createContext<SessionState>({ status: 'loading', session: null, demo: true });
+/**
+ * Opened a "reset your password" link. That link signs the member in, so
+ * without this flag they would land on the dashboard with a session and no
+ * prompt to choose the new password they came for.
+ */
+type Recovery = { recovering: boolean; finishRecovery: () => void };
+
+const SessionContext = createContext<SessionState & Recovery>({
+  status: 'loading',
+  session: null,
+  demo: true,
+  recovering: false,
+  finishRecovery: () => {},
+});
 
 /**
  * Whose drafts may be written right now. useDraft flushes on unmount, and a
@@ -55,8 +68,17 @@ export function SessionProvider({ children }: PropsWithChildren) {
       : { status: 'signed-in', session: null, demo: true },
   );
 
+  const [recovering, setRecovering] = useState(arrivedFromRecoveryLink);
+
   useEffect(() => {
     if (!supabase) return;
+
+    // The marker has done its job; a reload should not reopen the prompt.
+    if (arrivedFromRecoveryLink) {
+      const clean = new URL(window.location.href);
+      clean.searchParams.delete('reset-password');
+      window.history.replaceState(window.history.state, '', clean.pathname + clean.search + clean.hash);
+    }
 
     const adopt = (session: Session | null) => {
       const userId = session?.user.id ?? null;
@@ -82,7 +104,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true);
       if (event === 'SIGNED_OUT') {
+        setRecovering(false);
         queryClient.cancelQueries();
         queryClient.clear();
         owner = null;
@@ -97,7 +121,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return () => sub.subscription.unsubscribe();
   }, [queryClient]);
 
-  const value = useMemo(() => state, [state]);
+  const value = useMemo(
+    () => ({ ...state, recovering, finishRecovery: () => setRecovering(false) }),
+    [state, recovering],
+  );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 

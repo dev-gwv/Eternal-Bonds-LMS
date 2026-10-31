@@ -27,6 +27,44 @@ export async function accessToken(): Promise<string | null> {
   return data.session?.access_token ?? null;
 }
 
+/* ── Passwords ─────────────────────────────────────────────────────────────
+   An option beside the email link, not a replacement for it: a member who
+   joined through Google or a link has no password until they set one in
+   Settings, and the link still works for them either way. */
+
+/** Supabase's own floor is 6; 8 is the least worth having. */
+export const MIN_PASSWORD_LENGTH = 8;
+
+/**
+ * The reset email lands back on the site root with this marker. Read once, at
+ * load, before supabase-js tidies the URL — the PASSWORD_RECOVERY event alone
+ * can fire before anything has subscribed to hear it.
+ */
+const RECOVERY_MARKER = 'reset-password';
+export const arrivedFromRecoveryLink =
+  typeof window !== 'undefined' &&
+  (new URLSearchParams(window.location.search).has(RECOVERY_MARKER) ||
+    /(^|[#&])type=recovery(&|$)/.test(window.location.hash));
+
+export async function signInWithPassword(email: string, password: string) {
+  if (!supabase) throw new Error('Supabase is not configured');
+  return supabase.auth.signInWithPassword({ email: email.trim(), password });
+}
+
+/** Sends "reset your password". Says nothing about whether the email has an account. */
+export async function sendPasswordReset(email: string) {
+  if (!supabase) throw new Error('Supabase is not configured');
+  return supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: `${window.location.origin}/?${RECOVERY_MARKER}=1`,
+  });
+}
+
+/** Sets or changes the signed-in member's password. */
+export async function updatePassword(password: string) {
+  if (!supabase) throw new Error('Supabase is not configured');
+  return supabase.auth.updateUser({ password });
+}
+
 export async function signInWithGoogle() {
   if (!supabase) throw new Error('Supabase is not configured');
   return supabase.auth.signInWithOAuth({

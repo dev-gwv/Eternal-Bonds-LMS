@@ -30,10 +30,10 @@ enable_signup = true
 enable_signup = true
 enable_confirmations = false
 
-# Phone + OTP is how most members will sign in. The provider needs Indian DLT
-# registration — start that paperwork early, it has lead time.
+# Phone sign-in was dropped: members use Google, an email link, or an email
+# and password. Keep this off so the API refuses phone sign-ups too.
 [auth.sms]
-enable_signup = true
+enable_signup = false
 enable_confirmations = true
 
 [auth.external.google]

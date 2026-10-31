@@ -13,7 +13,7 @@ import { api } from '../api.ts';
 import { socialLinks, supportEmail } from '../site.ts';
 import { PublicWinPage } from '../../routes/PublicWin.tsx';
 import { WelcomePage } from '../../routes/Welcome.tsx';
-import { SignInPage } from '../../routes/SignIn.tsx';
+import { SetPasswordPage, SignInPage } from '../../routes/SignIn.tsx';
 
 /**
  * Two levels of navigation, which is one more than we had and one fewer than
@@ -405,7 +405,7 @@ function Footer() {
  * data. One branch, so no dev-only escape hatch is left behind in a route.
  */
 export function AppShell() {
-  const { status, demo } = useSession();
+  const { status, demo, recovering } = useSession();
   const pathname = useRouterState({ select: (st) => st.location.pathname });
   // Only used below the sidebar breakpoint, where it is a slide-over drawer.
   const [navOpen, setNavOpen] = useState(false);
@@ -442,6 +442,10 @@ export function AppShell() {
     );
   }
 
+  // A reset link signs the member in, but they came to choose a password, so
+  // that comes first. Signed out with the flag set means the link was dead,
+  // and SetPasswordPage says so rather than showing a bare sign-in form.
+  if (recovering) return <SetPasswordPage />;
   if (status === 'signed-out') return <SignInPage />;
 
   // A member who has never been through setup goes there first, once. The

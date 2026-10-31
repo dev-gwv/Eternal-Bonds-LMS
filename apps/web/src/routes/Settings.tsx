@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { NotificationPrefs } from '@ipc/contracts';
 import { api } from '../shared/api.ts';
 import { useSession } from '../shared/session.tsx';
-import { signOut } from '../shared/supabase.ts';
+import { MIN_PASSWORD_LENGTH, signOut, updatePassword } from '../shared/supabase.ts';
+import { PasswordInput, friendlyAuthError, newPasswordProblem } from './SignIn.tsx';
 import { PageHeader, Page } from '../shared/layout/AppShell.tsx';
 import { Card, Chip, Icon } from '../shared/ui/primitives.tsx';
 import { AvatarPicker } from '../shared/ui/AvatarPicker.tsx';
@@ -150,6 +151,8 @@ export function SettingsProfilePage() {
           </Card>
 
           <PublicProfileCard />
+
+          <PasswordCard />
         </div>
 
         <div className="col rail">
@@ -167,6 +170,86 @@ export function SettingsProfilePage() {
         </div>
       </div>
     </SettingsShell>
+  );
+}
+
+/**
+ * Set or change the password used with "Sign in with a password".
+ *
+ * Supabase does not tell the browser whether an account has a password — a
+ * member who joined through Google or an email link has none — so this is one
+ * form for both cases rather than a guess at which one applies. No current
+ * password is asked for: being signed in is the proof, the same as the reset
+ * link.
+ */
+function PasswordCard() {
+  const { demo } = useSession();
+  const toast = useToast();
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const problem = newPasswordProblem(password, confirm);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const { error } = await updatePassword(password);
+      if (error) throw new Error(friendlyAuthError(error.message));
+    },
+    onSuccess: () => {
+      toast.show('Password saved');
+      setPassword('');
+      setConfirm('');
+    },
+    onError: toast.error,
+  });
+
+  if (demo) return null;
+
+  return (
+    <Card title="Password">
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5 }} className="dim">
+        Lets you sign in with your email and a password. Joined with Google or an email link? Set one
+        here. Already have one? This replaces it.
+      </p>
+      <form
+        style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (problem || confirm !== password) return;
+          save.mutate();
+        }}
+      >
+        <div className="field-row">
+          <div className="field">
+            <label htmlFor="settings-new-password"><span>New password</span></label>
+            <PasswordInput
+              id="settings-new-password"
+              value={password}
+              onChange={setPassword}
+              autoComplete="new-password"
+              placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="settings-confirm-password"><span>Type it again</span></label>
+            <PasswordInput
+              id="settings-confirm-password"
+              value={confirm}
+              onChange={setConfirm}
+              autoComplete="new-password"
+            />
+          </div>
+        </div>
+        {password && problem && <span className="field-error">{problem}</span>}
+        <button
+          type="submit"
+          className="btn btn-pink"
+          style={{ alignSelf: 'flex-start' }}
+          disabled={save.isPending || problem !== null || confirm !== password}
+        >
+          {save.isPending ? 'Saving…' : 'Save password'}
+        </button>
+      </form>
+    </Card>
   );
 }
 

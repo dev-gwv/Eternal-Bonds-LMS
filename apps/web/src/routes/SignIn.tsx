@@ -1,15 +1,25 @@
 import { useState } from 'react';
 import { LogoMark } from '../shared/ui/Logo.tsx';
+import { useSession } from '../shared/session.tsx';
 import {
+  MIN_PASSWORD_LENGTH,
   authConfigured,
   devLoginEmail,
   devLoginEnabled,
+  sendPasswordReset,
   signInAsTestUser,
   signInWithGoogle,
+  signInWithPassword,
+  signOut,
   supabase,
+  updatePassword,
 } from '../shared/supabase.ts';
 
-type Step = 'email' | 'sent';
+/**
+ * `link` and `password` are the two ways in with an email; `forgot` asks for
+ * a reset email; the two `-sent` steps say what to look for in the inbox.
+ */
+type Step = 'link' | 'password' | 'forgot' | 'link-sent' | 'reset-sent';
 
 /** Google's mark, for the one button members recognise by it. */
 function GoogleMark() {
@@ -28,31 +38,37 @@ function GoogleMark() {
  *
  * Its rate-limit error is "For security purposes, you can only request this
  * after 47 seconds", which reads as an accusation for something that is just a
- * queue.
+ * queue, and a wrong password is "Invalid login credentials" — which says
+ * nothing to somebody who joined through Google and never had a password.
  */
-function friendlyAuthError(message: string): string {
+export function friendlyAuthError(message: string): string {
   const wait = /after (\d+) seconds?/i.exec(message);
-  if (wait) return `One link at a time — you can ask for another in ${wait[1]} seconds.`;
+  if (wait) return `One email at a time — you can ask for another in ${wait[1]} seconds.`;
   if (/rate limit|too many/i.test(message)) {
     return 'Too many attempts from here. Wait a few minutes, or continue with Google.';
+  }
+  if (/invalid login credentials/i.test(message)) {
+    return "That email and password don't match. Never set a password? Use the email link or Google, then set one in Settings.";
+  }
+  if (/email not confirmed/i.test(message)) {
+    return 'This email has not been confirmed yet. Use the email link instead — it confirms it too.';
+  }
+  if (/different from the old|same password/i.test(message)) {
+    return 'That is already your password. Choose a different one.';
+  }
+  if (/reauthenticat|recent login/i.test(message)) {
+    return 'For your security, sign out and back in, then change your password.';
+  }
+  if (/weak|pwned|leaked/i.test(message)) {
+    return 'That password is too easy to guess, or has appeared in a data breach. Choose another.';
   }
   return message;
 }
 
-/**
- * Google first, email link second. Phone codes were dropped: members sign in
- * with an account they already have, and there is no SMS bill or delivery
- * delay to explain.
- *
- * Nothing here handles the token — supabase-js owns the session, and
- * `SessionProvider` reacts to it.
- */
-export function SignInPage() {
-  const [step, setStep] = useState<Step>('email');
-  const [email, setEmail] = useState('');
+/** Shared by every form here: one busy flag, one error, one way of reporting. */
+function useAuthAction() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const run = async (fn: () => Promise<{ error: { message: string } | null }>, onDone?: () => void) => {
     setBusy(true);
     setError(null);
@@ -65,6 +81,87 @@ export function SignInPage() {
     } finally {
       setBusy(false);
     }
+  };
+  return { busy, error, setError, run };
+}
+
+/** A password box with a show/hide toggle — a typo nobody can see is most failed sign-ins. */
+export function PasswordInput({
+  id,
+  value,
+  onChange,
+  autoComplete,
+  placeholder,
+  autoFocus,
+}: {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+  autoComplete: 'current-password' | 'new-password';
+  placeholder?: string;
+  autoFocus?: boolean;
+}) {
+  const [shown, setShown] = useState(false);
+  return (
+    <div className="password-row">
+      <input
+        id={id}
+        type={shown ? 'text' : 'password'}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        required
+      />
+      <button
+        type="button"
+        className="btn btn-ghost password-toggle"
+        aria-pressed={shown}
+        aria-label={shown ? 'Hide password' : 'Show password'}
+        onClick={() => setShown((v) => !v)}
+      >
+        {shown ? 'Hide' : 'Show'}
+      </button>
+    </div>
+  );
+}
+
+/** What is wrong with a new password, worded for whoever is typing it. */
+export function newPasswordProblem(password: string, confirm: string): string | null {
+  if (password.length < MIN_PASSWORD_LENGTH) return `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
+  if (confirm && confirm !== password) return 'The two passwords do not match.';
+  return null;
+}
+
+/**
+ * Google first, then email — by a sign-in link or a password. Phone codes
+ * were dropped.
+ *
+ * Nothing here handles the token — supabase-js owns the session, and
+ * `SessionProvider` reacts to it.
+ */
+export function SignInPage() {
+  const [step, setStep] = useState<Step>('link');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const { busy, error, setError, run } = useAuthAction();
+  const emailOk = email.includes('@');
+
+  const go = (next: Step) => {
+    // A failure from the previous form sitting under a fresh one reads as a
+    // failure of this one.
+    setError(null);
+    setStep(next);
+  };
+
+  const sendLink = () => {
+    const sb = supabase;
+    if (!sb) return;
+    void run(
+      () => sb.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: window.location.origin } }),
+      () => setStep('link-sent'),
+    );
   };
 
   return (
@@ -129,17 +226,12 @@ export function SignInPage() {
           <span />
         </div>
 
-        {step === 'email' && (
+        {step === 'link' && (
           <form
             className="signin-field"
             onSubmit={(e) => {
               e.preventDefault();
-              const sb = supabase;
-              if (!sb) return;
-              void run(
-                () => sb.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } }),
-                () => setStep('sent'),
-              );
+              sendLink();
             }}
           >
             <label className="signin-label" htmlFor="signin-email">Email</label>
@@ -153,28 +245,106 @@ export function SignInPage() {
                 placeholder="you@email.com"
                 required
               />
-              <button type="submit" className="btn btn-pink" disabled={busy || !authConfigured || !email.includes('@')}>
+              <button type="submit" className="btn btn-pink" disabled={busy || !authConfigured || !emailOk}>
                 {busy ? 'Sending…' : 'Send link'}
               </button>
             </div>
             <span className="signin-hint">We'll email you a sign-in link. No password needed.</span>
+            <button type="button" className="btn btn-ghost signin-switch" onClick={() => go('password')}>
+              Sign in with a password instead
+            </button>
           </form>
         )}
 
-        {step === 'sent' && (
+        {step === 'password' && (
+          <form
+            style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void run(() => signInWithPassword(email, password));
+            }}
+          >
+            <div className="signin-field">
+              <label className="signin-label" htmlFor="signin-email">Email</label>
+              <input
+                id="signin-email"
+                className="signin-input"
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@email.com"
+                required
+              />
+            </div>
+            <div className="signin-field">
+              <div className="signin-label-row">
+                <label className="signin-label" htmlFor="signin-password">Password</label>
+                <button type="button" className="btn btn-ghost signin-switch" onClick={() => go('forgot')}>
+                  Forgot password?
+                </button>
+              </div>
+              <PasswordInput id="signin-password" value={password} onChange={setPassword} autoComplete="current-password" />
+            </div>
+            <button
+              type="submit"
+              className="btn btn-pink signin-cta"
+              disabled={busy || !authConfigured || !emailOk || !password}
+            >
+              {busy ? 'Signing in…' : 'Sign in'}
+            </button>
+            <button type="button" className="btn btn-ghost signin-switch" onClick={() => go('link')}>
+              Email me a sign-in link instead
+            </button>
+          </form>
+        )}
+
+        {step === 'forgot' && (
+          <form
+            className="signin-field"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void run(() => sendPasswordReset(email), () => setStep('reset-sent'));
+            }}
+          >
+            <label className="signin-label" htmlFor="signin-email">Reset your password</label>
+            <div className="email-row">
+              <input
+                id="signin-email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@email.com"
+                required
+              />
+              <button type="submit" className="btn btn-pink" disabled={busy || !authConfigured || !emailOk}>
+                {busy ? 'Sending…' : 'Send reset link'}
+              </button>
+            </div>
+            <span className="signin-hint">
+              We'll email you a link to choose a new password. Never had one? This sets your first.
+            </span>
+            <button type="button" className="btn btn-ghost signin-switch" onClick={() => go('password')}>
+              Back to sign in
+            </button>
+          </form>
+        )}
+
+        {(step === 'link-sent' || step === 'reset-sent') && (
           <div className="callout">
-            Check {email} for a sign-in link. It can take a minute, and it is worth looking in spam —
-            a first message from a new sender often lands there.
+            {step === 'link-sent'
+              ? `Check ${email} for a sign-in link.`
+              : `If ${email} has an account, a password reset link is on its way.`}{' '}
+            It can take a minute, and it is worth looking in spam — a first message from a new sender
+            often lands there.
             <button
               type="button"
               className="btn btn-ghost"
               style={{ marginTop: 6, padding: 0 }}
-              onClick={() => {
-                setError(null);
-                setStep('email');
-              }}
+              onClick={() => go(step === 'link-sent' ? 'link' : 'password')}
             >
-              Use a different email
+              {step === 'link-sent' ? 'Use a different email' : 'Back to sign in'}
             </button>
           </div>
         )}
@@ -190,6 +360,112 @@ export function SignInPage() {
           By continuing you agree to the club's terms and privacy policy. Your email is only used
           to sign you in and to send session reminders.
         </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Where a "reset your password" link lands.
+ *
+ * The link has already signed the member in, so this is not a sign-in form:
+ * it asks for the new password twice (to catch a typo nobody can see) and then
+ * lets them into the app. Skipping is allowed — they are signed in either way,
+ * and can set one later in Settings.
+ */
+export function SetPasswordPage() {
+  const { finishRecovery, session, status } = useSession();
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [done, setDone] = useState(false);
+  const { busy, error, run } = useAuthAction();
+  const problem = newPasswordProblem(password, confirm);
+
+  return (
+    <div className="app" style={{ display: 'grid', placeItems: 'center', padding: '24px 16px' }}>
+      <div className="panel signin-panel">
+        <div className="signin-head">
+          <LogoMark size={48} title="Eternal Bonds" />
+          <h1 className="signin-brand">Choose a new password</h1>
+          <p className="signin-sub">
+            {session?.user.email ? `For ${session.user.email}. ` : ''}You'll use it with your email next time you sign in.
+          </p>
+        </div>
+
+        {status === 'loading' ? (
+          <span style={{ fontSize: 12, textAlign: 'center' }} className="muted">Checking your link…</span>
+        ) : done ? (
+          <>
+            <div className="callout">Your password is set. Use it with your email next time you sign in.</div>
+            <button type="button" className="btn btn-pink signin-cta" onClick={finishRecovery}>
+              Continue to Eternal Bonds
+            </button>
+          </>
+        ) : !session ? (
+          <>
+            <div className="signin-error" role="alert">
+              This reset link has expired or was already used. Ask for a new one from the sign-in page.
+            </div>
+            <button type="button" className="btn btn-pink signin-cta" onClick={finishRecovery}>
+              Back to sign in
+            </button>
+          </>
+        ) : (
+          <form
+            style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (problem || confirm !== password) return;
+              void run(() => updatePassword(password), () => setDone(true));
+            }}
+          >
+            <div className="signin-field">
+              <label className="signin-label" htmlFor="new-password">New password</label>
+              <PasswordInput
+                id="new-password"
+                value={password}
+                onChange={setPassword}
+                autoComplete="new-password"
+                placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                autoFocus
+              />
+            </div>
+            <div className="signin-field">
+              <label className="signin-label" htmlFor="confirm-password">Type it again</label>
+              <PasswordInput id="confirm-password" value={confirm} onChange={setConfirm} autoComplete="new-password" />
+              {password && problem && <span className="signin-hint">{problem}</span>}
+            </div>
+            <button
+              type="submit"
+              className="btn btn-pink signin-cta"
+              disabled={busy || problem !== null || confirm !== password}
+            >
+              {busy ? 'Saving…' : 'Save password'}
+            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={finishRecovery}>
+                Skip for now
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  finishRecovery();
+                  void signOut();
+                }}
+              >
+                Not you? Sign out
+              </button>
+            </div>
+          </form>
+        )}
+
+        {error && (
+          <div className="signin-error" role="alert">
+            {error}
+          </div>
+        )}
       </div>
     </div>
   );
