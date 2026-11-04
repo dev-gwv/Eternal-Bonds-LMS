@@ -62,6 +62,11 @@ export function friendlyAuthError(message: string): string {
   if (/weak|pwned|leaked/i.test(message)) {
     return 'That password is too easy to guess, or has appeared in a data breach. Choose another.';
   }
+  // Gateway timeouts and server errors arrive as bare "HTTP 504" or "{}" —
+  // most often the email provider being slow, which is not the member's fault.
+  if (/\b5\d\d\b|gateway|timed? ?out|failed to fetch|network|^\s*\{\s*\}\s*$/i.test(message) || !message.trim()) {
+    return 'We could not reach the sign-in service just now. Wait a moment and try again, or continue with Google.';
+  }
   return message;
 }
 
@@ -338,10 +343,11 @@ export function SignInPage() {
               : `If ${email} has an account, a password reset link is on its way.`}{' '}
             It can take a minute, and it is worth looking in spam — a first message from a new sender
             often lands there.
+            {/* Its own line: inline, it trailed the sentence and read as part of it. */}
             <button
               type="button"
               className="btn btn-ghost"
-              style={{ marginTop: 6, padding: 0 }}
+              style={{ display: 'flex', marginTop: 10, padding: 0 }}
               onClick={() => go(step === 'link-sent' ? 'link' : 'password')}
             >
               {step === 'link-sent' ? 'Use a different email' : 'Back to sign in'}

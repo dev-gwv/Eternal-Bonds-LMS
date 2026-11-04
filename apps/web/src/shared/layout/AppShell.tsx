@@ -308,9 +308,35 @@ function NavDrawer({ open, onNavigate }: { open: boolean; onNavigate: () => void
           </div>
         );
       })}
+      {/* Also behind the avatar, but a member hunting for Settings opens the
+          Menu first — a map of the club that leaves out "you" is incomplete. */}
+      <div className="drawer-group">
+        <div className="drawer-label">You</div>
+        {ACCOUNT.map((item) => {
+          const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              onClick={onNavigate}
+              aria-current={active ? 'page' : undefined}
+              className={active ? 'side-link is-active' : 'side-link'}
+            >
+              <Icon name={item.icon} size={17} strokeWidth={active ? 2 : 1.7} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
     </nav>
   );
 }
+
+const ACCOUNT: NavItem[] = [
+  { to: '/members/me', label: 'My profile', icon: 'people' },
+  { to: '/notifications', label: 'Notifications', icon: 'bell' },
+  { to: '/settings', label: 'Settings', icon: 'settings' },
+];
 
 const srOnly = {
   position: 'absolute',

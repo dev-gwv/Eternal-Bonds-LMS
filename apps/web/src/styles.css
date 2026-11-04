@@ -1574,6 +1574,22 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 .menu-row:hover { background: var(--soft); }
 
+/* On a phone the header is sticky, so a menu taller than the space between it
+   and the bottom bar could not be scrolled into view: an admin's last rows —
+   Moderation, Sign out — sat under the bar on a short screen or in landscape.
+   Capped and scrollable instead, with rows a thumb can hit. */
+@media (max-width: 720px) {
+  .menu-panel {
+    max-height: calc(100dvh - 150px - env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  /* A flex column squeezes its children to fit the cap rather than
+     overflowing; the rows must keep their height for the scroll to happen. */
+  .menu-panel > * { flex-shrink: 0; }
+  .menu-row { min-height: 44px; }
+}
+
 /* The small-screen menu. Hidden on a desktop, where the top pills and the
    in-section sidebar are both on screen. */
 .drawer { display: none; }
@@ -1843,6 +1859,19 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
   transition: background 0.14s ease, color 0.14s ease;
 }
 .settings-tab:hover { color: var(--ink); }
+
+/* On a phone the four tabs are wider than the screen, and with the scrollbar
+   hidden Privacy sat off the right edge with nothing saying it was there.
+   Two by two instead: every tab on screen, each a full thumb wide. */
+@media (max-width: 560px) {
+  .settings-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-radius: 18px;
+    overflow: visible;
+  }
+  .settings-tab { justify-content: center; min-height: 40px; border-radius: 15px; }
+}
 .settings-tab.is-on {
   background: var(--panel);
   color: var(--ink);
