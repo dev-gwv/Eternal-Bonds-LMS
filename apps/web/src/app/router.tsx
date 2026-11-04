@@ -110,6 +110,7 @@ const ChallengeDetailPage = lazyPage(() => import('../routes/Challenges.tsx'), '
 const AdminChallengesPage = lazyPage(() => import('../routes/admin/Challenges.tsx'), 'AdminChallengesPage');
 const WorkshopStudioPage = lazyPage(() => import('../routes/admin/WorkshopStudio.tsx'), 'WorkshopStudioPage');
 const AdminLibraryPage = lazyPage(() => import('../routes/admin/Library.tsx'), 'AdminLibraryPage');
+const AdminDrivePage = lazyPage(() => import('../routes/admin/Drive.tsx'), 'AdminDrivePage');
 
 const rootRoute = createRootRoute({ component: AppShell });
 
@@ -316,6 +317,12 @@ const adminLibraryRoute = createRoute({
   component: AdminLibraryPage,
 });
 
+const adminDriveRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/drive',
+  component: AdminDrivePage,
+});
+
 const challengesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/challenges',
@@ -374,6 +381,7 @@ const routeTree = rootRoute.addChildren([
   courseBuilderRoute,
   workshopStudioRoute,
   adminLibraryRoute,
+  adminDriveRoute,
   challengesRoute,
   challengeDetailRoute,
   adminChallengesRoute,

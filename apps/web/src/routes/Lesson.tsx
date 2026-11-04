@@ -217,6 +217,8 @@ export function LessonPage() {
             <VideoPlayer
               key={current.id}
               src={playback.data?.url ?? null}
+              kind={playback.data?.kind === 'mp4' ? 'mp4' : 'hls'}
+              onDurationKnown={handleDuration}
               startAt={current.lastPositionSeconds}
               title={current.title}
               onProgress={handleProgress}

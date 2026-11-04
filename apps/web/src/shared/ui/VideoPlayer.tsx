@@ -3,7 +3,7 @@ import { clock } from '../api.ts';
 import { Icon } from './primitives.tsx';
 
 /**
- * HLS player.
+ * The player for HLS streams and plain MP4 files.
  *
  * Safari and iOS play HLS natively; everywhere else hls.js attaches to the
  * same <video>. Either way this component owns playback only — it reports
@@ -27,16 +27,26 @@ const SPEEDS = [1, 1.25, 1.5, 2] as const;
 
 export function VideoPlayer({
   src,
+  kind = 'hls',
   startAt,
   title,
   onProgress,
   onEnded,
+  onDurationKnown,
   reportEverySeconds = 15,
 }: {
   src: string | null;
+  /**
+   * `mp4` is a plain file — a video kept in the club Drive, or in storage —
+   * and goes straight into the <video> element. Handing one to hls.js fails:
+   * it expects a playlist and reports a fatal error on the first byte.
+   */
+  kind?: 'hls' | 'mp4';
   startAt: number;
   title: string;
   reportEverySeconds?: number;
+  /** The real length, once the file says — so a lesson listed as 0 min corrects itself. */
+  onDurationKnown?: (seconds: number) => void;
 } & PlayerHandle) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [ready, setReady] = useState(false);
@@ -56,6 +66,17 @@ export function VideoPlayer({
     if (!video || !src) return;
 
     setError(null);
+
+    if (kind === 'mp4') {
+      video.src = src;
+      const onError = () => setError('This video could not be loaded. Reload the page to try again.');
+      video.addEventListener('error', onError);
+      return () => {
+        video.removeEventListener('error', onError);
+        video.removeAttribute('src');
+        video.load();
+      };
+    }
 
     let disposed = false;
     // Held outside the async body so the cleanup can reach it even if the
@@ -96,7 +117,7 @@ export function VideoPlayer({
       disposed = true;
       hls?.destroy();
     };
-  }, [src]);
+  }, [src, kind]);
 
   /**
    * Resume where the member left off, once — and only once per source.
@@ -172,6 +193,9 @@ export function VideoPlayer({
         style={{ display: 'block', width: '100%', aspectRatio: '16 / 9', background: '#14161f' }}
         onLoadedMetadata={(e) => {
           setDuration(e.currentTarget.duration || 0);
+          if (Number.isFinite(e.currentTarget.duration) && e.currentTarget.duration > 0) {
+            onDurationKnown?.(Math.round(e.currentTarget.duration));
+          }
           setReady(true);
         }}
         onPlay={() => setPlaying(true)}

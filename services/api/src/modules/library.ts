@@ -4,6 +4,7 @@ import { activityEvents, libraryItems, withUser } from '@ipc/db';
 import type { AppEnv } from '../context.ts';
 import { HttpError } from '../lib/problem.ts';
 import { requireAuth } from '../middleware/auth.ts';
+import { driveIdOf, isDriveKey, mediaUrl } from '../lib/google-drive.ts';
 import { getDb } from '../repo.ts';
 import { listLibraryCategories } from '../repo.ts';
 
@@ -54,9 +55,14 @@ export const libraryRoutes = new Hono<AppEnv>()
             kind: r.storage_key ? ('file' as const) : ('link' as const),
             // Signed per request. A stored library file is behind the same
             // private bucket as everything else.
-            url: r.storage_key
-              ? await storage.signedDownloadUrl(r.storage_key, 900).catch(() => null)
-              : r.external_url,
+            // A file kept in the club Drive downloads through the API's
+            // relay, so it stays private in Drive. An hour, because a member
+            // may open the page and click a while later.
+            url: isDriveKey(r.storage_key)
+              ? await mediaUrl(c.env, driveIdOf(r.storage_key), { ttlSeconds: 3600, download: true }).catch(() => null)
+              : r.storage_key
+                ? await storage.signedDownloadUrl(r.storage_key, 900).catch(() => null)
+                : r.external_url,
             mime: r.mime,
             minTier: r.min_tier as 'free' | 'silver' | 'diamond' | 'franchisee',
             createdAt: new Date(r.created_at).toISOString(),

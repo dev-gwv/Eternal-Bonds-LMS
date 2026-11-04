@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import {
+  AttachDriveVideo,
   AttachVideo,
   CourseInput,
   CoursePatch,
@@ -22,7 +23,8 @@ import { adminJourneyRoutes } from './journeys.ts';
 import { adminChallengeRoutes } from './challenges.ts';
 import { membersRoutes } from './members.ts';
 import { adminLibraryRoutes } from './library-admin.ts';
-import { attachVideo, createUploadTicket, detachVideo } from '../video.ts';
+import { adminDriveRoutes } from './drive.ts';
+import { attachDriveVideo, attachVideo, createUploadTicket, detachVideo } from '../video.ts';
 
 /**
  * The authoring API.
@@ -70,6 +72,8 @@ export const adminRoutes = new Hono<AppEnv>()
   // migration and there was no endpoint between them and the author, so the
   // section could never hold anything the seed script had not put there.
   .route('/library', adminLibraryRoutes)
+  // The club's Google Drive: connection, upload sessions, the Picker token.
+  .route('/drive', adminDriveRoutes)
 
   // Prompts with deadlines. The wins board has always existed and nothing ever
   // asked anybody to use it.
@@ -145,6 +149,13 @@ export const adminRoutes = new Hono<AppEnv>()
   )
   .post('/lessons/:id/video', body(AttachVideo), async (c) =>
     c.json(await attachVideo(c.env, who(c), c.req.param('id'), c.req.valid('json'))),
+  )
+  // A Drive file on a lesson. Its own route rather than a flag on the one
+  // above: that route's key is the deployment provider's asset, this one is
+  // always a Drive file id, and conflating them is how a lesson ends up
+  // pointing at an id from the wrong system.
+  .post('/lessons/:id/drive-video', body(AttachDriveVideo), async (c) =>
+    c.json(await attachDriveVideo(c.env, who(c), c.req.param('id'), c.req.valid('json'))),
   )
   .delete('/lessons/:id/video', async (c) => {
     await detachVideo(c.env, who(c), c.req.param('id'));

@@ -532,6 +532,11 @@ export const AdminLesson = z.object({
   videoAssetId: z.string().nullable(),
   /** The provider's own words on why a transcode failed. Actionable; shown. */
   videoError: z.string().nullable(),
+  /**
+   * Where this lesson's video lives — per lesson, because a course can mix
+   * YouTube links with recordings kept in the club Drive. Null with no video.
+   */
+  videoProvider: z.string().nullable().default(null),
   /* The lesson's own notes. It has always been in `LessonInput` and was never
      returned, so the studio could write it once at creation and never read it
      back — which means it could never be edited. */
@@ -619,6 +624,13 @@ export const AttachVideo = z.object({
   durationSeconds: z.int().nonnegative().optional(),
 });
 export type AttachVideo = z.infer<typeof AttachVideo>;
+
+/** A Drive file for a lesson: one just uploaded, or one chosen in the Picker. */
+export const AttachDriveVideo = z.object({
+  fileId: z.string().min(10).max(200),
+  durationSeconds: z.int().nonnegative().optional(),
+});
+export type AttachDriveVideo = z.infer<typeof AttachDriveVideo>;
 
 /** A one-line count of what is actually in the club, for the studio landing. */
 export const AdminOverview = z.object({

@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import type { LibraryCategory, LibraryItem, Tier } from '@ipc/contracts';
 import { LibraryCategoryInput, LibraryItemInput } from '@ipc/contracts';
 import { adminApi, uploadLibraryFile } from '../../shared/admin-api.ts';
+import { pickFromDrive, uploadToDrive } from '../../shared/drive.ts';
 import { PageHeader, Page } from '../../shared/layout/AppShell.tsx';
 import { Card, Chip, EmptyState, Icon } from '../../shared/ui/primitives.tsx';
 import { LoadingLabel, SkeletonCard } from '../../shared/ui/Skeleton.tsx';
@@ -33,8 +34,12 @@ function NewItem({ categories, onDone }: { categories: LibraryCategory[]; onDone
   const queryClient = useQueryClient();
   const toast = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
+  const driveInput = useRef<HTMLInputElement>(null);
+  const drive = useQuery({ queryKey: ['admin', 'drive'], queryFn: adminApi.driveStatus, staleTime: 5 * 60_000, retry: false });
 
-  const [kind, setKind] = useState<'link' | 'file'>('link');
+  // `drive` is still a hosted file as far as the row is concerned — a storage
+  // key, `drive:<id>` — it just lives in the club Drive rather than in storage.
+  const [kind, setKind] = useState<'link' | 'file' | 'drive'>('link');
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? '');
   const [title, setTitle] = useState('');
   const [minTier, setMinTier] = useState<Tier>('diamond');
@@ -43,14 +48,15 @@ function NewItem({ categories, onDone }: { categories: LibraryCategory[]; onDone
   // which is correct: the row would point at nothing.
   const [uploaded, setUploaded] = useState<{ key: string; mime: string; name: string } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
 
   const body = () => ({
     categoryId,
     title: title.trim(),
     minTier,
     externalUrl: kind === 'link' ? externalUrl.trim() || null : null,
-    storageKey: kind === 'file' ? (uploaded?.key ?? null) : null,
-    mime: kind === 'file' ? (uploaded?.mime ?? null) : null,
+    storageKey: kind !== 'link' ? (uploaded?.key ?? null) : null,
+    mime: kind !== 'link' ? (uploaded?.mime ?? null) : null,
   });
 
   const parsed = LibraryItemInput.safeParse(body());
@@ -88,6 +94,42 @@ function NewItem({ categories, onDone }: { categories: LibraryCategory[]; onDone
     }
   };
 
+  /** Either route into the club Drive ends the same way: a `drive:` key and a title guess. */
+  const fromDrive = (file: { id: string; name: string; mimeType: string }) => {
+    setUploaded({ key: `drive:${file.id}`, mime: file.mimeType, name: file.name });
+    if (title.trim() === '') setTitle(file.name.replace(/\.[^.]+$/, ''));
+  };
+
+  const uploadDrive = async (file: File) => {
+    setUploading(true);
+    setProgress(0);
+    try {
+      fromDrive(await uploadToDrive(file, setProgress));
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      setUploading(false);
+      setProgress(null);
+      if (driveInput.current) driveInput.current.value = '';
+    }
+  };
+
+  const chooseDrive = async () => {
+    try {
+      const file = await pickFromDrive('any');
+      if (file) fromDrive(file);
+    } catch (e) {
+      toast.error(e);
+    }
+  };
+
+  const switchKind = (next: typeof kind) => {
+    // A file chosen for one kind is not valid for another: a storage key is not
+    // a Drive file, and the other way round.
+    if (next !== kind) setUploaded(null);
+    setKind(next);
+  };
+
   return (
     <Card title="New resource">
       <ErrorNote error={create.error} />
@@ -99,17 +141,27 @@ function NewItem({ categories, onDone }: { categories: LibraryCategory[]; onDone
         <button
           type="button"
           className={kind === 'link' ? 'is-on' : undefined}
-          onClick={() => setKind('link')}
+          onClick={() => switchKind('link')}
         >
           <Icon name="link" size={13} />A link
         </button>
         <button
           type="button"
           className={kind === 'file' ? 'is-on' : undefined}
-          onClick={() => setKind('file')}
+          onClick={() => switchKind('file')}
         >
           <Icon name="image" size={13} />A file we host
         </button>
+        {drive.data?.connected && (
+          <button
+            type="button"
+            className={kind === 'drive' ? 'is-on' : undefined}
+            onClick={() => switchKind('drive')}
+          >
+            <Icon name="cloud" size={13} />
+            From the club Drive
+          </button>
+        )}
       </div>
 
       <div className="field-row">
@@ -135,6 +187,35 @@ function NewItem({ categories, onDone }: { categories: LibraryCategory[]; onDone
             placeholder="https://drive.google.com/…"
             onChange={(e) => setExternalUrl(e.target.value)}
           />
+        </Field>
+      ) : kind === 'drive' ? (
+        <Field label="The file">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <input
+              ref={driveInput}
+              type="file"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void uploadDrive(f);
+              }}
+            />
+            <button type="button" className="btn btn-soft" disabled={uploading} onClick={() => driveInput.current?.click()}>
+              <Icon name="upload" size={13} />
+              {uploading ? `Uploading… ${Math.round((progress ?? 0) * 100)}%` : 'Upload to Drive'}
+            </button>
+            <button type="button" className="btn btn-soft" disabled={uploading} onClick={() => void chooseDrive()}>
+              <Icon name="cloud" size={13} />
+              Choose from Drive
+            </button>
+            {uploaded ? (
+              <Chip tone="green">{uploaded.name}</Chip>
+            ) : (
+              <span style={{ fontSize: 10.5 }} className="dim">
+                Stays private in Drive. Members download it through the club, only at their tier or above.
+              </span>
+            )}
+          </div>
         </Field>
       ) : (
         <Field label="The file">

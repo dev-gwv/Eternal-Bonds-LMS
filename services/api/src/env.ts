@@ -43,6 +43,21 @@ const BaseEnvSchema = z.object({
   /** Refuses an upload longer than this before it starts. 4 hours. */
   VIDEO_MAX_SECONDS: z.coerce.number().default(14400),
 
+  /* Google Drive (lib/google-drive.ts). One club account holds course videos
+     and library files; admins connect it from Studio → Drive. All empty =
+     the Drive options simply do not appear. */
+  /** OAuth web client. The secret is a Worker secret, never a var. */
+  GOOGLE_CLIENT_ID: z.string().default(''),
+  GOOGLE_CLIENT_SECRET: z.string().default(''),
+  /** Browser key for the Google Picker. Public by nature; restrict it by referrer. */
+  GOOGLE_API_KEY: z.string().default(''),
+  /** The Cloud project *number*. The Picker uses it to grant the app the files picked. */
+  GOOGLE_APP_ID: z.string().default(''),
+  /** Encrypts the stored refresh token and signs media links. 32+ random characters. */
+  DRIVE_SECRET: z.string().default(''),
+  /** This API's own public origin — the OAuth redirect and media links point here. */
+  PUBLIC_API_URL: z.string().default('http://localhost:8080'),
+
   /* Payments. Razorpay is web-only by design — see PLAN §7 for why the store
      builds ship with BILLING_MODE=web_only. */
   BILLING_MODE: z.enum(['web_only', 'razorpay']).default('web_only'),

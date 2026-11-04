@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { LessonInput, type AdminCourseDetail, type AdminLesson, type AdminModule, type Tier } from '@ipc/contracts';
-import { adminApi, fetchViewer, uploadLessonVideo } from '../../shared/admin-api.ts';
+import { adminApi, fetchViewer, probeDuration, uploadLessonVideo } from '../../shared/admin-api.ts';
+import { driveFileUrl, pickFromDrive, uploadToDrive } from '../../shared/drive.ts';
 import { QuizEditor } from './QuizEditor.tsx';
 import { LessonEditor } from './LessonEditor.tsx';
 import { CoverPicker } from '../../shared/ui/CoverPicker.tsx';
@@ -38,6 +39,8 @@ const moved = <T,>(items: T[], from: number, to: number): T[] => {
 function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string }) {
   const queryClient = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
+  const driveInput = useRef<HTMLInputElement>(null);
+  const cancel = useRef<AbortController | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState('');
@@ -48,20 +51,60 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
   // URL is the kind of wrong affordance somebody fights for ten minutes.
   const viewer = useQuery({ queryKey: ['viewer'], queryFn: fetchViewer, staleTime: 5 * 60_000 });
   const isYouTube = viewer.data?.videoProvider === 'youtube';
+  // Drive is offered alongside whatever the deployment uses, once connected.
+  // Same cache key as the Drive page, so connecting there shows up here.
+  const drive = useQuery({
+    queryKey: ['admin', 'drive'],
+    queryFn: adminApi.driveStatus,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const driveReady = Boolean(drive.data?.connected);
+  const onDrive = lesson.videoProvider === 'drive';
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['admin', 'course', courseId] });
 
-  const upload = async (file: File) => {
+  const run = async (work: (signal: AbortSignal) => Promise<unknown>, done: string) => {
     setError(null);
     setProgress(0);
+    const controller = new AbortController();
+    cancel.current = controller;
     try {
-      await uploadLessonVideo(lesson.id, file, setProgress);
+      await work(controller.signal);
       refresh();
+      toast.show(done);
+    } catch (e) {
+      if (!controller.signal.aborted) setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      cancel.current = null;
+      setProgress(null);
+      // So the same file can be picked again after a failure.
+      if (input.current) input.current.value = '';
+      if (driveInput.current) driveInput.current.value = '';
+    }
+  };
+
+  const upload = (file: File) => run(() => uploadLessonVideo(lesson.id, file, setProgress), 'Video uploaded');
+
+  const uploadDrive = (file: File) =>
+    run(async (signal) => {
+      // Read before uploading: the duration comes from the local file, and a
+      // file the browser cannot open is not worth a 2GB upload to find out.
+      const durationSeconds = await probeDuration(file).catch(() => undefined);
+      const stored = await uploadToDrive(file, setProgress, signal);
+      await adminApi.attachDriveVideo(lesson.id, stored.id, durationSeconds);
+    }, 'Uploaded to Drive and attached');
+
+  const pick = async () => {
+    setError(null);
+    try {
+      const file = await pickFromDrive('video');
+      if (!file) return;
+      await adminApi.attachDriveVideo(lesson.id, file.id);
+      refresh();
+      toast.show(`Attached ${file.name}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setProgress(null);
-      if (input.current) input.current.value = ''; // So the same file can be retried.
     }
   };
 
@@ -69,7 +112,7 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
     mutationFn: () => adminApi.detachVideo(lesson.id),
     onSuccess: () => {
       refresh();
-      toast.show('Video removed from the lesson');
+      toast.show(onDrive ? 'Video removed from the lesson. The file is still in Drive.' : 'Video removed from the lesson');
     },
     onError: toast.error,
   });
@@ -87,7 +130,7 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
 
   if (progress !== null) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 150 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 230 }}>
         <div style={{ flex: 1, height: 4, borderRadius: 999, background: 'var(--track)' }}>
           <div
             style={{
@@ -102,12 +145,15 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
         <span style={{ fontSize: 10 }} className="dim">
           {Math.round(progress * 100)}%
         </span>
+        <button type="button" className="btn btn-ghost" style={{ padding: '4px 8px' }} onClick={() => cancel.current?.abort()}>
+          Cancel
+        </button>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
       <input
         ref={input}
         type="file"
@@ -118,21 +164,33 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
           if (file) void upload(file);
         }}
       />
+      <input
+        ref={driveInput}
+        type="file"
+        accept="video/*"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void uploadDrive(file);
+        }}
+      />
       {error && (
-        <span style={{ fontSize: 10, maxWidth: 180 }} className="field-error">
+        <span style={{ fontSize: 10, maxWidth: 220 }} className="field-error">
           {error}
         </span>
       )}
       {lesson.videoStatus === 'ready' ? (
-        isYouTube && lesson.videoAssetId ? (
+        onDrive && lesson.videoAssetId ? (
+          <a href={driveFileUrl(lesson.videoAssetId)} target="_blank" rel="noreferrer" title="Open in Google Drive">
+            <Chip tone="green">
+              <Icon name="cloud" size={11} strokeWidth={2.2} />
+              Drive
+            </Chip>
+          </a>
+        ) : lesson.videoProvider === 'youtube' || (isYouTube && !lesson.videoProvider) ? (
           // The id, linked. An author checking their own course wants to see
           // *which* video is attached, not merely that one is.
-          <a
-            href={`https://youtu.be/${lesson.videoAssetId}`}
-            target="_blank"
-            rel="noreferrer"
-            title="Open on YouTube"
-          >
+          <a href={`https://youtu.be/${lesson.videoAssetId}`} target="_blank" rel="noreferrer" title="Open on YouTube">
             <Chip tone="green">
               <Icon name="check" size={10} strokeWidth={3} />
               {lesson.videoAssetId}
@@ -167,7 +225,10 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
               onChange={(e) => setLink(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && link.trim()) attachLink.mutate();
-                if (e.key === 'Escape') { setPasting(false); setLink(''); }
+                if (e.key === 'Escape') {
+                  setPasting(false);
+                  setLink('');
+                }
               }}
               style={{ width: 260, fontSize: 11.5, padding: '7px 10px' }}
             />
@@ -179,14 +240,21 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
             >
               {attachLink.isPending ? 'Saving…' : 'Attach'}
             </button>
-            <button type="button" className="btn btn-ghost" onClick={() => { setPasting(false); setLink(''); }}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => {
+                setPasting(false);
+                setLink('');
+              }}
+            >
               Cancel
             </button>
           </>
         ) : (
           <button type="button" className="btn btn-soft" onClick={() => setPasting(true)}>
-            <Icon name="link" size={13} />
-            {lesson.videoAssetId ? 'Replace link' : 'Add YouTube link'}
+            <Icon name="youtube" size={13} />
+            {lesson.videoAssetId && !onDrive ? 'Replace link' : 'YouTube link'}
           </button>
         )
       ) : (
@@ -194,9 +262,29 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
           {lesson.videoAssetId ? 'Replace' : 'Upload'}
         </button>
       )}
-      {lesson.videoAssetId && (
-        <IconButton icon="back" label="Remove video" onClick={() => detach.mutate()} />
+      {driveReady && !pasting && (
+        <>
+          <button
+            type="button"
+            className="btn btn-soft"
+            title="Upload a video into the club Drive and attach it"
+            onClick={() => driveInput.current?.click()}
+          >
+            <Icon name="upload" size={13} />
+            Upload to Drive
+          </button>
+          <button
+            type="button"
+            className="btn btn-soft"
+            title="Attach a video that is already in the club Drive"
+            onClick={() => void pick()}
+          >
+            <Icon name="cloud" size={13} />
+            From Drive
+          </button>
+        </>
       )}
+      {lesson.videoAssetId && <IconButton icon="back" label="Remove video" onClick={() => detach.mutate()} />}
     </div>
   );
 }

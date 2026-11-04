@@ -6,6 +6,7 @@ import { HttpError } from './lib/problem.ts';
 import { createStorage } from './lib/storage.ts';
 import { supabaseConfigured } from './lib/supabase.ts';
 import { createVideoProvider, youtubeId } from './lib/video-provider.ts';
+import { fileInfo, mediaUrl } from './lib/google-drive.ts';
 import { getDb } from './repo.ts';
 
 /**
@@ -27,6 +28,9 @@ import { getDb } from './repo.ts';
  */
 
 const UPLOAD_TTL_SECONDS = 2 * 60 * 60;
+
+/** Six hours: a long lecture, paused for lunch, still plays when they come back. */
+const DRIVE_PLAYBACK_TTL = 6 * 60 * 60;
 
 /** Keeps a member's original filename out of the object key. */
 function extensionOf(filename: string): string {
@@ -221,7 +225,10 @@ export async function detachVideo(env: Env, userId: string, lessonId: string): P
   );
   if (!lesson) throw new HttpError(404, 'Lesson not found');
 
-  if (lesson.assetId && lesson.provider && lesson.provider !== 'none') {
+  // Not for Drive. The file there is the club's own copy — often a recording
+  // that predates the course — and taking a video off a lesson must never be
+  // the click that deletes it.
+  if (lesson.assetId && lesson.provider && lesson.provider !== 'none' && lesson.provider !== 'drive') {
     // Best effort: a provider that is briefly down must not stop an admin
     // replacing a wrong video. The orphan costs storage, not correctness.
     try {
@@ -300,11 +307,61 @@ export async function playbackFor(
   env: Env,
   assetId: string,
   ttlSeconds: number,
+  lessonProvider?: string | null,
 ): Promise<{ url: string; kind: 'hls' | 'mp4' | 'youtube' }> {
+  // Per lesson, not per deployment: a course can mix YouTube lessons with
+  // private recordings kept in the club Drive.
+  if (lessonProvider === 'drive') {
+    // Longer than other tickets. A <video> keeps using the same URL for every
+    // Range request while it plays, so the link has to outlive a long lecture
+    // with a pause in the middle — not just the first second of it.
+    return { url: await mediaUrl(env, assetId, { ttlSeconds: Math.max(ttlSeconds, DRIVE_PLAYBACK_TTL) }), kind: 'mp4' };
+  }
+  if (lessonProvider === 'youtube') return { url: assetId, kind: 'youtube' };
   if (env.VIDEO_PROVIDER === 'none') {
     return { url: await createStorage(env).signedDownloadUrl(assetId, ttlSeconds), kind: 'mp4' };
   }
   return createVideoProvider(env).playback(assetId, ttlSeconds);
+}
+
+/**
+ * Puts a Drive file on a lesson — one just uploaded, or one picked from the
+ * club Drive. Either way the file is checked with Drive first: that it exists,
+ * that the app may reach it, and that it is a video. The duration comes from
+ * Drive when it has worked it out; otherwise the first viewer's browser
+ * reports it, as with YouTube.
+ */
+export async function attachDriveVideo(
+  env: Env,
+  userId: string,
+  lessonId: string,
+  input: { fileId: string; durationSeconds?: number },
+): Promise<AdminLesson> {
+  const db = requireDb(env);
+  const file = await fileInfo(env, input.fileId);
+  if (!file.mimeType.startsWith('video/')) {
+    throw new HttpError(422, 'That file is not a video', `Drive says it is ${file.mimeType}. Choose an MP4 or similar.`);
+  }
+  const duration = file.durationSeconds ?? input.durationSeconds ?? null;
+
+  return withUser(db, userId, async (tx) => {
+    const [row] = await tx
+      .update(lessons)
+      .set({
+        videoProvider: 'drive',
+        videoAssetId: file.id,
+        videoUploadId: null,
+        // Drive serves the original file, so there is nothing to wait for.
+        videoStatus: 'ready',
+        videoReadyAt: new Date(),
+        videoError: null,
+        ...(duration ? { durationSeconds: duration, videoDurationSource: 'provider' } : {}),
+      })
+      .where(eq(lessons.id, lessonId))
+      .returning();
+    if (!row) throw new HttpError(404, 'Lesson not found');
+    return toAdminLesson(row);
+  });
 }
 
 const toAdminLesson = (row: typeof lessons.$inferSelect): AdminLesson => ({
@@ -317,7 +374,8 @@ const toAdminLesson = (row: typeof lessons.$inferSelect): AdminLesson => ({
   videoStatus: row.videoStatus,
   videoAssetId: row.videoAssetId,
   videoError: row.videoError,
-    bodyMd: row.summaryMd ?? null,
+  videoProvider: row.videoProvider ?? null,
+  bodyMd: row.summaryMd ?? null,
 });
 
 /** Counts lessons still waiting, so the studio can show a live badge. */

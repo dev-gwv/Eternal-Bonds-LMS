@@ -391,6 +391,14 @@ const paths: Record<string, ReactNode> = {
       <rect x="14" y="14" width="7" height="7" rx="1.6" />
     </>
   ),
+  cloud: <path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4.5 4.5 0 0 1-.5 9.5z" />,
+  upload: (
+    <>
+      <path d="M12 16V4" />
+      <path d="m7 9 5-5 5 5" />
+      <path d="M5 20h14" />
+    </>
+  ),
   link: (
     <>
       <path d="M10 13a4 4 0 0 0 5.6.6l3-3a4 4 0 1 0-5.6-5.6L11.6 6.4" />

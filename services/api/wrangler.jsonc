@@ -40,6 +40,12 @@
     // Where links in emails and push notifications point.
     "APP_URL": "https://eternal-bonds.vercel.app",
 
+    // This API's own address. The Google Drive sign-in returns here, and the
+    // links members stream and download Drive files through point here. It
+    // must match the redirect URI registered on the Google OAuth client:
+    // <PUBLIC_API_URL>/v1/drive/callback
+    "PUBLIC_API_URL": "https://eternal-bonds-api.dev-d9b.workers.dev",
+
     // `console` logs what it would have sent. Do not switch to `resend` before
     // SPF, DKIM and DMARC exist for the sending domain — the first send from
     // an unverified domain is how an address gets blocklisted permanently.

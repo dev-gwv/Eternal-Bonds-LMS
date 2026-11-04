@@ -10,6 +10,7 @@ import type {
 import type { Env } from './env.ts';
 import { HttpError } from './lib/problem.ts';
 import { createStorage } from './lib/storage.ts';
+import { DRIVE_PREFIX, driveIdOf, fileInfo, isDriveKey } from './lib/google-drive.ts';
 import { getDb } from './repo.ts';
 
 /**
@@ -166,6 +167,14 @@ export async function listAdminItems(env: Env, userId: string, categoryId?: stri
 
 export async function createItem(env: Env, userId: string, input: LibraryItemInput): Promise<LibraryItem> {
   const db = requireDb(env);
+  // A Drive file is checked with Drive before the row exists: that the app can
+  // reach it at all, and what it really is. The mime type is taken from Drive
+  // rather than from the browser, because it decides how members' devices
+  // open the download.
+  if (isDriveKey(input.storageKey)) {
+    const file = await fileInfo(env, driveIdOf(input.storageKey));
+    input = { ...input, storageKey: `${DRIVE_PREFIX}${file.id}`, mime: file.mimeType };
+  }
   return withUser(db, userId, async (tx) => {
     const rows = await tx.execute<ItemRow>(sql`
       with inserted as (

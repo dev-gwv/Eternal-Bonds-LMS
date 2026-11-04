@@ -332,6 +332,10 @@ export function StudioPage() {
           <Icon name="flag" size={13} />
           Challenges
         </Link>
+        <Link to="/admin/drive" className="btn btn-soft">
+          <Icon name="cloud" size={13} />
+          Drive
+        </Link>
       </Toolbar>
 
       <ErrorNote error={courses.error ?? overview.error} />

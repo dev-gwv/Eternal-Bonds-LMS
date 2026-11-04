@@ -161,6 +161,7 @@ export async function getAdminCourse(env: Env, userId: string, id: string): Prom
         videoStatus: lessons.videoStatus,
         videoAssetId: lessons.videoAssetId,
         videoError: lessons.videoError,
+        videoProvider: lessons.videoProvider,
         bodyMd: lessons.summaryMd,
       })
       .from(modules)
@@ -191,6 +192,7 @@ export async function getAdminCourse(env: Env, userId: string, id: string): Prom
         videoStatus: (r.videoStatus ?? 'none') as AdminLesson['videoStatus'],
         videoAssetId: r.videoAssetId ?? null,
         videoError: r.videoError ?? null,
+        videoProvider: r.videoProvider ?? null,
         bodyMd: r.bodyMd ?? null,
       });
     }
@@ -403,6 +405,7 @@ const toAdminLesson = (row: typeof lessons.$inferSelect): AdminLesson => ({
   videoStatus: row.videoStatus,
   videoAssetId: row.videoAssetId,
   videoError: row.videoError,
+  videoProvider: row.videoProvider ?? null,
   bodyMd: row.summaryMd ?? null,
 });
 

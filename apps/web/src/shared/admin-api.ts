@@ -42,6 +42,25 @@ import { z } from 'zod';
 import { accessToken } from './supabase.ts';
 import { ApiError } from './api.ts';
 
+export const DriveStatus = z.object({
+  configured: z.boolean(),
+  connected: z.boolean(),
+  email: z.string().nullable(),
+  folderId: z.string().nullable(),
+  folderUrl: z.string().nullable(),
+  connectedAt: z.string().nullable(),
+});
+export type DriveStatus = z.infer<typeof DriveStatus>;
+
+export const DrivePickerToken = z.object({
+  accessToken: z.string(),
+  expiresAt: z.string(),
+  apiKey: z.string(),
+  appId: z.string(),
+  folderId: z.string().nullable(),
+});
+export type DrivePickerToken = z.infer<typeof DrivePickerToken>;
+
 /**
  * The studio's client.
  *
@@ -125,6 +144,23 @@ export const adminApi = {
    */
   attachVideoLink: (lessonId: string, link: string) =>
     call('POST', `/v1/admin/lessons/${lessonId}/video`, { body: { key: link }, schema: AdminLesson }),
+  /** A file in the club Drive on a lesson — uploaded through the studio, or picked. */
+  attachDriveVideo: (lessonId: string, fileId: string, durationSeconds?: number) =>
+    call('POST', `/v1/admin/lessons/${lessonId}/drive-video`, {
+      body: { fileId, durationSeconds },
+      schema: AdminLesson,
+    }),
+
+  /* The club's Google Drive. See lib/google-drive.ts on the API. */
+  driveStatus: () => call('GET', '/v1/admin/drive', { schema: DriveStatus }),
+  driveConnect: () => call('POST', '/v1/admin/drive/connect', { schema: z.object({ url: z.string() }) }),
+  driveDisconnect: () => call<void>('DELETE', '/v1/admin/drive'),
+  drivePickerToken: () => call('POST', '/v1/admin/drive/picker-token', { schema: DrivePickerToken }),
+  driveUploadSession: (input: { filename: string; mimeType: string; size: number }) =>
+    call('POST', '/v1/admin/drive/uploads', {
+      body: input,
+      schema: z.object({ url: z.string(), expiresAt: z.string() }),
+    }),
 
   /* The members console. Filters are server-side because the roster is the one
      list that will not fit in the browser — 849 today and growing. */
@@ -329,7 +365,7 @@ export async function uploadLessonVideo(
  * Reads the real duration out of the file itself, so nobody has to type it and
  * the lesson list cannot disagree with the player.
  */
-function probeDuration(file: File): Promise<number> {
+export function probeDuration(file: File): Promise<number> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     const url = URL.createObjectURL(file);

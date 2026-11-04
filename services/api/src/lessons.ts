@@ -177,13 +177,13 @@ export async function getPlaybackTicket(env: Env, userId: string | null, lessonI
 
     // With no provider and no storage there is nothing to sign, so a local
     // checkout falls back to a public test stream rather than erroring.
-    if (env.VIDEO_PROVIDER === 'none' && !supabaseConfigured(env)) {
+    if (env.VIDEO_PROVIDER === 'none' && !supabaseConfigured(env) && row.videoProvider !== 'drive') {
       return { lessonId, url: seed.DEMO_HLS, kind: 'hls' as const, expiresAt };
     }
 
     // Each provider signs its own short-lived URL behind the same interface,
     // which is what keeps the choice a pricing decision (PLAN §2).
-    const source = await playbackFor(env, row.videoAssetId, TICKET_TTL_SECONDS);
+    const source = await playbackFor(env, row.videoAssetId, TICKET_TTL_SECONDS, row.videoProvider);
     return { lessonId, ...source, expiresAt };
   });
 }

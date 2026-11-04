@@ -10,6 +10,7 @@ import { challengeRoutes } from './modules/challenges.ts';
 import { coverRoutes } from './modules/covers.ts';
 import { publicRoutes } from './modules/public.ts';
 import { adminRoutes } from './modules/admin.ts';
+import { driveRoutes } from './modules/drive.ts';
 import { billingRoutes } from './modules/billing.ts';
 import { webhookRoutes } from './modules/webhooks.ts';
 import { coursesRoutes } from './modules/courses.ts';
@@ -63,7 +64,11 @@ app.use('*', async (c, next) => {
 app.use('*', (c, next) => corsFor(c.env)(c, next));
 app.use('*', session);
 app.use('*', idempotency);
-app.use('/v1/*', etag());
+// Not on Drive media: the ETag middleware hashes the whole body, which for a
+// video stream would mean reading a lecture into memory to answer one Range
+// request. Drive sends its own ETag, which is passed through.
+const etagged = etag();
+app.use('/v1/*', (c, next) => (c.req.path.startsWith('/v1/drive/media/') ? next() : etagged(c, next)));
 
 /**
  * Postgres codes that mean the *request* was wrong, not the server.
@@ -150,6 +155,8 @@ const v1 = new Hono<AppEnv>()
   // Outside every auth middleware, deliberately. See modules/public.ts.
   .route('/public', publicRoutes)
   .route('/admin', adminRoutes)
+  // OAuth callback and signed media links; no session — see modules/drive.ts.
+  .route('/drive', driveRoutes)
   .route('/billing', billingRoutes);
 
 app.route('/v1', v1);
