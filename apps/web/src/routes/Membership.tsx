@@ -15,7 +15,7 @@ import { SettingsShell } from './Settings.tsx';
  * you" and re-reads the state a moment later.
  */
 
-const rupees = (paise: number) =>
+export const rupees = (paise: number) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(
     paise / 100,
   );
@@ -48,7 +48,7 @@ declare global {
  * dashboard for the overwhelming majority of visits that will never buy
  * anything, and it watches every one of them.
  */
-function loadCheckout(): Promise<void> {
+export function loadCheckout(): Promise<void> {
   if (window.Razorpay) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');

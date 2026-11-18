@@ -34,6 +34,7 @@ const ADMIN: Item[] = [
   { to: '/admin/cohorts', label: 'Cohorts', icon: 'calendar', hint: 'Start dates and drip' },
   { to: '/admin/challenges', label: 'Challenges', icon: 'flag', hint: 'This week’s prompt' },
   { to: '/admin/library', label: 'Library', icon: 'library', hint: 'Files and links for members' },
+  { to: '/admin/packages', label: 'Packages', icon: 'grid', hint: 'Course bundles sold on their own' },
   { to: '/admin/drive', label: 'Google Drive', icon: 'cloud', hint: 'Where videos and files are kept' },
   { to: '/admin/revenue', label: 'Revenue', icon: 'chart', hint: 'What came in' },
   { to: '/admin/moderation', label: 'Moderation', icon: 'bell', hint: 'Reports and reviews' },

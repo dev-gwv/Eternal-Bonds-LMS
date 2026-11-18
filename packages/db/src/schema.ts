@@ -87,6 +87,8 @@ export const courses = pgTable(
     language: text('language').notNull().default('hindi'),
     thumbnailUrl: text('thumbnail_url'),
     minTier: tierEnum('min_tier').notNull().default('diamond'),
+    /** Only a package opens it; tier alone never does. */
+    packageOnly: boolean('package_only').notNull().default(false),
     isPublished: boolean('is_published').notNull().default(false),
     rank: numeric('rank').notNull().default('1000'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

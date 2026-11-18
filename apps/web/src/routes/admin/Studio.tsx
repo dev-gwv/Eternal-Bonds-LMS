@@ -312,6 +312,10 @@ export function StudioPage() {
           <Icon name="chart" size={13} />
           Revenue
         </Link>
+        <Link to="/admin/packages" className="btn btn-soft">
+          <Icon name="grid" size={13} />
+          Packages
+        </Link>
         <Link to="/admin/journeys" className="btn btn-soft">
           <Icon name="chart" size={13} />
           Journeys

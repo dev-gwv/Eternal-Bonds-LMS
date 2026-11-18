@@ -31,16 +31,7 @@ export function CourseResumePage() {
     );
   }
 
-  if (course.isError) {
-    return (
-      <Page>
-        <Card>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Course not found</span>
-          <Link to="/courses" style={{ fontSize: 12 }}>Back to courses</Link>
-        </Card>
-      </Page>
-    );
-  }
+  if (course.isError) return <LockedOrMissing slug={slug} />;
 
   const lessons = course.data?.modules.flatMap((m) => m.lessons) ?? [];
   const target = lessons.find((l) => !l.completed) ?? lessons[0];
@@ -65,5 +56,37 @@ export function CourseResumePage() {
       params={{ courseSlug: slug, lessonSlug: target.slug }}
       replace
     />
+  );
+}
+
+/**
+ * A course this member cannot open reads as not found — RLS hides it, on
+ * purpose. If a package includes it, though, that is the useful answer: say
+ * which, and link to it.
+ */
+function LockedOrMissing({ slug }: { slug: string }) {
+  const offers = useQuery({ queryKey: ['packages', 'for-course', slug], queryFn: () => api.packagesForCourse(slug) });
+  const first = offers.data?.[0];
+  return (
+    <Page>
+      <Card>
+        {first ? (
+          <>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>This course is part of a package</span>
+            <span style={{ fontSize: 12 }} className="muted">
+              It opens for members who have {offers.data!.length > 1 ? 'one of these packages' : 'this package'}:
+            </span>
+            {offers.data!.map((p) => (
+              <Link key={p.slug} to="/packages/$slug" params={{ slug: p.slug }} className="btn btn-pink" style={{ alignSelf: 'flex-start' }}>
+                {p.title}
+              </Link>
+            ))}
+          </>
+        ) : (
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{offers.isPending ? 'Checking…' : 'Course not found'}</span>
+        )}
+        <Link to="/courses" style={{ fontSize: 12 }}>Back to courses</Link>
+      </Card>
+    </Page>
   );
 }

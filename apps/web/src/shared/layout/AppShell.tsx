@@ -74,7 +74,7 @@ const SECTIONS: { to: string; label: string; icon: string; owns: string[]; sub: 
     to: '/courses',
     label: 'Courses',
     icon: 'courses',
-    owns: ['/learn', '/journeys'],
+    owns: ['/learn', '/journeys', '/packages'],
     sub: [
       // Journeys first: it is the answer to "where do I start", and a member
       // who needs that question answered should not have to find it behind

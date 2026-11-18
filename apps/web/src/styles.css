@@ -1998,3 +1998,11 @@ input[type='radio']:disabled { cursor: not-allowed; opacity: 0.5; }
   /* And the toast stack rides above it rather than behind. */
   .toast-stack { bottom: calc(80px + env(safe-area-inset-bottom)); }
 }
+
+/* Package page: contents beside the price card, stacked on a phone. */
+.package-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+.package-layout > .card:last-child { position: sticky; top: 16px; }
+@media (max-width: 860px) {
+  .package-layout { grid-template-columns: minmax(0, 1fr); }
+  .package-layout > .card:last-child { position: static; order: -1; }
+}

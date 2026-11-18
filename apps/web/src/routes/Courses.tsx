@@ -9,6 +9,7 @@ import { LoadingLabel, SkeletonCard } from '../shared/ui/Skeleton.tsx';
 import { ProgressRing } from '../shared/ui/charts.tsx';
 import { Chip, Dropdown, Icon } from '../shared/ui/primitives.tsx';
 import { Select } from '../shared/ui/Select.tsx';
+import { PackagesShelf } from './Packages.tsx';
 
 const CATEGORY_TONE: Record<Course['category'], { text: string; gradient: string; on: string }> = {
   business: { text: 'var(--pink-ink)', gradient: 'linear-gradient(135deg, #f9a8c9 0%, #f27fb0 100%)', on: '#fff' },
@@ -218,6 +219,8 @@ export function CoursesPage() {
         </>
       )}
       {courses.isError && <ErrorState onRetry={courses.refetch} retrying={courses.isFetching} />}
+
+      {!filtered && <PackagesShelf />}
 
       <div className="grid grid-4" style={{ alignContent: 'start' }}>
         {rows.map((c) => <CourseCard key={c.id} course={c} />)}

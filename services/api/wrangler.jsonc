@@ -46,6 +46,12 @@
     // <PUBLIC_API_URL>/v1/drive/callback
     "PUBLIC_API_URL": "https://eternal-bonds-api.dev-d9b.workers.dev",
 
+    // Cloudflare R2 for lesson video (docs/r2-video.md). Not secret: the
+    // account id and bucket name. The keys are secrets (list below). Until
+    // they are set, Studio simply does not offer "Upload video".
+    "R2_ACCOUNT_ID": "d9b73b5a2afa3689965e35065b313604",
+    "R2_BUCKET": "eb-videos",
+
     // `console` logs what it would have sent. Do not switch to `resend` before
     // SPF, DKIM and DMARC exist for the sending domain — the first send from
     // an unverified domain is how an address gets blocklisted permanently.
@@ -88,6 +94,8 @@
   //   RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET
   //   FCM_PROJECT_ID, FCM_CLIENT_EMAIL, FCM_PRIVATE_KEY
   //   VIDEO_API_TOKEN, VIDEO_SIGNING_KEY_PEM, VIDEO_WEBHOOK_SECRET
+  //   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY   (R2 API token for eb-videos)
+  //   TRANSCODER_SECRET                        (shared with the VPS transcoder)
   //
   // ALLOWED_ORIGINS is a secret rather than a var purely so it can be changed
   // without a redeploy — it is not sensitive.

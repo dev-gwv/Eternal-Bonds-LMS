@@ -71,6 +71,9 @@ const lazyPage = <T extends object>(loader: () => Promise<T>, name: keyof T) =>
 const CommunityPage = lazyPage(() => import('../routes/Community.tsx'), 'CommunityPage');
 const CourseResumePage = lazyPage(() => import('../routes/CourseResume.tsx'), 'CourseResumePage');
 const CoursesPage = lazyPage(() => import('../routes/Courses.tsx'), 'CoursesPage');
+const PackagePage = lazyPage(() => import('../routes/Packages.tsx'), 'PackagePage');
+const AdminPackagesPage = lazyPage(() => import('../routes/admin/Packages.tsx'), 'AdminPackagesPage');
+const AdminPackageEditorPage = lazyPage(() => import('../routes/admin/Packages.tsx'), 'AdminPackageEditorPage');
 const LessonPage = lazyPage(() => import('../routes/Lesson.tsx'), 'LessonPage');
 const LibraryPage = lazyPage(() => import('../routes/Library.tsx'), 'LibraryPage');
 const MemberPage = lazyPage(() => import('../routes/Member.tsx'), 'MemberPage');
@@ -339,7 +342,26 @@ const adminChallengesRoute = createRoute({
   component: AdminChallengesPage,
 });
 
+const packageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/packages/$slug',
+  component: PackagePage,
+});
+const adminPackagesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/packages',
+  component: AdminPackagesPage,
+});
+const adminPackageEditorRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/packages/$id',
+  component: AdminPackageEditorPage,
+});
+
 const routeTree = rootRoute.addChildren([
+  packageRoute,
+  adminPackagesRoute,
+  adminPackageEditorRoute,
   dashboardRoute,
   communityRoute,
   workshopsRoute,

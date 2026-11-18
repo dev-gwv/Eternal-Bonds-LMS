@@ -170,7 +170,9 @@ export const orders = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    planId: text('plan_id').notNull().references(() => plans.id),
+    /** A plan or a package, never both (check constraint orders_one_product). */
+    planId: text('plan_id').references(() => plans.id),
+    packageId: uuid('package_id'),
     /** Snapshotted, so a later price change never rewrites history. */
     amountPaise: integer('amount_paise').notNull(),
     currency: text('currency').notNull().default('INR'),

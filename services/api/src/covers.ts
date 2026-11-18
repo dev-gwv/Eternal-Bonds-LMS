@@ -28,6 +28,7 @@ const COVERABLE = {
   journey: { table: 'journeys', prefix: 'covers/journeys' },
   insight: { table: 'insights', prefix: 'covers/insights' },
   'library-item': { table: 'library_items', prefix: 'covers/library' },
+  package: { table: 'packages', prefix: 'covers/packages' },
 } as const;
 
 export type CoverKind = keyof typeof COVERABLE;

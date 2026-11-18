@@ -14,6 +14,11 @@ import {
   CohortDetail,
   Journey,
   JourneyDetail,
+  Package,
+  PackageDetail,
+  PackageGrant,
+  type GrantPackageInput,
+  type PackageInput,
   LibraryCategory,
   LibraryItem,
   Revenue,
@@ -99,6 +104,9 @@ async function call<T>(
   const json = await res.json();
   return options.schema ? options.schema.parse(json) : (json as T);
 }
+
+/** For modules that talk to admin endpoints of their own (the R2 uploader). */
+export const adminCall = call;
 
 const list = <T>(item: z.ZodType<T>) => z.object({ items: z.array(item) });
 
@@ -212,6 +220,25 @@ export const adminApi = {
     call<void>('POST', `/v1/admin/journeys/${id}/steps/order`, { body: { ids } }),
   removeJourneyStep: (stepId: string) => call<void>('DELETE', `/v1/admin/journeys/steps/${stepId}`),
 
+  /* Packages: bundles of courses sold on their own. */
+  packages: () => call('GET', '/v1/admin/packages', { schema: list(Package) }).then((r) => r.items),
+  package: (id: string) => call('GET', `/v1/admin/packages/${id}`, { schema: PackageDetail }),
+  createPackage: (body: PackageInput) => call('POST', '/v1/admin/packages', { body, schema: PackageDetail }),
+  updatePackage: (id: string, body: PackageInput) =>
+    call('PATCH', `/v1/admin/packages/${id}`, { body, schema: PackageDetail }),
+  deletePackage: (id: string) => call<void>('DELETE', `/v1/admin/packages/${id}`),
+  setPackageCourses: (id: string, courseIds: string[]) =>
+    call('PUT', `/v1/admin/packages/${id}/courses`, { body: { courseIds }, schema: PackageDetail }),
+  packageGrants: (filter: { packageId?: string; memberId?: string }) =>
+    call(
+      'GET',
+      `/v1/admin/packages/grants?${new URLSearchParams(filter as Record<string, string>).toString()}`,
+      { schema: list(PackageGrant) },
+    ).then((r) => r.items),
+  grantPackage: (id: string, body: GrantPackageInput) =>
+    call('POST', `/v1/admin/packages/${id}/grants`, { body, schema: PackageGrant }),
+  revokePackageGrant: (grantId: string) => call<void>('DELETE', `/v1/admin/packages/grants/${grantId}`),
+
   /* Challenges — a prompt with a deadline. Entries are wins, so there is
      nothing here for managing them; moderation already covers that. */
   challenges: () =>
@@ -292,7 +319,7 @@ export async function fetchViewer(): Promise<Viewer> {
     return await call('GET', '/v1/me/viewer', { schema: Viewer });
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
-      return { userId: null, role: 'member', tier: 'free', canAuthor: false, videoProvider: 'none' };
+      return { userId: null, role: 'member', tier: 'free', canAuthor: false, videoProvider: 'none', r2Uploads: false };
     }
     throw error;
   }

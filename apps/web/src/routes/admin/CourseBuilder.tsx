@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { LessonInput, type AdminCourseDetail, type AdminLesson, type AdminModule, type Tier } from '@ipc/contracts';
 import { adminApi, fetchViewer, probeDuration, uploadLessonVideo } from '../../shared/admin-api.ts';
 import { driveFileUrl, pickFromDrive, uploadToDrive } from '../../shared/drive.ts';
+import { uploadLessonToR2 } from '../../shared/r2-upload.ts';
 import { QuizEditor } from './QuizEditor.tsx';
 import { LessonEditor } from './LessonEditor.tsx';
 import { CoverPicker } from '../../shared/ui/CoverPicker.tsx';
@@ -51,6 +52,10 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
   // URL is the kind of wrong affordance somebody fights for ten minutes.
   const viewer = useQuery({ queryKey: ['viewer'], queryFn: fetchViewer, staleTime: 5 * 60_000 });
   const isYouTube = viewer.data?.videoProvider === 'youtube';
+  // R2 + the club's VPS: the main way to put a recording on a lesson once set up.
+  const r2 = Boolean(viewer.data?.r2Uploads);
+  const r2Input = useRef<HTMLInputElement>(null);
+  const onR2 = lesson.videoProvider === 'r2';
   // Drive is offered alongside whatever the deployment uses, once connected.
   // Same cache key as the Drive page, so connecting there shows up here.
   const drive = useQuery({
@@ -81,10 +86,17 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
       // So the same file can be picked again after a failure.
       if (input.current) input.current.value = '';
       if (driveInput.current) driveInput.current.value = '';
+      if (r2Input.current) r2Input.current.value = '';
     }
   };
 
   const upload = (file: File) => run(() => uploadLessonVideo(lesson.id, file, setProgress), 'Video uploaded');
+
+  const uploadR2 = (file: File) =>
+    run(
+      (signal) => uploadLessonToR2(lesson.id, file, setProgress, signal),
+      'Uploaded. The server is converting it now; this lesson updates by itself.',
+    );
 
   const uploadDrive = (file: File) =>
     run(async (signal) => {
@@ -165,6 +177,16 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
         }}
       />
       <input
+        ref={r2Input}
+        type="file"
+        accept="video/*"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void uploadR2(file);
+        }}
+      />
+      <input
         ref={driveInput}
         type="file"
         accept="video/*"
@@ -199,11 +221,15 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
         ) : (
           <Chip tone="green">
             <Icon name="check" size={10} strokeWidth={3} />
-            Video
+            {onR2 ? 'Video (HD)' : 'Video'}
           </Chip>
         )
       ) : lesson.videoStatus === 'processing' ? (
-        <Chip tone="yellow">Transcoding</Chip>
+        <span title="The club's server is converting the video into streaming quality levels. You can leave this page.">
+          <Chip tone="yellow">
+            {onR2 ? (lesson.videoProgress ? `Processing ${lesson.videoProgress}%` : 'Waiting to process') : 'Transcoding'}
+          </Chip>
+        </span>
       ) : lesson.videoStatus === 'uploading' ? (
         <Chip tone="yellow">Uploading</Chip>
       ) : lesson.videoStatus === 'errored' ? (
@@ -213,6 +239,17 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
         </span>
       ) : (
         <Chip>No video</Chip>
+      )}
+      {r2 && !pasting && (
+        <button
+          type="button"
+          className="btn btn-pink"
+          title="Upload a recording; it is converted for smooth streaming on any connection"
+          onClick={() => r2Input.current?.click()}
+        >
+          <Icon name="upload" size={13} />
+          {onR2 && lesson.videoAssetId ? 'Replace video' : 'Upload video'}
+        </button>
       )}
       {isYouTube ? (
         pasting ? (
@@ -254,10 +291,10 @@ function VideoCell({ lesson, courseId }: { lesson: AdminLesson; courseId: string
         ) : (
           <button type="button" className="btn btn-soft" onClick={() => setPasting(true)}>
             <Icon name="youtube" size={13} />
-            {lesson.videoAssetId && !onDrive ? 'Replace link' : 'YouTube link'}
+            {lesson.videoProvider === 'youtube' ? 'Replace link' : 'YouTube link'}
           </button>
         )
-      ) : (
+      ) : r2 ? null : (
         <button type="button" className="btn btn-soft" onClick={() => input.current?.click()}>
           {lesson.videoAssetId ? 'Replace' : 'Upload'}
         </button>
@@ -606,6 +643,7 @@ function Settings({ course }: { course: AdminCourseDetail }) {
     minTier: course.minTier,
     summaryMd: course.summaryMd ?? '',
     instructorName: course.instructorName ?? '',
+    packageOnly: course.packageOnly,
   });
 
   /* Seeded once per course, then only re-seeded from the server while the
@@ -624,6 +662,7 @@ function Settings({ course }: { course: AdminCourseDetail }) {
       minTier: course.minTier,
       summaryMd: course.summaryMd ?? '',
       instructorName: course.instructorName ?? '',
+      packageOnly: course.packageOnly,
     };
     const prev = seeded.current;
     if (prev === null) {
@@ -662,7 +701,8 @@ function Settings({ course }: { course: AdminCourseDetail }) {
     draft.language !== course.language ||
     draft.minTier !== course.minTier ||
     draft.summaryMd !== (course.summaryMd ?? '') ||
-    draft.instructorName !== (course.instructorName ?? '');
+    draft.instructorName !== (course.instructorName ?? '') ||
+    draft.packageOnly !== course.packageOnly;
 
   return (
     <Card title="Course settings">
@@ -703,6 +743,22 @@ function Settings({ course }: { course: AdminCourseDetail }) {
           onChange={(e) => setDraft({ ...draft, instructorName: e.target.value })}
         />
       </Field>
+
+      <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, margin: '4px 0 12px', cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={draft.packageOnly}
+          onChange={(e) => setDraft({ ...draft, packageOnly: e.target.checked })}
+          style={{ marginTop: 3, width: 'auto' }}
+        />
+        <span>
+          <strong>Only through packages</strong>
+          <span className="dim" style={{ display: 'block', fontSize: 11.5, marginTop: 2 }}>
+            Members need a package that includes this course; their tier alone does not open it. Add the course to a
+            package in Studio → Packages.
+          </span>
+        </span>
+      </label>
 
       <Field label="Summary">
         <textarea

@@ -11,15 +11,16 @@
     "start:prod": "bun src/server.ts"
   },
   "dependencies": {
+    "@hono/zod-validator": "^0.7.4",
     "@ipc/contracts": "workspace:*",
     "@ipc/db": "workspace:*",
-    "@hono/zod-validator": "^0.7.4",
-    "hono": "^4.10.2",
-    "zod": "^4.1.12",
+    "@ipc/worker": "workspace:*",
     "@supabase/supabase-js": "^2.58.0",
-    "jose": "^6.1.0",
+    "aws4fetch": "^1.0.20",
     "drizzle-orm": "^0.44.6",
-    "@ipc/worker": "workspace:*"
+    "hono": "^4.10.2",
+    "jose": "^6.1.0",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260918.1",

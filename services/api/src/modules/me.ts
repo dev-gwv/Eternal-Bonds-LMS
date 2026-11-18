@@ -8,6 +8,7 @@ import { listNotifications, markNotificationsRead } from '../engagement.ts';
 import { getPrefs, registerPushToken, revokePushToken, updatePrefs } from '../prefs.ts';
 import { getActivity, getDashboard, getPerformance, getStats } from '../rollups.ts';
 import { problem } from '../lib/problem.ts';
+import { r2Configured } from '../lib/r2.ts';
 import { requireAuth } from '../middleware/auth.ts';
 import { rateLimit } from '../middleware/rateLimit.ts';
 import { getMember } from '../repo.ts';
@@ -117,6 +118,7 @@ export const meRoutes = new Hono<AppEnv>()
       tier: member?.tier ?? 'free',
       canAuthor: role === 'admin',
       videoProvider: c.env.VIDEO_PROVIDER,
+      r2Uploads: r2Configured(c.env),
     });
   })
 

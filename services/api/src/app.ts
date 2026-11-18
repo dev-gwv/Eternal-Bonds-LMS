@@ -15,6 +15,8 @@ import { billingRoutes } from './modules/billing.ts';
 import { webhookRoutes } from './modules/webhooks.ts';
 import { coursesRoutes } from './modules/courses.ts';
 import { internalRoutes } from './modules/internal.ts';
+import { mediaRoutes, transcoderRoutes } from './modules/media.ts';
+import { packageRoutes } from './modules/packages.ts';
 import { workshopsRoutes } from './modules/workshops.ts';
 import { communityRoutes } from './modules/community.ts';
 import { lessonRoutes } from './modules/lessons.ts';
@@ -68,7 +70,9 @@ app.use('*', idempotency);
 // video stream would mean reading a lecture into memory to answer one Range
 // request. Drive sends its own ETag, which is passed through.
 const etagged = etag();
-app.use('/v1/*', (c, next) => (c.req.path.startsWith('/v1/drive/media/') ? next() : etagged(c, next)));
+app.use('/v1/*', (c, next) =>
+  c.req.path.startsWith('/v1/drive/media/') || c.req.path.startsWith('/v1/media/') ? next() : etagged(c, next),
+);
 
 /**
  * Postgres codes that mean the *request* was wrong, not the server.
@@ -157,6 +161,9 @@ const v1 = new Hono<AppEnv>()
   .route('/admin', adminRoutes)
   // OAuth callback and signed media links; no session — see modules/drive.ts.
   .route('/drive', driveRoutes)
+  .route('/media', mediaRoutes)
+  .route('/packages', packageRoutes)
+  .route('/transcoder', transcoderRoutes)
   .route('/billing', billingRoutes);
 
 app.route('/v1', v1);

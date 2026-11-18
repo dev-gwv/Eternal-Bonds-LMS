@@ -26,6 +26,10 @@ export async function pollVideoStatus(db: Db, env: Env) {
     from lessons l
     where l.video_status in ('uploading', 'processing')
       and l.video_asset_id is not null
+      -- R2 videos are reported by the VPS transcoder (video_transcodes), and
+      -- Drive and YouTube never process. Asking the provider about them is
+      -- asking the wrong service.
+      and coalesce(l.video_provider, '') not in ('r2', 'drive', 'youtube')
     limit 25
   `);
 

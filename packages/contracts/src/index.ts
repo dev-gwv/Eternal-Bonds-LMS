@@ -443,6 +443,8 @@ export const Viewer = z.object({
    * fights for ten minutes before reading the docs.
    */
   videoProvider: z.enum(['none', 'cloudflare', 'bunny', 'youtube']).default('none'),
+  /** Lesson videos can be uploaded to the club's R2 bucket and transcoded. */
+  r2Uploads: z.boolean().default(false),
 });
 export type Viewer = z.infer<typeof Viewer>;
 
@@ -463,6 +465,8 @@ export const CourseInput = z.object({
   summaryMd: z.string().max(8000).nullable().default(null),
   instructorName: z.string().trim().max(120).nullable().default(null),
   isPublished: z.boolean().default(false),
+  /** Only a package opens it; tier alone never does. Optional so a PATCH that leaves it out keeps it. */
+  packageOnly: z.boolean().optional(),
 });
 export type CourseInput = z.infer<typeof CourseInput>;
 
@@ -537,6 +541,8 @@ export const AdminLesson = z.object({
    * YouTube links with recordings kept in the club Drive. Null with no video.
    */
   videoProvider: z.string().nullable().default(null),
+  /** Transcoding progress, 0–100, while an R2 upload is processing. */
+  videoProgress: z.int().min(0).max(100).nullable().default(null),
   /* The lesson's own notes. It has always been in `LessonInput` and was never
      returned, so the studio could write it once at creation and never read it
      back — which means it could never be edited. */
@@ -566,6 +572,7 @@ export const AdminCourse = z.object({
   minTier: Tier,
   summaryMd: z.string().nullable(),
   isPublished: z.boolean(),
+  packageOnly: z.boolean().default(false),
   lessonCount: z.int().nonnegative(),
   durationMinutes: z.int().nonnegative(),
   updatedAt: z.iso.datetime(),
@@ -796,9 +803,13 @@ export const Plan = z.object({
 });
 export type Plan = z.infer<typeof Plan>;
 
-export const CreateOrder = z.object({
-  planId: z.string().min(1),
-});
+/** A plan or a package — exactly one. */
+export const CreateOrder = z
+  .object({
+    planId: z.string().min(1).optional(),
+    packageId: z.uuid().optional(),
+  })
+  .refine((o) => Boolean(o.planId) !== Boolean(o.packageId), { message: 'Choose one plan or one package' });
 export type CreateOrder = z.infer<typeof CreateOrder>;
 
 /**
@@ -821,7 +832,8 @@ export type OrderTicket = z.infer<typeof OrderTicket>;
 
 export const OrderSummary = z.object({
   id: z.uuid(),
-  planId: z.string(),
+  /** Null for a package order; `planName` is then the package's title. */
+  planId: z.string().nullable(),
   planName: z.string(),
   amountPaise: z.int().nonnegative(),
   currency: z.string(),
@@ -1727,3 +1739,122 @@ export const MySubmission = z.object({
   createdAt: z.iso.datetime(),
 });
 export type MySubmission = z.infer<typeof MySubmission>;
+
+/* ── Packages ────────────────────────────────────────────────────────────
+   A bundle of courses bought on its own, for a one-time price. A second door
+   into a course beside tier: a live grant opens every course in the package,
+   including package-only ones tier never opens. */
+
+export const PackageCourse = z.object({
+  courseId: z.uuid(),
+  slug: z.string(),
+  title: z.string(),
+  coverUrl: z.string().nullable(),
+  instructorName: z.string().nullable(),
+  lessonCount: z.int().nonnegative(),
+  durationMinutes: z.int().nonnegative(),
+});
+export type PackageCourse = z.infer<typeof PackageCourse>;
+
+export const Package = z.object({
+  id: z.uuid(),
+  slug: z.string(),
+  title: z.string(),
+  summaryMd: z.string().nullable(),
+  coverUrl: z.string().nullable(),
+  pricePaise: z.int().nonnegative(),
+  currency: z.string(),
+  /** Null is for good. */
+  accessDays: z.int().positive().nullable(),
+  isPublished: z.boolean(),
+  courseCount: z.int().nonnegative(),
+  lessonCount: z.int().nonnegative(),
+  durationMinutes: z.int().nonnegative(),
+  /** The viewer holds a live grant. */
+  owned: z.boolean(),
+  /** When the viewer's access ends; null when owned for good or not owned. */
+  ownedUntil: z.iso.datetime().nullable(),
+});
+export type Package = z.infer<typeof Package>;
+
+export const PackageDetail = Package.extend({
+  courses: z.array(PackageCourse),
+  /** Whether this deployment can take the payment online. */
+  canBuyOnline: z.boolean(),
+});
+export type PackageDetail = z.infer<typeof PackageDetail>;
+
+export const PackageInput = z.object({
+  slug,
+  title: z.string().trim().min(3).max(140),
+  summaryMd: z.string().max(8000).nullable().default(null),
+  pricePaise: z.int().nonnegative().max(100_000_000),
+  accessDays: z.int().positive().max(3650).nullable().default(null),
+  isPublished: z.boolean().default(false),
+});
+export type PackageInput = z.infer<typeof PackageInput>;
+
+export const PackageCoursesInput = z.object({
+  /** The whole list, in order. Replaces what was there. */
+  courseIds: z.array(z.uuid()).max(50),
+});
+export type PackageCoursesInput = z.infer<typeof PackageCoursesInput>;
+
+export const PackageGrant = z.object({
+  id: z.uuid(),
+  packageId: z.uuid(),
+  packageTitle: z.string(),
+  userId: z.uuid(),
+  memberName: z.string(),
+  memberEmail: z.string().nullable(),
+  source: z.enum(['manual', 'razorpay']),
+  note: z.string().nullable(),
+  grantedAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime().nullable(),
+  revokedAt: z.iso.datetime().nullable(),
+});
+export type PackageGrant = z.infer<typeof PackageGrant>;
+
+export const GrantPackageInput = z.object({
+  /** A member id, or the email they sign in with. */
+  member: z.string().trim().min(3).max(200),
+  note: z.string().trim().max(300).nullable().default(null),
+});
+export type GrantPackageInput = z.infer<typeof GrantPackageInput>;
+
+/* ── R2 video uploads ────────────────────────────────────────────────────
+   The browser sends the file to R2 itself, in parts, several at a time; the
+   API only opens, signs and closes the multipart upload. */
+
+export const R2UploadStart = z.object({
+  filename: z.string().trim().min(1).max(300),
+  size: z.int().positive().max(200 * 1024 ** 3),
+  mimeType: z.string().max(120).default('video/mp4'),
+});
+export type R2UploadStart = z.infer<typeof R2UploadStart>;
+
+export const R2UploadSession = z.object({
+  assetId: z.string(),
+  key: z.string(),
+  uploadId: z.string(),
+  partSize: z.int().positive(),
+  partCount: z.int().positive(),
+});
+export type R2UploadSession = z.infer<typeof R2UploadSession>;
+
+export const R2PartUrlsInput = z.object({
+  uploadId: z.string().min(1),
+  key: z.string().min(1),
+  partNumbers: z.array(z.int().min(1).max(10000)).min(1).max(50),
+});
+export const R2PartUrls = z.object({
+  urls: z.array(z.object({ partNumber: z.int(), url: z.string() })),
+});
+export type R2PartUrls = z.infer<typeof R2PartUrls>;
+
+export const R2CompleteInput = z.object({
+  uploadId: z.string().min(1),
+  key: z.string().min(1),
+  parts: z.array(z.object({ partNumber: z.int().min(1).max(10000), etag: z.string().min(1) })).min(1).max(10000),
+});
+export type R2CompleteInput = z.infer<typeof R2CompleteInput>;

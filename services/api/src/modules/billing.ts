@@ -23,7 +23,7 @@ export const billingRoutes = new Hono<AppEnv>()
     // a bill and a way to fill our own table with junk.
     rateLimit({ name: 'order', limit: 10, windowSeconds: 3600 }),
     zValidator('json', CreateOrder, (result, c) =>
-      result.success ? undefined : problem(c, 422, 'Pick a plan', result.error.issues[0]?.message),
+      result.success ? undefined : problem(c, 422, 'Pick a plan or a package', result.error.issues[0]?.message),
     ),
-    async (c) => c.json(await createOrder(c.env, c.get('userId'), c.req.valid('json').planId), 201),
+    async (c) => c.json(await createOrder(c.env, c.get('userId'), c.req.valid('json')), 201),
   );

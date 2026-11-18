@@ -58,6 +58,17 @@ const BaseEnvSchema = z.object({
   /** This API's own public origin — the OAuth redirect and media links point here. */
   PUBLIC_API_URL: z.string().default('http://localhost:8080'),
 
+  /* Cloudflare R2 (lib/r2.ts). Lesson videos upload straight from the browser
+     to this bucket; the club's VPS transcodes them to HLS in the same bucket.
+     All empty = the "Upload video" button does not appear. */
+  R2_ACCOUNT_ID: z.string().default(''),
+  /** An R2 API token's S3 credentials, scoped to the one bucket. */
+  R2_ACCESS_KEY_ID: z.string().default(''),
+  R2_SECRET_ACCESS_KEY: z.string().default(''),
+  R2_BUCKET: z.string().default('eb-videos'),
+  /** The VPS transcoder sends this as a bearer token. 32+ random characters. */
+  TRANSCODER_SECRET: z.string().default(''),
+
   /* Payments. Razorpay is web-only by design — see PLAN §7 for why the store
      builds ship with BILLING_MODE=web_only. */
   BILLING_MODE: z.enum(['web_only', 'razorpay']).default('web_only'),

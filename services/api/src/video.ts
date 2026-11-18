@@ -8,6 +8,7 @@ import { supabaseConfigured } from './lib/supabase.ts';
 import { createVideoProvider, youtubeId } from './lib/video-provider.ts';
 import { fileInfo, mediaUrl } from './lib/google-drive.ts';
 import { getDb } from './repo.ts';
+import { forgetR2Video, hlsPlaybackUrl } from './r2-video.ts';
 
 /**
  * Video upload and lifecycle, from the studio's side.
@@ -228,7 +229,11 @@ export async function detachVideo(env: Env, userId: string, lessonId: string): P
   // Not for Drive. The file there is the club's own copy — often a recording
   // that predates the course — and taking a video off a lesson must never be
   // the click that deletes it.
-  if (lesson.assetId && lesson.provider && lesson.provider !== 'none' && lesson.provider !== 'drive') {
+  if (lesson.assetId && lesson.provider === 'r2') {
+    // Thousands of segments: the VPS deletes them, from the same queue it
+    // transcodes from, rather than this request.
+    await forgetR2Video(env, lesson.assetId, lessonId);
+  } else if (lesson.assetId && lesson.provider && lesson.provider !== 'none' && lesson.provider !== 'drive') {
     // Best effort: a provider that is briefly down must not stop an admin
     // replacing a wrong video. The orphan costs storage, not correctness.
     try {
@@ -318,6 +323,7 @@ export async function playbackFor(
     return { url: await mediaUrl(env, assetId, { ttlSeconds: Math.max(ttlSeconds, DRIVE_PLAYBACK_TTL) }), kind: 'mp4' };
   }
   if (lessonProvider === 'youtube') return { url: assetId, kind: 'youtube' };
+  if (lessonProvider === 'r2') return { url: await hlsPlaybackUrl(env, assetId, ttlSeconds), kind: 'hls' };
   if (env.VIDEO_PROVIDER === 'none') {
     return { url: await createStorage(env).signedDownloadUrl(assetId, ttlSeconds), kind: 'mp4' };
   }
@@ -375,6 +381,7 @@ const toAdminLesson = (row: typeof lessons.$inferSelect): AdminLesson => ({
   videoAssetId: row.videoAssetId,
   videoError: row.videoError,
   videoProvider: row.videoProvider ?? null,
+  videoProgress: null,
   bodyMd: row.summaryMd ?? null,
 });
 

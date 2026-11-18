@@ -1,0 +1,16 @@
+# On the VPS, inside this folder:
+#   docker compose up -d --build      start (and rebuild after an update)
+#   docker compose logs -f            watch it work
+#   docker compose down               stop
+services:
+  transcoder:
+    build: .
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      # Scratch space: the original plus its HLS output, deleted after each job.
+      # Needs roughly 2.5x the largest video you upload.
+      - ./work:/work
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

@@ -61,14 +61,15 @@ export async function membershipState(env: Env, userId: string | null): Promise<
       .select({
         id: orders.id,
         planId: orders.planId,
-        planName: plans.name,
+        // A package order has no plan; its name is the package's.
+        planName: sql<string>`coalesce(${plans.name}, (select p.title from packages p where p.id = ${orders.packageId}), 'Order')`,
         amountPaise: orders.amountPaise,
         currency: orders.currency,
         status: orders.status,
         createdAt: orders.createdAt,
       })
       .from(orders)
-      .innerJoin(plans, eq(plans.id, orders.planId))
+      .leftJoin(plans, eq(plans.id, orders.planId))
       .where(eq(orders.userId, userId))
       .orderBy(desc(orders.createdAt))
       .limit(20);
@@ -112,7 +113,11 @@ export async function membershipState(env: Env, userId: string | null): Promise<
  * The amount comes from the `plans` row, never from the request. A client that
  * could name its own price would name ₹1.
  */
-export async function createOrder(env: Env, userId: string | null, planId: string): Promise<OrderTicket> {
+export async function createOrder(
+  env: Env,
+  userId: string | null,
+  product: { planId?: string | undefined; packageId?: string | undefined },
+): Promise<OrderTicket> {
   const db = requireDb(env);
   if (!userId) throw new HttpError(401, 'Not authenticated');
 
@@ -122,21 +127,40 @@ export async function createOrder(env: Env, userId: string | null, planId: strin
     throw new HttpError(
       409,
       'Checkout is not available here',
-      'Memberships are purchased on the website. Open the club in a browser to upgrade.',
+      'Online payment is not switched on yet. Contact the club team to buy, and they will add it to your account.',
     );
   }
   if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) {
     throw new HttpError(503, 'Payments are not configured', 'RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are required.');
   }
 
-  const [plan] = await db.select().from(plans).where(and(eq(plans.id, planId), eq(plans.isActive, true))).limit(1);
-  if (!plan) throw new HttpError(404, 'Unknown plan');
+  // What is being bought, and for how much. Always from our own row: a
+  // client that could name its own price would name ₹1.
+  let plan: { id: string; name: string; amountPaise: number; currency: string; packageId: string | null };
+  if (product.packageId) {
+    const [pkg] = await db.execute<{ id: string; title: string; price_paise: number; currency: string }>(sql`
+      select id, title, price_paise, currency from packages
+      where id = ${product.packageId}::uuid and is_published
+    `);
+    if (!pkg) throw new HttpError(404, 'Unknown package');
+    if (Number(pkg.price_paise) <= 0) throw new HttpError(409, 'This package is not for sale online');
+    plan = { id: pkg.id, name: pkg.title, amountPaise: Number(pkg.price_paise), currency: pkg.currency, packageId: pkg.id };
+  } else {
+    const [row] = await db
+      .select()
+      .from(plans)
+      .where(and(eq(plans.id, product.planId ?? ''), eq(plans.isActive, true)))
+      .limit(1);
+    if (!row) throw new HttpError(404, 'Unknown plan');
+    plan = { id: row.id, name: row.name, amountPaise: row.amountPaise, currency: row.currency, packageId: null };
+  }
 
   const [order] = await db
     .insert(orders)
     .values({
       userId,
-      planId: plan.id,
+      planId: plan.packageId ? null : plan.id,
+      packageId: plan.packageId,
       amountPaise: plan.amountPaise,
       currency: plan.currency,
       provider: 'razorpay',
@@ -154,7 +178,9 @@ export async function createOrder(env: Env, userId: string | null, planId: strin
       // Our order id travels with theirs, so the webhook can find its way back
       // here even if `notes` is the only thing that survives.
       receipt: order.id,
-      notes: { orderId: order.id, userId, planId: plan.id },
+      notes: plan.packageId
+        ? { orderId: order.id, userId, packageId: plan.packageId }
+        : { orderId: order.id, userId, planId: plan.id },
     }),
   });
 
@@ -317,9 +343,15 @@ async function capturePayment(db: ReturnType<typeof requireDb>, entity: PaymentE
   if (order.status === 'paid') return;
 
   await db.update(orders).set({ status: 'paid', updatedAt: new Date() }).where(eq(orders.id, order.id));
-  await db.execute(
-    sql`select public.grant_membership(${order.userId}::uuid, ${order.planId}, ${'razorpay'})`,
-  );
+  if (order.packageId) {
+    await db.execute(
+      sql`select public.grant_package(${order.userId}::uuid, ${order.packageId}::uuid, 'razorpay', ${order.id}::uuid, null, null)`,
+    );
+  } else {
+    await db.execute(
+      sql`select public.grant_membership(${order.userId}::uuid, ${order.planId}, ${'razorpay'})`,
+    );
+  }
 }
 
 /** Razorpay signs the raw body with the webhook secret, HMAC-SHA256, hex. */

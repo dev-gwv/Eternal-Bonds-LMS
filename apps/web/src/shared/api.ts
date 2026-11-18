@@ -31,6 +31,8 @@ import {
   NotificationPrefs,
   Onboarding,
   OrderTicket,
+  Package,
+  PackageDetail,
   DeletionState,
   Channel,
   Course,
@@ -60,7 +62,7 @@ import {
 import { z } from 'zod';
 
 /** The things that can carry a cover. Mirrors the allowlist in the API. */
-export type CoverKind = 'course' | 'workshop' | 'journey' | 'insight' | 'library-item';
+export type CoverKind = 'course' | 'workshop' | 'journey' | 'insight' | 'library-item' | 'package';
 
 const CoverResult = z.object({ coverUrl: z.string().nullable() });
 import { accessToken } from './supabase.ts';
@@ -270,6 +272,14 @@ export const api = {
      grants the membership, and nothing the browser sends can shortcut it. */
   membership: () => get('/v1/billing/membership', MembershipState),
   createOrder: (planId: string) => send('POST', '/v1/billing/orders', { planId }, OrderTicket),
+  createPackageOrder: (packageId: string) => send('POST', '/v1/billing/orders', { packageId }, OrderTicket),
+  packages: () => get('/v1/packages', list(Package)).then((r) => r.items),
+  package: (slug: string) => get(`/v1/packages/${slug}`, PackageDetail),
+  packagesForCourse: (slug: string) =>
+    get(
+      `/v1/packages/for-course/${slug}`,
+      z.object({ items: z.array(z.object({ slug: z.string(), title: z.string(), pricePaise: z.number() })) }),
+    ).then((r) => r.items),
 
   deletionState: () => get('/v1/me/deletion', DeletionState),
   scheduleDeletion: (reason?: string) =>

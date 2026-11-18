@@ -10,6 +10,9 @@ import {
   LessonPatch,
   ModuleInput,
   QuizQuestionInput,
+  R2CompleteInput,
+  R2PartUrlsInput,
+  R2UploadStart,
   ReorderInput,
   WorkshopInput,
 } from '@ipc/contracts';
@@ -24,7 +27,9 @@ import { adminChallengeRoutes } from './challenges.ts';
 import { membersRoutes } from './members.ts';
 import { adminLibraryRoutes } from './library-admin.ts';
 import { adminDriveRoutes } from './drive.ts';
+import { adminPackageRoutes } from './packages.ts';
 import { attachDriveVideo, attachVideo, createUploadTicket, detachVideo } from '../video.ts';
+import * as r2 from '../r2-video.ts';
 
 /**
  * The authoring API.
@@ -67,6 +72,7 @@ export const adminRoutes = new Hono<AppEnv>()
   // Sequencing. What to do first, which is the question eighteen courses in a
   // grid cannot answer.
   .route('/journeys', adminJourneyRoutes)
+  .route('/packages', adminPackageRoutes)
 
   // The library. Its tables have had admin-write policies since the first auth
   // migration and there was no endpoint between them and the author, so the
@@ -157,6 +163,21 @@ export const adminRoutes = new Hono<AppEnv>()
   .post('/lessons/:id/drive-video', body(AttachDriveVideo), async (c) =>
     c.json(await attachDriveVideo(c.env, who(c), c.req.param('id'), c.req.valid('json'))),
   )
+  // R2: the browser uploads the file in parts, straight to the bucket; these
+  // only open, sign and close the multipart upload (r2-video.ts).
+  .post('/lessons/:id/r2-upload', body(R2UploadStart), async (c) =>
+    c.json(await r2.startUpload(c.env, who(c), c.req.param('id'), c.req.valid('json'))),
+  )
+  .post('/lessons/:id/r2-upload/parts', body(R2PartUrlsInput), async (c) =>
+    c.json(await r2.partUrls(c.env, who(c), c.req.param('id'), c.req.valid('json'))),
+  )
+  .post('/lessons/:id/r2-upload/complete', body(R2CompleteInput), async (c) =>
+    c.json(await r2.completeUpload(c.env, who(c), c.req.param('id'), c.req.valid('json'))),
+  )
+  .post('/lessons/:id/r2-upload/abort', body(R2PartUrlsInput.pick({ key: true, uploadId: true })), async (c) => {
+    await r2.abortUpload(c.env, who(c), c.req.param('id'), c.req.valid('json'));
+    return c.body(null, 204);
+  })
   .delete('/lessons/:id/video', async (c) => {
     await detachVideo(c.env, who(c), c.req.param('id'));
     return c.body(null, 204);

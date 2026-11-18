@@ -77,6 +77,7 @@ const courseColumns = {
   coverKey: coursesTable.coverKey,
   instructorName: coursesTable.instructorName,
   isPublished: coursesTable.isPublished,
+  packageOnly: coursesTable.packageOnly,
   updatedAt: coursesTable.updatedAt,
   // Written with explicit qualified names: Drizzle does not prefix columns it
   // interpolates into a single-table select, and `join modules on id = ...`
@@ -105,6 +106,7 @@ type CourseRow = {
   coverKey: string | null;
   instructorName: string | null;
   isPublished: boolean;
+  packageOnly: boolean;
   updatedAt: Date;
   lessonCount: number;
   durationSeconds: number;
@@ -125,6 +127,7 @@ const toAdminCourse = (r: CourseRow): AdminCourse => ({
   coverUrl: r.coverKey ?? null,
   instructorName: r.instructorName ?? null,
   isPublished: r.isPublished,
+  packageOnly: r.packageOnly,
   lessonCount: Number(r.lessonCount) || 0,
   durationMinutes: Math.round((Number(r.durationSeconds) || 0) / 60),
   updatedAt: r.updatedAt.toISOString(),
@@ -162,6 +165,12 @@ export async function getAdminCourse(env: Env, userId: string, id: string): Prom
         videoAssetId: lessons.videoAssetId,
         videoError: lessons.videoError,
         videoProvider: lessons.videoProvider,
+        // Where an R2 transcode on the VPS has got to. Admin-readable only.
+        videoProgress: sql<number | null>`(
+          select vt.progress from video_transcodes vt
+          where vt.lesson_id = ${lessons.id} and vt.kind = 'transcode' and vt.status in ('queued', 'running')
+          order by vt.created_at desc limit 1
+        )`,
         bodyMd: lessons.summaryMd,
       })
       .from(modules)
@@ -193,6 +202,7 @@ export async function getAdminCourse(env: Env, userId: string, id: string): Prom
         videoAssetId: r.videoAssetId ?? null,
         videoError: r.videoError ?? null,
         videoProvider: r.videoProvider ?? null,
+        videoProgress: r.videoProgress === null || r.videoProgress === undefined ? null : Number(r.videoProgress),
         bodyMd: r.bodyMd ?? null,
       });
     }
@@ -220,6 +230,7 @@ export async function createCourse(env: Env, userId: string, input: CourseInput)
           summaryMd: input.summaryMd,
           instructorName: input.instructorName,
           isPublished: input.isPublished,
+          packageOnly: input.packageOnly ?? false,
           rank: String(Number(top?.max ?? 0) + RANK_STEP),
         })
         .returning({ id: coursesTable.id });
@@ -406,6 +417,7 @@ const toAdminLesson = (row: typeof lessons.$inferSelect): AdminLesson => ({
   videoAssetId: row.videoAssetId,
   videoError: row.videoError,
   videoProvider: row.videoProvider ?? null,
+  videoProgress: null,
   bodyMd: row.summaryMd ?? null,
 });
 
