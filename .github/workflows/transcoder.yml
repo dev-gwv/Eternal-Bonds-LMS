@@ -1,0 +1,106 @@
+name: Transcoder
+
+# The video transcoder (services/transcoder) runs on the club VPS in Docker.
+# This copies the folder to /opt/eb-transcoder and rebuilds the container,
+# only when the transcoder itself changes.
+#
+# The VPS keeps its own .env (R2 keys, TRANSCODER_SECRET); it never goes
+# through GitHub. Secrets used here:
+#   VPS_HOST     the VPS address
+#   VPS_SSH_KEY  private key for the `deploy` user, used only by this workflow
+# See docs/r2-video.md.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - services/transcoder/**
+      - tests/transcoder.test.ts
+      - .github/workflows/transcoder.yml
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-transcoder
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+      - run: bun install --frozen-lockfile
+      - run: bun test tests/transcoder.test.ts
+
+  deploy:
+    name: Deploy to the VPS
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - id: gate
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          if [ -n "$VPS_HOST" ] && [ -n "$VPS_SSH_KEY" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::VPS_HOST / VPS_SSH_KEY are not set, so the transcoder was not deployed. See docs/r2-video.md."
+          fi
+
+      - if: steps.gate.outputs.ok == 'true'
+        uses: actions/checkout@v4
+
+      - name: SSH key
+        if: steps.gate.outputs.ok == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          # Pinned, not trust-on-first-use: a deploy must never hand the key to
+          # a machine pretending to be the VPS.
+          echo "$VPS_HOST ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINJuxLkJ+Zt77lHB6fDg1EANFLMQ3r+H0djz87c0khym" > ~/.ssh/known_hosts
+
+      - name: Copy the code
+        if: steps.gate.outputs.ok == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        # --delete removes files deleted from the repo; the excludes are never
+        # touched, so the VPS's .env and scratch folder survive every deploy.
+        run: >-
+          rsync -rlt --delete --exclude=.env --exclude=work/ --exclude=node_modules/
+          -e "ssh -o IdentitiesOnly=yes"
+          services/transcoder/ "deploy@$VPS_HOST:/opt/eb-transcoder/"
+
+      - name: Build and start
+        if: steps.gate.outputs.ok == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          ssh -o IdentitiesOnly=yes "deploy@$VPS_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cd /opt/eb-transcoder
+          # Without its R2 keys it would only crash and restart in a loop.
+          for key in TRANSCODER_SECRET R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
+            if ! grep -qE "^${key}=.+" .env 2>/dev/null; then
+              echo "::warning::$key is empty in /opt/eb-transcoder/.env on the VPS. Code copied, container not started."
+              exit 0
+            fi
+          done
+          docker compose up -d --build --remove-orphans
+          docker image prune -f --filter label=com.docker.compose.project=eb-transcoder >/dev/null || true
+          sleep 15
+          docker compose ps
+          docker compose logs --tail 20
+          if ! docker compose logs | grep -q 'transcoder started'; then
+            echo "::error::The transcoder did not start. Logs above."
+            exit 1
+          fi
+          REMOTE

@@ -87,45 +87,32 @@ Paste the value `openssl` printed.
 
 The account ID and bucket name are already in `services/api/wrangler.jsonc`, so there's nothing to do for those.
 
-## 5. Start the transcoder on the VPS
+## 5. The transcoder on the VPS
 
-The VPS needs:
-- **Docker.**
-- **Free disk** of about 2.5 times your largest video (for a 4 GB recording, keep 10 GB free).
-- **CPU:** more cores means faster conversion. Four cores convert a one-hour 1080p lecture in roughly 40–60 minutes.
+The transcoder deploys itself. `.github/workflows/transcoder.yml` runs whenever something in `services/transcoder/` changes on `main` (or by hand: **GitHub → Actions → Transcoder → Run workflow**). It runs the transcoder tests, copies the folder to `/opt/eb-transcoder` on the VPS as the `deploy` user, and runs `docker compose up -d --build` there.
 
-1. Connect to the VPS:
-   ```bash
-   ssh root@YOUR_VPS_IP
-   ```
-2. Install Docker, if it isn't installed already (`docker --version` tells you):
-   ```bash
-   curl -fsSL https://get.docker.com | sh
-   ```
-3. Copy the transcoder folder to the VPS. Run this **on your computer**, in the project folder, not on the VPS:
-   ```bash
-   scp -r services/transcoder root@YOUR_VPS_IP:/opt/eb-transcoder
-   ```
-4. Back on the VPS, create the settings file:
-   ```bash
-   cd /opt/eb-transcoder && cp .env.example .env && nano .env
-   ```
-   Fill in:
-   - `TRANSCODER_SECRET`: the value `openssl` printed in step 4.
-   - `R2_ACCOUNT_ID`: `d9b73b5a2afa3689965e35065b313604`
-   - `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`: the **`eternal-bonds-vps`** token from step 3.
-   - Leave `API_URL` and `R2_BUCKET` as they are.
+Already done on the VPS (72.61.239.209):
+- `/opt/eb-transcoder`, owned by `deploy`, with its own `.env` (mode 600). The workflow never overwrites this file, and the keys never go through GitHub.
+- A key for `deploy` that only this workflow uses (comment `github-actions eb-transcoder` in `/home/deploy/.ssh/authorized_keys`). To revoke it, delete that line.
 
-   Save with **Ctrl+O**, then **Enter**, and exit with **Ctrl+X**.
-5. Start it:
-   ```bash
-   docker compose up -d --build
-   ```
-6. Check that it's running:
-   ```bash
-   docker compose logs -f
-   ```
-   You should see `transcoder started`. Every 15 seconds it quietly asks for work. Press **Ctrl+C** to stop watching; the transcoder keeps running. It restarts by itself after a reboot.
+The container is capped so it can't crowd out the other apps on the VPS: **2 of the 4 cores**, a low CPU weight (anything else busy gets the CPU first), and **3 GB of memory**. At that cap a one-hour lecture takes roughly 1.5–2 hours to convert.
+
+**GitHub secrets** (repo **Settings → Secrets and variables → Actions → New repository secret**; it uses the `production` environment, so they can live there too):
+- `VPS_HOST`: `72.61.239.209`
+- `VPS_SSH_KEY`: the private key for `deploy`.
+
+**R2 keys on the VPS:** put the `eternal-bonds-vps` token (step 3) in `/opt/eb-transcoder/.env`:
+```bash
+ssh root@72.61.239.209
+nano /opt/eb-transcoder/.env
+```
+Fill in `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`, save (**Ctrl+O**, **Enter**, **Ctrl+X**), then run the workflow by hand once. Until both keys are there, the workflow copies the code but doesn't start the container, and says so in a warning.
+
+Watch it on the VPS:
+```bash
+cd /opt/eb-transcoder && docker compose logs -f
+```
+You should see `transcoder started`. Every 15 seconds it quietly asks for work.
 
 ## 6. Try it
 
@@ -143,6 +130,6 @@ The VPS needs:
 | Upload fails with **403** | The bucket CORS doesn't list the website address, or the API token isn't for `eb-videos`. |
 | Stuck at **Waiting to process** | The VPS transcoder isn't running or can't reach the API. On the VPS: `cd /opt/eb-transcoder && docker compose logs --tail 50`. "API /claim answered 401" means `TRANSCODER_SECRET` doesn't match step 4. |
 | Lesson shows **Failed** | Hover over it to see the reason. "This file has no video in it" or "could not be read as a video" means the file itself is the problem: export it again as MP4. Anything else is retried three times before the lesson shows Failed. |
-| Updating the transcoder | Copy the folder again (step 5.3), then on the VPS run `cd /opt/eb-transcoder && docker compose up -d --build`. |
+| Updating the transcoder | Push the change to `main`; the Transcoder workflow deploys it. |
 
 Replacing or removing a lesson's video also deletes its old files from R2. The VPS does that from the same queue, a minute or so later.

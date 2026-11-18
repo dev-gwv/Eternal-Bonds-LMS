@@ -2,11 +2,23 @@
 #   docker compose up -d --build      start (and rebuild after an update)
 #   docker compose logs -f            watch it work
 #   docker compose down               stop
+#
+# Deployed by .github/workflows/transcoder.yml to /opt/eb-transcoder.
+name: eb-transcoder
+
 services:
   transcoder:
     build: .
     env_file: .env
     restart: unless-stopped
+    # The VPS is shared with other apps. ffmpeg would take every core for an
+    # hour per lecture, and the host has no swap, so it is fenced in: at most
+    # 2 of the 4 cores, at a quarter of the default CPU weight (anything else
+    # busy wins), and 3 GB of memory. Over that, only this container restarts.
+    cpus: 2
+    cpu_shares: 256
+    mem_limit: 3g
+    memswap_limit: 3g
     volumes:
       # Scratch space: the original plus its HLS output, deleted after each job.
       # Needs roughly 2.5x the largest video you upload.
