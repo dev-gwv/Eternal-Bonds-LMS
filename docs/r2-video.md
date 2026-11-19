@@ -6,7 +6,7 @@ How it works:
 2. The lesson then reads **"Waiting to process"**. The transcoder on the club's VPS picks it up, converts it into streaming qualities (360p / 720p / 1080p, never above the original), and uploads the result to the same bucket. The lesson shows **"Processing 40%"**, then **"Video (HD)"**.
 3. Members watch through a signed link that expires after 6 hours. The video streams straight from R2, which charges nothing for downloads.
 
-What it costs on R2: storage is $0.015 per GB per month (the first 10 GB are free), and downloads are free. A one-hour lecture is roughly 2.5 GB with all its qualities plus the original, so 100 hours comes to about $4 a month.
+What it costs on R2: storage is $0.015 per GB per month (the first 10 GB are free), and downloads are free. Only the streaming versions are kept: the uploaded original is deleted from R2 as soon as its conversion succeeds (a failed attempt keeps it for the retry). A one-hour lecture is roughly 1–1.5 GB in all its qualities, so 100 hours comes to about $2 a month. Because the original is gone, a video can not be re-converted later (to add a quality, say) without uploading it again.
 
 ---
 

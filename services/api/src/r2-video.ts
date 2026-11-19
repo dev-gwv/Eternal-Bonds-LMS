@@ -7,6 +7,7 @@ import {
   abortMultipart,
   completeMultipart,
   createMultipart,
+  deleteObject,
   getText,
   headObject,
   presign,
@@ -312,15 +313,26 @@ export async function reportProgress(env: Env, jobId: string, percent: number): 
 
 export async function completeJob(env: Env, jobId: string, durationSeconds: number | null): Promise<void> {
   const db = requireDb(env);
-  const rows = await db.execute<{ kind: string; lesson_id: string | null; asset_id: string }>(sql`
+  const rows = await db.execute<{ kind: string; lesson_id: string | null; asset_id: string; source_key: string | null }>(sql`
     update video_transcodes
     set status = 'done', progress = 100, finished_at = now(), updated_at = now(),
         duration_seconds = ${durationSeconds}
     where id = ${jobId}::uuid and status = 'running'
-    returning kind, lesson_id, asset_id
+    returning kind, lesson_id, asset_id, source_key
   `);
   const job = rows[0];
-  if (!job || job.kind !== 'transcode' || !job.lesson_id) return;
+  if (!job || job.kind !== 'transcode') return;
+
+  // The original is not kept once its streaming versions exist: it is the
+  // biggest file of the lot and nothing plays it. (A failed attempt keeps it,
+  // so the retry has something to work from.) Best effort: if the delete
+  // fails, the file is only left over, and replacing the video removes it.
+  if (job.source_key) {
+    await deleteObject(env, job.source_key).catch((error) =>
+      console.warn(JSON.stringify({ msg: 'r2 original not deleted', key: job.source_key, error: String(error) })),
+    );
+  }
+  if (!job.lesson_id) return;
 
   // Only if the lesson still points at this asset — an admin may have
   // replaced the video while it was transcoding.

@@ -118,6 +118,12 @@ export async function abortMultipart(env: Env, key: string, uploadId: string): P
   await client(env).fetch(url.toString(), { method: 'DELETE' }).catch(() => undefined);
 }
 
+/** Deletes one object. Deleting one that is already gone is not an error. */
+export async function deleteObject(env: Env, key: string): Promise<void> {
+  const res = await client(env).fetch(objectUrl(env, key).toString(), { method: 'DELETE' });
+  if (!res.ok && res.status !== 404) throw new HttpError(502, 'R2 refused the request', `DELETE ${res.status}`);
+}
+
 /** The object's text, or null when it does not exist. */
 export async function getText(env: Env, key: string): Promise<string | null> {
   const res = await client(env).fetch(objectUrl(env, key).toString());
