@@ -313,10 +313,12 @@ export async function reportProgress(env: Env, jobId: string, percent: number): 
 
 export async function completeJob(env: Env, jobId: string, durationSeconds: number | null): Promise<void> {
   const db = requireDb(env);
+  // ffprobe reports fractions (8106.709333); both columns are whole seconds.
+  const seconds = durationSeconds && durationSeconds > 0 ? Math.round(durationSeconds) : null;
   const rows = await db.execute<{ kind: string; lesson_id: string | null; asset_id: string; source_key: string | null }>(sql`
     update video_transcodes
     set status = 'done', progress = 100, finished_at = now(), updated_at = now(),
-        duration_seconds = ${durationSeconds}
+        duration_seconds = ${seconds}
     where id = ${jobId}::uuid and status = 'running'
     returning kind, lesson_id, asset_id, source_key
   `);
@@ -336,7 +338,6 @@ export async function completeJob(env: Env, jobId: string, durationSeconds: numb
 
   // Only if the lesson still points at this asset — an admin may have
   // replaced the video while it was transcoding.
-  const seconds = durationSeconds && durationSeconds > 0 ? Math.round(durationSeconds) : null;
   await db.execute(sql`
     update lessons set
       video_status = 'ready', video_ready_at = now(), video_error = null,
