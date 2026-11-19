@@ -88,6 +88,24 @@ Plan when needed: run the **same Docker image** on Cloudflare Containers, one co
 
 Check Cloudflare's current Containers pricing and limits (instance sizes, disk, maximum run time) before building it.
 
+Estimates (2026-11-19, from measured VPS speed of ~1x real time per core for 3 rungs; verify prices):
+- One 4-vCPU container per video: a 2h15 lecture takes ~35–45 min, about $0.25–0.30 (≈ $0.12 per video hour).
+- Split into ~10-minute chunks across ~14 containers, then joined: ~5–8 min, same cost. Needs chunk/join code (keyframes are already segment-aligned).
+
+Other options considered:
+| Option | 2h15 lecture | Cost | Notes |
+| --- | --- | --- | --- |
+| VPS (now) | ~45 min | $0 | one at a time |
+| Dedicated transcoding server (Hetzner 8–16 cores) | ~15–25 min | ~€30–60/month flat | |
+| GPU on demand (RunPod serverless, NVENC) | ~5–10 min | ~$0.05–0.10 | slightly lower quality per bitrate |
+| AWS MediaConvert | ~5–10 min | ~$4–6 + AWS egress | too expensive |
+| Cloudflare Stream | ~5–10 min | free encode; $5/1k min stored + $1/1k min watched | per-view cost grows |
+| Mux | ~5 min | per minute stored + watched | same problem |
+| Bunny Stream | ~10 min | free encode, ~$0.01/GB stored, ~$0.005–0.03/GB delivered | DRM (MediaCage), captions, watermark |
+| VdoCipher / Gumlet | ~10–20 min | yearly bandwidth plans | strong DRM, viewer watermark; only if piracy matters |
+
+Anti-piracy gap: signed links stop link sharing, not screen recording. Cheap step: dynamic watermark with the learner's email. Full DRM means VdoCipher/Bunny for those courses.
+
 ---
 
 ## E. Mobile app
