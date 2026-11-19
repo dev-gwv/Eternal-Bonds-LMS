@@ -119,6 +119,29 @@ Anti-piracy gap: signed links stop link sharing, not screen recording. Cheap ste
 
 ---
 
+## F. Backend gaps
+
+No separate API gateway: the Hono Worker on Cloudflare already is one (edge TLS/DDoS, CORS, auth, rate limits, idempotency, ETags, request validation). Gateway-type features still to add inside it, mostly for multi-tenant: tenant resolution by domain, per-tenant rate limits and plan quotas, API keys for tenants' integrations, outgoing webhooks.
+
+Already there: rate limits, idempotency keys, outbox, audit log, moderation, search, Razorpay webhooks, account deletion, Workers logs, PostHog hook (key not set).
+
+| # | Missing | Why |
+| --- | --- | --- |
+| F1 | **Database backups**: nightly `pg_dump` to R2 from the VPS, or Supabase Pro ($25/month, daily backups) | Free plan has no downloadable backups. Losing the database loses every member, order and progress record. |
+| F2 | **Error tracking** (Sentry, free tier) for API, web and app | Errors are only in Workers logs, kept a few days, and nobody is alerted. |
+| F3 | **Alerts and uptime monitoring**: API health, failed transcode jobs, queue backing up, failed payments/webhooks | Tonight's transcode failure (fractional duration) went unnoticed until checked by hand. |
+| F4 | **Staging environment**: staging Worker + Supabase branch/project | CI already supports STAGING_DATABASE_URL; changes go straight to production today. |
+| F5 | **Transactional email service** (Resend or SES) with templates | Gmail SMTP caps around 500 emails/day and can't send per academy domain. |
+| F6 | **Admin security**: 2FA for admins, Cloudflare Turnstile on sign-up and password reset | Admin accounts control payments and content; reset forms invite abuse. |
+| F7 | **Cloudflare Queues** for async work (emails, certificates, transcode triggers) | Cron + outbox works now; Queues retry per message and scale with multi-tenant. |
+| F8 | **Payments backend**: coupon engine, GST invoices, refunds, payment plans | Pairs with B2/B3. |
+| F9 | **Analytics pipeline**: video watch events, course funnels, revenue reports | Pairs with B6. |
+| F10 | **Personal data export** (India DPDP Act) | Account deletion exists; check whether a "download my data" exists. |
+| F11 | **Public API keys and outgoing webhooks** | Zapier/CRM integrations; needed per academy in C. |
+| F12 | **Plan entitlements / feature flags** | Turn features on per academy plan in C. |
+
+---
+
 ## E. Mobile app
 
 Lives on branch `mobile-rn` (`apps/mobile`, Expo SDK 58 / RN 0.88), checked out at `E:\eb-mobile`. Merge into `main` when work on the app starts.
