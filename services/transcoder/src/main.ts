@@ -26,20 +26,20 @@ const API = env('API_URL').replace(/\/$/, '');
 const SECRET = env('TRANSCODER_SECRET');
 const BUCKET = env('R2_BUCKET', 'eb-videos');
 const ACCOUNT = env('R2_ACCOUNT_ID');
-const WORK = env('WORK_DIR', '/work');
-const PRESET = env('X264_PRESET', 'veryfast');
-const THREADS = env('FFMPEG_THREADS', '0');
+export const WORK = env('WORK_DIR', '/work');
+export const PRESET = env('X264_PRESET', 'veryfast');
+export const THREADS = env('FFMPEG_THREADS', '0');
 const POLL_MS = 15_000;
 
-const r2 = new AwsClient({
+export const r2 = new AwsClient({
   accessKeyId: env('R2_ACCESS_KEY_ID'),
   secretAccessKey: env('R2_SECRET_ACCESS_KEY'),
   service: 's3',
   region: 'auto',
 });
 // R2_ENDPOINT is only for testing against a local stand-in; R2 itself needs nothing here.
-const bucketUrl = `${process.env.R2_ENDPOINT?.replace(/\/$/, '') || `https://${ACCOUNT}.r2.cloudflarestorage.com`}/${BUCKET}`;
-const objectUrl = (key: string) => `${bucketUrl}/${key.split('/').map(encodeURIComponent).join('/')}`;
+export const bucketUrl = `${process.env.R2_ENDPOINT?.replace(/\/$/, '') || `https://${ACCOUNT}.r2.cloudflarestorage.com`}/${BUCKET}`;
+export const objectUrl = (key: string) => `${bucketUrl}/${key.split('/').map(encodeURIComponent).join('/')}`;
 
 type Job = {
   id: string;
@@ -51,7 +51,7 @@ type Job = {
   outputPrefix: string;
 };
 
-const log = (msg: string, extra: Record<string, unknown> = {}) =>
+export const log = (msg: string, extra: Record<string, unknown> = {}) =>
   console.log(JSON.stringify({ t: new Date().toISOString(), msg, ...extra }));
 
 /** A failure that retrying cannot fix: the file itself is the problem. */
@@ -70,7 +70,7 @@ async function api<T>(path: string, body: unknown = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
-async function retry<T>(what: string, fn: () => Promise<T>, attempts = 4): Promise<T> {
+export async function retry<T>(what: string, fn: () => Promise<T>, attempts = 4): Promise<T> {
   let last: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -113,7 +113,7 @@ function heartbeat(jobId: string) {
 
 /* ── Transcode ────────────────────────────────────────────────────────── */
 
-async function probe(file: string): Promise<Probe> {
+export async function probe(file: string): Promise<Probe> {
   const proc = Bun.spawn(['ffprobe', '-v', 'error', '-print_format', 'json', '-show_streams', '-show_format', file], {
     stdout: 'pipe',
     stderr: 'pipe',
@@ -121,8 +121,15 @@ async function probe(file: string): Promise<Probe> {
   const [out, err] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
   if ((await proc.exited) !== 0) throw new Permanent(`This file could not be read as a video (${err.trim().slice(0, 200)})`);
   const data = JSON.parse(out) as {
-    streams?: { codec_type?: string; width?: number; height?: number; tags?: { rotate?: string }; side_data_list?: { rotation?: number }[] }[];
-    format?: { duration?: string };
+    streams?: {
+      codec_type?: string;
+      width?: number;
+      height?: number;
+      bit_rate?: string;
+      tags?: { rotate?: string };
+      side_data_list?: { rotation?: number }[];
+    }[];
+    format?: { duration?: string; bit_rate?: string };
   };
   const video = data.streams?.find((s) => s.codec_type === 'video' && s.width && s.height);
   if (!video) throw new Permanent('This file has no video in it');
@@ -130,11 +137,16 @@ async function probe(file: string): Promise<Probe> {
   // Phones store portrait video as landscape plus a rotation flag; ffmpeg
   // applies the rotation, so the ladder has to be chosen on the turned size.
   const [width, height] = rotation === 90 ? [video.height!, video.width!] : [video.width!, video.height!];
+  // The video stream's own bitrate; MP4s from phones and editors carry it.
+  // Otherwise the whole file's, which overstates by the audio: harmless for
+  // a ceiling.
+  const bps = Number(video.bit_rate ?? data.format?.bit_rate ?? 0) || 0;
   return {
     width,
     height,
     durationSeconds: Number(data.format?.duration ?? 0) || 0,
     hasAudio: Boolean(data.streams?.some((s) => s.codec_type === 'audio')),
+    videoKbps: bps > 0 ? Math.round(bps / 1000) : null,
   };
 }
 
@@ -156,7 +168,7 @@ async function download(url: string, to: string, beat: ReturnType<typeof heartbe
   await writer.end();
 }
 
-async function runFfmpeg(args: string[], durationSeconds: number, beat: ReturnType<typeof heartbeat>, cwd?: string) {
+export async function runFfmpeg(args: string[], durationSeconds: number, beat: ReturnType<typeof heartbeat>, cwd?: string) {
   const proc = Bun.spawn(['ffmpeg', ...args], { stdout: 'pipe', stderr: 'pipe', cwd });
   const errTail: string[] = [];
   const stderr = (async () => {
@@ -200,7 +212,7 @@ const CONTENT_TYPES: Record<string, string> = {
   jpg: 'image/jpeg',
 };
 
-async function listFiles(dir: string): Promise<string[]> {
+export async function listFiles(dir: string): Promise<string[]> {
   const out: string[] = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
@@ -210,7 +222,7 @@ async function listFiles(dir: string): Promise<string[]> {
   return out;
 }
 
-async function uploadDir(dir: string, prefix: string, beat: ReturnType<typeof heartbeat>) {
+export async function uploadDir(dir: string, prefix: string, beat: ReturnType<typeof heartbeat>) {
   const files = await listFiles(dir);
   // Playlists last: a player that somehow got in early finds no playlist,
   // rather than a playlist pointing at segments that are not there yet.
@@ -288,7 +300,7 @@ async function transcode(job: Job) {
 
 /* ── Delete ───────────────────────────────────────────────────────────── */
 
-async function listKeys(prefix: string): Promise<string[]> {
+export async function listKeys(prefix: string): Promise<string[]> {
   const keys: string[] = [];
   let token: string | null = null;
   do {
@@ -305,7 +317,7 @@ async function listKeys(prefix: string): Promise<string[]> {
   return keys;
 }
 
-async function deleteKeys(keys: string[]) {
+export async function deleteKeys(keys: string[]) {
   for (let i = 0; i < keys.length; i += 1000) {
     const batch = keys.slice(i, i + 1000);
     const body =
@@ -379,4 +391,5 @@ async function main() {
   log('transcoder stopped');
 }
 
-void main();
+// Only as the program itself: src/reencode.ts imports the helpers above.
+if (import.meta.main) void main();

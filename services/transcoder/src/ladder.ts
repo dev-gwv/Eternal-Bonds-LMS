@@ -3,12 +3,20 @@
  * without running ffmpeg (tests/transcoder.test.ts).
  */
 
-export type Probe = { width: number; height: number; durationSeconds: number; hasAudio: boolean };
+export type Probe = {
+  width: number;
+  height: number;
+  durationSeconds: number;
+  hasAudio: boolean;
+  /** The source's video bitrate, when the file says. No rung is given more. */
+  videoKbps?: number | null;
+};
 
 export type Rung = {
   name: string;
   /** The short side: 720 means 1280×720 landscape or 720×1280 portrait. */
   short: number;
+  /** The ceiling, not the target: see CRF below. */
   videoKbps: number;
   audioKbps: number;
 };
@@ -49,6 +57,24 @@ export function ladderFor(probe: Probe): Rung[] {
   return fits;
 }
 
+/**
+ * Quality-targeted encoding with a ceiling ("capped CRF"): x264 spends what
+ * each scene needs for the same visual quality, up to the rung's videoKbps.
+ * A slide or a talking head needs a fraction of the ceiling, so lectures come
+ * out 3-5x smaller than at a fixed bitrate, looking the same. 23 is x264's
+ * default and visually clean at these sizes.
+ */
+export const CRF = 23;
+
+/**
+ * The ceiling for one rung: its own, but never more than the source had,
+ * since bits above that add nothing. A floor keeps a starved source watchable.
+ */
+export function ceilingKbps(rung: Rung, probe: Probe): number {
+  const source = probe.videoKbps && probe.videoKbps > 0 ? Math.round(probe.videoKbps * 1.1) : Infinity;
+  return Math.max(400, Math.min(rung.videoKbps, source));
+}
+
 /** Six-second segments: Apple's recommendation, and fine-grained enough to seek. */
 export const SEGMENT_SECONDS = 6;
 
@@ -77,12 +103,13 @@ export function buildFfmpegArgs(o: {
   args.push('-filter_complex', [split, ...scales].join(';'));
 
   o.ladder.forEach((r, i) => {
+    const ceiling = ceilingKbps(r, o.probe);
     args.push(
       '-map', `[v${i}]`,
       `-c:v:${i}`, 'libx264',
-      `-b:v:${i}`, `${r.videoKbps}k`,
-      `-maxrate:v:${i}`, `${Math.round(r.videoKbps * 1.07)}k`,
-      `-bufsize:v:${i}`, `${Math.round(r.videoKbps * 1.5)}k`,
+      `-crf:v:${i}`, String(CRF),
+      `-maxrate:v:${i}`, `${ceiling}k`,
+      `-bufsize:v:${i}`, `${ceiling * 2}k`,
     );
     if (o.probe.hasAudio) {
       args.push('-map', 'a:0', `-c:a:${i}`, 'aac', `-b:a:${i}`, `${r.audioKbps}k`, `-ac:a:${i}`, '2');

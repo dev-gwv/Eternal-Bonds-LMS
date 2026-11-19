@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildFfmpegArgs, ladderFor, parseProgress } from '../services/transcoder/src/ladder.ts';
+import { buildFfmpegArgs, ceilingKbps, ladderFor, parseProgress, RUNGS } from '../services/transcoder/src/ladder.ts';
 
 describe('HLS ladder', () => {
   test('never upscales', () => {
@@ -34,6 +34,19 @@ describe('HLS ladder', () => {
     const args = buildFfmpegArgs({ source: 's', probe, ladder: ladderFor(probe), preset: 'veryfast', threads: '0' });
     expect(args).not.toContain('a:0');
     expect(args[args.indexOf('-var_stream_map') + 1]).toBe('v:0,name:360p v:1,name:720p');
+  });
+
+  test('quality-targeted, capped at the rung and at the source bitrate', () => {
+    const probe = { width: 1948, height: 982, durationSeconds: 1, hasAudio: true, videoKbps: 1300 };
+    const args = buildFfmpegArgs({ source: 's', probe, ladder: ladderFor(probe), preset: 'superfast', threads: '3' });
+    expect(args).toContain('-crf:v:0');
+    expect(args.some((a) => a.startsWith('-b:v'))).toBe(false);
+    // 360p's own ceiling (800k) is below the source's 1430k; the others are capped at the source.
+    expect(args[args.indexOf('-maxrate:v:0') + 1]).toBe('800k');
+    expect(args[args.indexOf('-maxrate:v:2') + 1]).toBe('1430k');
+    // Unknown source bitrate: the rung's own ceiling. Starved source: the floor.
+    expect(ceilingKbps(RUNGS[1]!, { ...probe, videoKbps: null })).toBe(2800);
+    expect(ceilingKbps(RUNGS[1]!, { ...probe, videoKbps: 100 })).toBe(400);
   });
 
   test('reads ffmpeg progress', () => {
