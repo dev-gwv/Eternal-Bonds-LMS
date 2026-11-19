@@ -8,6 +8,16 @@ describe('HLS ladder', () => {
     expect(ladderFor({ width: 3840, height: 2160, durationSeconds: 1, hasAudio: true })).toHaveLength(3);
   });
 
+  test('a source between rungs also gets a rung at its own size', () => {
+    const ladder = ladderFor({ width: 1948, height: 982, durationSeconds: 1, hasAudio: true });
+    expect(ladder.map((r) => r.name)).toEqual(['360p', '720p', '982p']);
+    expect(ladder[2]).toMatchObject({ short: 982, videoKbps: 4400 });
+    // Close to a rung: no extra one (1.2x rule), and 1080+ tops out at 1080p.
+    expect(ladderFor({ width: 1366, height: 768, durationSeconds: 1, hasAudio: true }).map((r) => r.name)).toEqual(['360p', '720p']);
+    expect(ladderFor({ width: 2560, height: 1440, durationSeconds: 1, hasAudio: true }).map((r) => r.name)).toEqual(['360p', '720p', '1080p']);
+    expect(ladderFor({ width: 854, height: 480, durationSeconds: 1, hasAudio: true }).map((r) => r.name)).toEqual(['360p', '480p']);
+  });
+
   test('portrait phone video is laddered by its short side', () => {
     const ladder = ladderFor({ width: 1080, height: 1920, durationSeconds: 1, hasAudio: true });
     expect(ladder.map((r) => r.name)).toEqual(['360p', '720p', '1080p']);

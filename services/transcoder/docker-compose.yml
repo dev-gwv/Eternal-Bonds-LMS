@@ -13,9 +13,10 @@ services:
     restart: unless-stopped
     # The VPS is shared with other apps. ffmpeg would take every core for an
     # hour per lecture, and the host has no swap, so it is fenced in: at most
-    # 2 of the 4 cores, at a quarter of the default CPU weight (anything else
-    # busy wins), and 3 GB of memory. Over that, only this container restarts.
-    cpus: 2
+    # 3 of the 4 cores (one is always left over), at a quarter of the default
+    # CPU weight (whenever another app wants CPU, it wins), and 3 GB of memory.
+    # Over that, only this container restarts.
+    cpus: 3
     cpu_shares: 256
     mem_limit: 3g
     memswap_limit: 3g

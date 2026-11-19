@@ -95,7 +95,7 @@ Already done on the VPS (72.61.239.209):
 - `/opt/eb-transcoder`, owned by `deploy`, with its own `.env` (mode 600). The workflow never overwrites this file, and the keys never go through GitHub.
 - A key for `deploy` that only this workflow uses (comment `github-actions eb-transcoder` in `/home/deploy/.ssh/authorized_keys`). To revoke it, delete that line.
 
-The container is capped so it can't crowd out the other apps on the VPS: **2 of the 4 cores**, a low CPU weight (anything else busy gets the CPU first), and **3 GB of memory**. At that cap a one-hour lecture takes roughly 1.5–2 hours to convert.
+The container is capped so it can't crowd out the other apps on the VPS: **3 of the 4 cores** (one is always left over), a low CPU weight (whenever another app wants CPU, it gets it first), and **3 GB of memory**. It encodes with the x264 `superfast` preset, at roughly 1.5–2.5× real time, so a one-hour lecture takes about 25–40 minutes.
 
 **GitHub secrets** (repo **Settings → Secrets and variables → Actions → New repository secret**; it uses the `production` environment, so they can live there too):
 - `VPS_HOST`: `72.61.239.209`

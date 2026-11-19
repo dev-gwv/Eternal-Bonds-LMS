@@ -23,14 +23,30 @@ export const RUNGS: Rung[] = [
   { name: '1080p', short: 1080, videoKbps: 5000, audioKbps: 160 },
 ];
 
-/** Every rung the source can fill, never upscaled; a tiny source gets one rung at its own size. */
+/**
+ * Every rung the source can fill, never upscaled; a tiny source gets one rung
+ * at its own size.
+ *
+ * A source that falls between two rungs (a 1948×982 screen or Zoom recording)
+ * also gets a rung at its own full size, so its sharpness is not thrown away
+ * by topping out at the rung below. Only below 1080: at 1080 and above, 1080p
+ * is the top, which is plenty for a lecture and bounds the encoding work.
+ */
 export function ladderFor(probe: Probe): Rung[] {
   const short = Math.min(probe.width, probe.height);
+  const even = Math.max(2, short - (short % 2));
   // A little slack, so a 1072-line export still gets its 1080p rung.
   const fits = RUNGS.filter((r) => r.short <= short + 16);
-  if (fits.length > 0) return fits;
-  const even = Math.max(2, short - (short % 2));
-  return [{ name: `${even}p`, short: even, videoKbps: 600, audioKbps: 96 }];
+  if (fits.length === 0) return [{ name: `${even}p`, short: even, videoKbps: 600, audioKbps: 96 }];
+  const top = fits[fits.length - 1]!;
+  const next = RUNGS[fits.length];
+  if (next && even >= top.short * 1.2) {
+    // Bitrate in proportion to where it sits between the rungs around it.
+    const at = (even - top.short) / (next.short - top.short);
+    const videoKbps = Math.round((top.videoKbps + at * (next.videoKbps - top.videoKbps)) / 100) * 100;
+    return [...fits, { name: `${even}p`, short: even, videoKbps, audioKbps: next.audioKbps }];
+  }
+  return fits;
 }
 
 /** Six-second segments: Apple's recommendation, and fine-grained enough to seek. */
