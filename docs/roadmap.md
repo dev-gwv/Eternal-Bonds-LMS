@@ -104,6 +104,16 @@ Other options considered:
 | Bunny Stream | ~10 min | free encode, ~$0.01/GB stored, ~$0.005–0.03/GB delivered | DRM (MediaCage), captions, watermark |
 | VdoCipher / Gumlet | ~10–20 min | yearly bandwidth plans | strong DRM, viewer watermark; only if piracy matters |
 
+**Hybrid: VPS first, Containers as overflow (the chosen direction).**
+The queue is pull-based (`/v1/transcoder/claim`, leases, retries), so a container is just a second worker on the same queue:
+1. The VPS keeps claiming jobs as now. While it keeps up, no container runs and nothing is spent.
+2. The existing per-minute cron estimates the wait (queued minutes of video ÷ VPS speed of ~3× real time). Over a threshold (e.g. estimated wait over 30 min, or any job queued over 10 min), it starts a container.
+3. The container runs the same transcoder image, claims from the same queue, and exits when the queue is empty (billed only while working).
+4. Settings, not code: max containers at once, monthly spend cap, routing rules (long videos to containers and chunked, short ones to the VPS; paid academies first in C).
+5. Failover: if the VPS hasn't claimed or sent a heartbeat for 5 min, containers take all jobs until it's back.
+6. A worker dying mid-job already releases the lease after 2 min (seen working on 2026-11-19).
+About 2–3 days for overflow; chunking (below) adds 2–3 more.
+
 **Chunked parallel encoding (build with Containers, not on the VPS):**
 1. The API splits a video into ~10-minute time ranges cut on 6-second segment boundaries; each container reads only its range from R2 (ffmpeg seeks over HTTP range requests).
 2. Each container encodes its range into every video rung, with timestamps continuing from the previous chunk.
