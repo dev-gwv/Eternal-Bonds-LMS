@@ -104,6 +104,17 @@ Other options considered:
 | Bunny Stream | ~10 min | free encode, ~$0.01/GB stored, ~$0.005–0.03/GB delivered | DRM (MediaCage), captions, watermark |
 | VdoCipher / Gumlet | ~10–20 min | yearly bandwidth plans | strong DRM, viewer watermark; only if piracy matters |
 
+**Chunked parallel encoding (build with Containers, not on the VPS):**
+1. The API splits a video into ~10-minute time ranges cut on 6-second segment boundaries; each container reads only its range from R2 (ffmpeg seeks over HTTP range requests).
+2. Each container encodes its range into every video rung, with timestamps continuing from the previous chunk.
+3. Audio is encoded once for the whole video as a separate HLS audio rendition (no clicks at chunk joins).
+4. The API joins the chunk playlists into one: no re-encoding, seconds.
+5. Videos under ~15 minutes skip chunking.
+6. A failed chunk is retried alone.
+About 2–3 days, including testing joins on long lectures. Result: a 2h15 lecture in ~5–8 min at the same cost.
+
+**Bunny Stream as an optional source** (per academy or course, ideally a paid plan upgrade): free encoding in minutes, MediaCage DRM, captions, watermark, player, analytics; pays per GB watched (~$0.005–0.03/GB). At 20,000 watched hours/month that is ~$100–600 vs ~$3 on R2. Integration: TUS upload direct from the browser, webhook when encoded, token-signed HLS playback; 1–2 days on top of item A.
+
 Anti-piracy gap: signed links stop link sharing, not screen recording. Cheap step: dynamic watermark with the learner's email. Full DRM means VdoCipher/Bunny for those courses.
 
 ---
